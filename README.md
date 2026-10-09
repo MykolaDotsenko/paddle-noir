@@ -4,7 +4,7 @@
 
 **A neon arcade ping-pong game for phones and desktops, built with Vanilla JavaScript, Canvas and Web Audio.**
 
-[**Play Paddle Noir →**](https://mykoladotsenko.github.io/paddle-noir/)
+[**Play Paddle Noir →**](https://paddle-noir.vercel.app/)
 
 It began as a one-script Pong exercise in 2024. The current version keeps the same small game at the center but rebuilds it around a deterministic simulation, explicit dependency boundaries and independently testable browser adapters.
 
@@ -121,7 +121,13 @@ There are **no runtime dependencies, bundler, React layer or game engine**.
 - ESLint
 - TypeScript type-checking over JSDoc
 - Playwright
-- GitHub Actions + GitHub Pages
+- GitHub Actions + Vercel
+
+## Deployment
+
+The live game is available at [paddle-noir.vercel.app](https://paddle-noir.vercel.app/).
+
+Vercel deploys the `main` branch from the **private** GitHub repository. The `vercel.json` build assembles only the static browser runtime files into `site/`; tests, documentation, and development tooling are not part of the published output. GitHub Actions continues to run the quality and browser test suites independently.
 
 ## Controls
 
@@ -162,7 +168,7 @@ For a quick technical review:
 4. [`src/domain/physics.js`](./src/domain/physics.js) — collision model
 5. [`src/domain/opponent.js`](./src/domain/opponent.js) — computer opponent
 6. [`eslint.config.js`](./eslint.config.js) — architecture constraints
-7. [`.github/workflows/quality.yml`](./.github/workflows/quality.yml) — verification/deploy path
+7. [`.github/workflows/quality.yml`](./.github/workflows/quality.yml) — automated quality and browser tests
 
 ## License
 
