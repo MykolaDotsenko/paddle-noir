@@ -56,6 +56,53 @@
  * @property {number} speed the speed an ordinary return would have had; the return that answers
  *   the super goes on from it, so the rally keeps its pace
  *
+ * @typedef {'plain' | 'tough' | 'steel' | 'bomb'} BrickKind
+ *
+ * @typedef {object} Brick A brick of the Bricks game's wall.
+ * @property {number} id
+ * @property {number} row its row in the level's layout, from 0 at the top; the board colors it by row
+ * @property {number} x its left edge where the formation rests; a drifting formation adds its drift
+ * @property {number} y its top edge
+ * @property {number} w
+ * @property {number} h
+ * @property {BrickKind} kind plain breaks at a touch; tough takes several; steel only breaks to a
+ *   blast or a super; a bomb blasts its neighbors as it goes
+ * @property {number} hp hits it still takes
+ * @property {number} fuse seconds until a bomb caught in a blast goes off itself; 0 while unlit
+ *
+ * @typedef {'wide' | 'multi' | 'laser' | 'shield' | 'slow' | 'life'} DropKind
+ *
+ * @typedef {object} Drop A bonus falling from a broken brick, for the paddle to catch.
+ * @property {number} id
+ * @property {DropKind} kind
+ * @property {number} x
+ * @property {number} y
+ * @property {number} vy it falls under gravity, up to a top speed
+ *
+ * @typedef {object} Bolt A laser bolt the paddle fired, flying up.
+ * @property {number} id
+ * @property {number} x
+ * @property {number} y
+ *
+ * @typedef {object} BricksState The wall and everything around it in the Bricks game.
+ * @property {number} level the level being played, from 0
+ * @property {readonly Brick[]} bricks
+ * @property {number} time seconds played on this level, which a drifting formation moves by
+ * @property {number} drift how far the formation has drifted sideways from where it rests
+ * @property {readonly Drop[]} drops
+ * @property {readonly Bolt[]} bolts
+ * @property {number} laser seconds of laser left
+ * @property {number} laserIn seconds until the laser fires again
+ * @property {number} shield saves the safety net under the paddle still has
+ * @property {number} combo bricks broken since the paddle last touched a ball
+ * @property {number} points
+ * @property {number} pierce bricks a fireball in flight still passes through
+ * @property {number} idle wall and steel bounces since anything broke or the paddle played
+ * @property {number} quiet seconds of play since a brick last broke, or a tough one took a hit
+ * @property {number} nextId
+ *
+ * @typedef {'ball' | 'bolt' | 'blast' | 'super'} BreakCause
+ *
  * @typedef {{ type: 'match-start' }
  *   | { type: 'menu' }
  *   | { type: 'paused' }
@@ -75,10 +122,23 @@
  *   | { type: 'super-ready', side: Side, kind: SuperKind }
  *   | { type: 'super-swerve', x: number, y: number }
  *   | { type: 'boss-phase', phase: number }
+ *   | { type: 'brick-hit', kind: BrickKind, row: number, x: number, y: number, hp: number }
+ *   | { type: 'brick-break', kind: BrickKind, row: number, x: number, y: number, w: number, h: number, by: BreakCause, vx: number, vy: number, combo: number, points: number }
+ *   | { type: 'blast', x: number, y: number, radius: number }
+ *   | { type: 'strike', kind: SuperKind, x: number, y: number }
+ *   | { type: 'drop-spawn', kind: DropKind, x: number, y: number }
+ *   | { type: 'drop', kind: DropKind, x: number, y: number }
+ *   | { type: 'bolt-fire', x: number, y: number }
+ *   | { type: 'shield-save', x: number, y: number }
+ *   | { type: 'level-clear', level: number, bonus: number, last: boolean }
  *   | { type: 'game-over', winner: Side, super?: SuperKind }} GameEvent
  *   A paddle-hit's `super` is the super that return fired and `saved` the one it answered; a
  *   point's and a game-over's `super` is the super that scored it. A boss-phase is a final boss
- *   moving on to its next phase, counted from 0, as the player closes in on winning.
+ *   moving on to its next phase, counted from 0, as the player closes in on winning. In the
+ *   Bricks game, a brick-hit is a brick that took a hit and stands, at its center; a brick-break
+ *   one that went, with what broke it, the velocity of what struck it, and the combo and points
+ *   it made; a strike is thunder taking a column or a zigzag a row; a level-clear's bonus is in
+ *   points, and its `last` says the game is won.
  *
  * @typedef {object} GameState
  * @property {GamePhase} phase
@@ -102,6 +162,7 @@
  * @property {number} attackIn Seconds of play until a boss attacks again; unused without a boss.
  * @property {Record<Side, SuperMeter>} meters The super meters; they stay empty with supers off.
  * @property {SuperShot | null} superShot The super in flight, if any.
+ * @property {BricksState | null} bricks The Bricks game's wall; null in every other mode.
  * @property {number} seed State of the deterministic random source.
  * @property {readonly GameEvent[]} events What happened in the transition that produced this state.
  *
@@ -111,7 +172,55 @@
  * @property {number} opponentAxis The same for a second human on the top paddle.
  * @property {number | null} opponentPointerX
  *
- * @typedef {{ kind: 'match', winningScore: number } | { kind: 'rush', lives: number }} Rules
+ * @typedef {{ kind: 'match', winningScore: number } | { kind: 'rush', lives: number } | { kind: 'bricks', lives: number }} Rules
+ *
+ * @typedef {object} LevelLayout A level of the Bricks game, as it is drawn.
+ * @property {string} name
+ * @property {readonly string[]} rows one string a row, a character a column: `.` nothing,
+ *   `o` a plain brick, `O` a tough one, `#` steel, `*` a bomb
+ * @property {{ span: number, period: number } | null} drift a formation that sways: how far to
+ *   each side, in board units, and the seconds a full sway takes
+ *
+ * @typedef {object} BricksConfig How the Bricks game plays.
+ * @property {readonly LevelLayout[]} levels
+ * @property {number} columns bricks across the court
+ * @property {number} top where the first row begins
+ * @property {number} margin between the formation and each wall, where it rests
+ * @property {number} gap between bricks
+ * @property {number} rowHeight a brick's height
+ * @property {number} serveY where the ball waits before it is served, down toward the paddle
+ * @property {number} speedPerLevel share by which each level's serve is faster than the last
+ * @property {number} toughHits hits a tough brick takes
+ * @property {number} blastRadius how far from a bomb's center a brick's center is caught
+ * @property {number} fuseSeconds how long a bomb caught in a blast waits before going off
+ * @property {number} dropChance chance that a broken brick lets a bonus fall
+ * @property {number} dropGravity
+ * @property {number} dropMaxSpeed
+ * @property {number} dropRadius
+ * @property {number} maxDrops bonuses falling at once
+ * @property {number} maxBalls balls in play at once
+ * @property {number} laserSeconds
+ * @property {number} laserEvery seconds between the laser's shots
+ * @property {number} boltSpeed
+ * @property {number} wideSeconds
+ * @property {number} slowScale share of its speed a ball keeps when Slow is caught
+ * @property {number} maxLives
+ * @property {number} pointsPerBrick
+ * @property {number} maxCombo the highest multiplier a combo reaches
+ * @property {number} clearBonus points for clearing a level, times the level's number
+ * @property {number} chargePerBrick charge a broken brick adds to the super meter
+ * @property {number} pierce bricks a fireball passes through
+ * @property {number} strikeWidth half the width of the column thunder takes
+ * @property {number} stallBounces bounces off walls and steel, with nothing broken, before a
+ *   ball is nudged off its course so that it cannot circle forever
+ * @property {number} maxLean the furthest from straight up or down, in radians, that a ball
+ *   leaves a brick
+ * @property {number} clearSeconds the pause before the next level's serve
+ * @property {number} helpAfter seconds of play with nothing broken after which the paddle's
+ *   next return is sent straight at the nearest brick, so that the last bricks of a wall do
+ *   not take forever to find
+ * @property {number} mercyAfter seconds of play with nothing broken after which the brick
+ *   nearest the ball gives way by itself, so that no wall can hold a game up for good
  *
  * @typedef {object} PowerUpConfig
  * @property {boolean} enabled
@@ -187,6 +296,7 @@
  * @property {PowerUpConfig} powerUps
  * @property {SuperConfig} supers
  * @property {BossConfig | null} boss A career boss's attacks, or null for an opponent that only plays.
+ * @property {BricksConfig | null} bricks The Bricks game's wall and rules; null in every other mode.
  */
 
 export {};

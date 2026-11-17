@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="Paddle Noir: neon arcade ping pong for phones and desktops. Curve the ball, fire super shots and climb a ladder of ten rivals.">
+    <meta name="description" content="Paddle Noir: neon arcade ping pong for phones and desktops. Curve the ball, fire super shots, climb a ladder of ten rivals, or break eight walls of bricks.">
     <meta name="theme-color" content="#05060f">
     <meta name="color-scheme" content="dark">
     <meta name="mobile-web-app-capable" content="yes">
@@ -186,25 +186,30 @@
                 </div>
                 <div class="panel__main">
                   <div class="modes" role="group" aria-label="Mode">
-                    <button type="button" class="mode" data-mode="solo" aria-pressed="true">
+                    <button type="button" class="mode mode--third" data-mode="solo" aria-pressed="true">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="17" width="15" height="3.6" rx="1.8"/><circle class="mode__ball" cx="12" cy="9" r="2.8"/></svg>
                       <strong class="mode__name">Solo</strong>
-                      <small class="mode__note">Quick match</small>
+                      <small class="mode__note visually-hidden">Quick match</small>
                     </button>
-                    <button type="button" class="mode" data-mode="rush" aria-pressed="false">
+                    <button type="button" class="mode mode--third" data-mode="rush" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5L5.5 13.5h6l-1 8 8-11h-6z"/></svg>
                       <strong class="mode__name">Rush</strong>
-                      <small class="mode__note">Survival</small>
+                      <small class="mode__note visually-hidden">Survival</small>
                     </button>
-                    <button type="button" class="mode" data-mode="duo" aria-pressed="false">
+                    <button type="button" class="mode mode--third" data-mode="duo" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.4" width="15" height="3.6" rx="1.8"/><rect x="4.5" y="17" width="15" height="3.6" rx="1.8"/><circle class="mode__ball" cx="12" cy="12" r="2.6"/></svg>
                       <strong class="mode__name">2P</strong>
-                      <small class="mode__note">Local duel</small>
+                      <small class="mode__note visually-hidden">Local duel</small>
                     </button>
-                    <button type="button" class="mode" data-mode="career" aria-pressed="false">
+                    <button type="button" class="mode mode--half" data-mode="career" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 3.5h9v5.5a4.5 4.5 0 0 1-9 0zM7.5 5.5H5a2.8 2.8 0 0 0 3 4.3M16.5 5.5H19a2.8 2.8 0 0 1-3 4.3M12 13.5v3.5M8 20.5h8M9.5 20.5l.6-3.5h3.8l.6 3.5"/></svg>
                       <strong class="mode__name">Career</strong>
                       <small class="mode__note">10 rivals</small>
+                    </button>
+                    <button type="button" class="mode mode--half" data-mode="bricks" aria-pressed="false">
+                      <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3.5" width="8" height="4" rx="1"/><rect x="13.5" y="3.5" width="8" height="4" rx="1"/><rect x="8" y="9.5" width="8" height="4" rx="1"/><rect x="6" y="19" width="12" height="2.6" rx="1.3"/><circle class="mode__ball" cx="15" cy="16" r="1.8"/></svg>
+                      <strong class="mode__name">Bricks</strong>
+                      <small class="mode__note">8 walls</small>
                     </button>
                   </div>
                   <div class="segmented" role="group" aria-label="Difficulty" data-solo-only>
@@ -258,7 +263,8 @@
                   <li><span class="tutorial__icon" aria-hidden="true">↝</span><span><strong>Flick</strong> sideways as the ball lands to curve it. The computer cannot read a curve.</span></li>
                   <li><span class="tutorial__icon" aria-hidden="true">✹</span><span><strong>Supers</strong>: returns fill your meter. When it glows, flick as you hit to fire it.</span></li>
                   <li><span class="tutorial__icon" aria-hidden="true">◐</span><span><strong>Hit off-center</strong> to angle your return. Every hit speeds the ball up.</span></li>
-                  <li><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Grab power-ups</strong> with the ball: Wide, Shrink, Turbo, Ghost and Multiball. Whoever hit last gets it.</span></li>
+                  <li data-match-only><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Grab power-ups</strong> with the ball: Wide, Shrink, Turbo, Ghost and Multiball. Whoever hit last gets it.</span></li>
+                  <li data-bricks-only hidden><span class="tutorial__icon" aria-hidden="true">▦</span><span><strong>Break every wall.</strong> Catch what falls with your paddle. A super goes through bricks, or takes a whole row.</span></li>
                 </ol>
                 <button type="button" class="cta" data-dismiss-tutorial autofocus>Got it</button>
               </div>
@@ -387,6 +393,7 @@
                   <span class="quote__text" data-over-quote-text></span>
                 </p>
                 <p class="panel__meta" data-over-meta>Longest rally <strong data-over-rally>0</strong></p>
+                <p class="panel__meta" data-over-wall hidden></p>
                 <button type="button" class="standing" data-over-scores data-show-scores hidden>
                   <span class="standing__rows" data-standing-rows></span>
                   <span class="standing__note" data-standing-note></span>
@@ -396,6 +403,7 @@
                   <p class="stars stars--result" data-over-stars hidden></p>
                   <p class="badge" data-over-best hidden>New best rally!</p>
                   <p class="badge" data-over-best-rush hidden>New Rush record!</p>
+                  <p class="badge" data-over-best-bricks hidden>New Bricks record!</p>
                   <p class="badge" data-over-champion hidden>The arcade stays open!</p>
                   <p class="continue" data-continue aria-hidden="true" hidden></p>
                 </div>

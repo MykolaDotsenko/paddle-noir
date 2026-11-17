@@ -2,7 +2,7 @@ import { expect, test as base } from '@playwright/test';
 
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { HIGH_SCORES } from '../src/catalog.js';
-import { GAME_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG } from '../src/config.js';
 
 // A first visit opens the tutorial over the menu. Most tests model a returning player, so
 // they store that choice before the page loads; the tutorial has a test of its own.
@@ -289,8 +289,8 @@ test.describe('on the smallest phone held upright', () => {
     await page.goto('/');
     expect(await touchProblems(page)).toEqual(noTouchProblems);
 
-    // Rush has its high-score card there, and the career its rival.
-    for (const mode of [/Rush/, /Career/]) {
+    // Rush has its high-score card there, the career its rival, and Bricks a card of its own.
+    for (const mode of [/Rush/, /Career/, /Bricks/]) {
       await page.getByRole('button', { name: mode }).tap();
       expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
     }
@@ -314,7 +314,7 @@ test.describe('on a phone held sideways', () => {
     const menuFits = () => page.locator('[data-overlay="menu"]').evaluate((sheet) => sheet.scrollHeight <= sheet.clientHeight);
     expect(await menuFits()).toBe(true);
 
-    for (const mode of [/Rush/, /Career/, /Solo/]) {
+    for (const mode of [/Rush/, /Career/, /Bricks/, /Solo/]) {
       await page.getByRole('button', { name: mode }).tap();
       expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
       expect(await menuFits(), String(mode)).toBe(true);
@@ -1208,3 +1208,153 @@ test('the track button cycles the music, plays a sample of each track and rememb
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-overlay="pause"]').getByRole('button', { name: 'Music track: Arena' })).toBeVisible();
 });
+
+// Bricks: the second game, the paddle against a wall.
+
+/** How many pixels of the board's upper half are lit: the wall, when nothing else is up there. */
+function wallPixels(page) {
+  return board(page).evaluate((canvas) => {
+    const { data } = canvas.getContext('2d').getImageData(0, Math.round(canvas.height * 0.07), canvas.width, Math.round(canvas.height * 0.36));
+    let lit = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+      lit += data[i] + data[i + 1] + data[i + 2] > 240 ? 1 : 0;
+    }
+
+    return lit;
+  });
+}
+
+test('Bricks puts a wall where the opponent was, and a lost ball costs a life until the game is over', async ({ page, hasTouch }) => {
+  await freezeTime(page);
+  await page.getByRole('button', { name: /Bricks/ }).click();
+  await expect(page.getByRole('group', { name: 'Difficulty' })).toBeHidden();
+  await expect(status(page)).toHaveText(`Bricks: break all ${BRICKS_CONFIG.bricks.levels.length} walls.`);
+  await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${BRICKS_CONFIG.bricks.levels.length} walls · Best 0 points`);
+
+  await playButton(page).click();
+  await expect(page.locator('.lives__heart')).toHaveCount(3);
+  await expect(page.locator('[data-label="player"]')).toHaveText('Score');
+  await expect(page.locator('[data-label="opponent"]')).toHaveText('Wall');
+  await expect(page.locator('[data-score="player"]')).toHaveText('0');
+  await expect(page.locator('[data-score="opponent"]')).toHaveText('1');
+
+  // The wall is up, and no paddle at the far end.
+  await page.clock.runFor(1500);
+  expect(await wallPixels(page)).toBeGreaterThan(2000);
+  expect(await readOpponentX(page)).toBeNull();
+  expect(await readPlayerX(page)).not.toBeNull();
+
+  // Park the paddle in a corner: every serve gets past it.
+  const surface = hasTouch ? page.locator('.rail') : board(page);
+  const corner = await pointOn(surface, 0.01);
+  await (hasTouch ? surface.tap(corner) : surface.hover(corner));
+  await page.clock.runFor(3000);
+  await expect(page.locator('.lives__heart--lost')).toHaveCount(1);
+
+  await page.clock.runFor(6000);
+  await expect(page.getByRole('heading', { name: 'Game over' })).toBeVisible();
+  await expect(page.locator('[data-over-score]')).toHaveText('0');
+  await expect(page.locator('[data-over-wall]')).toHaveText(`points · wall 1 of ${BRICKS_CONFIG.bricks.levels.length} · ${BRICKS_CONFIG.bricks.levels[0].name}`);
+  await expect(page.locator('[data-over-meta]')).toBeHidden();
+  await expect(page.locator('[data-over-best-bricks]')).toBeHidden();
+  await expect(page.locator('[data-continue]')).toHaveText(/^Continue\? \d$/);
+  await expect(page.getByRole('button', { name: 'Play again' })).toBeEnabled();
+});
+
+test.describe('with a Bricks record to beat', () => {
+  test.use({ stored: { mode: 'bricks', bestBricks: 20, jokes: false } });
+
+  test('a real game breaks bricks, scores them with the combo, and keeps a new record', async ({ page, hasTouch }) => {
+    // The test plays a real game, a step at a time.
+    test.setTimeout(120_000);
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    // A fixed seed makes the game replay the same way.
+    await page.addInitScript(() => {
+      Math.random = () => 0.5;
+    });
+    await freezeTime(page);
+
+    await expect(page.getByRole('button', { name: /Bricks/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${BRICKS_CONFIG.bricks.levels.length} walls · Best 20 points`);
+    await (hasTouch ? playButton(page).tap() : playButton(page).click());
+
+    // Stand where the ball is going to land, until a few bricks are down.
+    const surface = hasTouch ? page.locator('.rail') : board(page);
+    const box = await surface.boundingBox();
+    const steer = (x) => {
+      const at = [box.x + box.width * Math.min(0.98, Math.max(0.02, x / GAME_CONFIG.width)), box.y + box.height / 2];
+      return hasTouch ? page.touchscreen.tap(...at) : page.mouse.move(...at);
+    };
+    const points = page.locator('[data-score="player"]');
+    const { width, height, paddle, ball: { radius } } = GAME_CONFIG;
+    const face = height - paddle.inset - paddle.height - radius;
+    const step = 100;
+    let previous = null;
+
+    for (let elapsed = 0; elapsed < 60_000 && Number(await points.textContent()) < 60; elapsed += step) {
+      await page.clock.runFor(step);
+      const ball = await readBall(page);
+
+      if (!ball) {
+        continue;
+      }
+
+      const vx = previous ? (ball.x - previous.x) / step : 0;
+      const vy = previous ? (ball.y - previous.y) / step : 0;
+      let landing = ball.x;
+
+      if (vy > 0) {
+        // Where it crosses the paddle's line, its path folded at the side walls.
+        const span = width - 2 * radius;
+        const travelled = ((ball.x + vx * ((face - ball.y) / vy) - radius) % (2 * span) + 2 * span) % (2 * span);
+        landing = radius + (travelled > span ? 2 * span - travelled : travelled);
+      }
+
+      await steer(landing);
+      previous = ball;
+    }
+
+    const made = Number(await points.textContent());
+    expect(made).toBeGreaterThanOrEqual(60);
+    await expect(page.locator('.lives__heart:not(.lives__heart--lost)')).not.toHaveCount(0);
+    await expect(status(page)).toHaveText(new RegExp(`^Wall 1, ${BRICKS_CONFIG.bricks.levels[0].name}: \\d+ points, \\d balls? left$`));
+
+    // Give the game up: the points stand as the new record.
+    const corner = await pointOn(surface, 0.01);
+    const lost = page.getByRole('heading', { name: 'Game over' });
+
+    for (let elapsed = 0; elapsed < 40_000 && !(await lost.isVisible()); elapsed += 500) {
+      await (hasTouch ? surface.tap(corner) : surface.hover(corner));
+      await page.clock.runFor(500);
+    }
+
+    await expect(lost).toBeVisible();
+    const final = Number(await page.locator('[data-over-score]').textContent());
+    expect(final).toBeGreaterThanOrEqual(made);
+    await expect(page.locator('[data-over-best-bricks]')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${BRICKS_CONFIG.bricks.levels.length} walls · Best ${final} points`);
+    await page.reload();
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${BRICKS_CONFIG.bricks.levels.length} walls · Best ${final} points`);
+    expect(errors).toEqual([]);
+  });
+
+  test('How to play tells of the wall in Bricks, and of power-ups in a match', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'How to play' }).click();
+    const help = page.getByRole('dialog', { name: 'How to play' });
+
+    await expect(help.getByText('Break every wall.')).toBeVisible();
+    await expect(help.getByText('Grab power-ups')).toBeHidden();
+    await help.getByRole('button', { name: 'Got it' }).click();
+
+    await page.getByRole('button', { name: /Solo/ }).click();
+    await page.getByRole('button', { name: 'How to play' }).click();
+    await expect(help.getByText('Grab power-ups')).toBeVisible();
+    await expect(help.getByText('Break every wall.')).toBeHidden();
+  });
+});
+

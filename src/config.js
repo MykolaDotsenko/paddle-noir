@@ -1,3 +1,5 @@
+import { BRICK_LEVELS } from './levels.js';
+
 /**
  * @import { GameConfig } from './domain/types.js'
  * @import { Difficulty } from './application/ports.js'
@@ -70,6 +72,7 @@ export const GAME_CONFIG = Object.freeze({
     cpuChance: 0.5,
   }),
   boss: null,
+  bricks: null,
 });
 
 /**
@@ -80,6 +83,7 @@ export const GAME_CONFIG = Object.freeze({
  * @property {Partial<GameConfig['powerUps']>} [powerUps]
  * @property {Partial<GameConfig['supers']>} [supers]
  * @property {GameConfig['boss']} [boss]
+ * @property {GameConfig['bricks']} [bricks]
  */
 
 /**
@@ -96,6 +100,7 @@ export function tuned(base, tuning) {
     powerUps: Object.freeze({ ...base.powerUps, ...tuning.powerUps }),
     supers: Object.freeze({ ...base.supers, ...tuning.supers }),
     boss: tuning.boss === undefined ? base.boss : tuning.boss && Object.freeze({ ...tuning.boss }),
+    bricks: tuning.bricks === undefined ? base.bricks : tuning.bricks && Object.freeze({ ...tuning.bricks }),
   });
 }
 
@@ -129,4 +134,55 @@ export const RUSH_CONFIG = tuned(GAME_CONFIG, {
 // Two people on one screen, each steering their own end of the court.
 export const TWO_PLAYER_CONFIG = tuned(GAME_CONFIG, {
   opponent: { controller: 'human' },
+});
+
+/** Balls a Bricks game allows the player to lose. */
+export const BRICKS_LIVES = 3;
+
+// Bricks: the player's paddle and ball against a wall instead of an opponent. The ball starts
+// slower than a match's and gathers pace with every return, to a top speed a person can still
+// follow among the bricks; each level serves a little faster than the last. Tuned by playing
+// every level with human-like bots: a casual player clears the first walls, a confident one
+// reaches the last, and no ball circles between walls and steel forever.
+export const BRICKS_CONFIG = tuned(GAME_CONFIG, {
+  rules: Object.freeze({ kind: 'bricks', lives: BRICKS_LIVES }),
+  ball: { initialSpeed: 470, maxSpeed: 820, speedIncrease: 1.02 },
+  powerUps: { enabled: false },
+  bricks: {
+    levels: BRICK_LEVELS,
+    columns: 10,
+    top: 70,
+    margin: 14,
+    gap: 4,
+    rowHeight: 20,
+    serveY: 440,
+    speedPerLevel: 0.03,
+    toughHits: 2,
+    // A bomb takes the bricks beside it, above and below it and on its diagonals.
+    blastRadius: 62,
+    fuseSeconds: 0.09,
+    dropChance: 0.14,
+    dropGravity: 380,
+    dropMaxSpeed: 260,
+    dropRadius: 14,
+    maxDrops: 3,
+    maxBalls: 5,
+    laserSeconds: 6,
+    laserEvery: 0.42,
+    boltSpeed: 900,
+    wideSeconds: 14,
+    slowScale: 0.72,
+    maxLives: 5,
+    pointsPerBrick: 10,
+    maxCombo: 8,
+    clearBonus: 100,
+    chargePerBrick: 0.012,
+    pierce: 8,
+    strikeWidth: 14,
+    stallBounces: 9,
+    maxLean: (72 * Math.PI) / 180,
+    clearSeconds: 2,
+    helpAfter: 7,
+    mercyAfter: 22,
+  },
 });

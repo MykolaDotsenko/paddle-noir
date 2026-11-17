@@ -13,7 +13,7 @@ import {
   SUPER_FINISHERS,
 } from '../src/adapters/finisher.js';
 import { RIVALS } from '../src/catalog.js';
-import { GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
 import { createInitialState } from '../src/domain/game.js';
 
 const solo = { twoPlayers: false, rush: false, jokes: true };
@@ -108,4 +108,12 @@ test('the finisher is read from the game-over event and the final score: a super
   assert.equal(finisherAt({ type: 'game-over', winner: 'opponent' }, state({ player: 0, opponent: 7 }), TWO_PLAYER_CONFIG, true).perfect, true);
   assert.equal(finisherAt({ type: 'game-over', winner: 'player' }, state({ player: 7, opponent: 0 }), GAME_CONFIG, false), null);
   assert.equal(finisherAt({ type: 'game-over', winner: 'opponent' }, state({ player: 0, opponent: 3 }), RUSH_CONFIG, true), null);
+});
+
+test('a Bricks game ends without a finisher, won or lost: a wall has no paddle to break', () => {
+  const over = { ...createInitialState(BRICKS_CONFIG, 3), score: { player: 0, opponent: 0 } };
+
+  assert.equal(finisherAt({ type: 'game-over', winner: 'player' }, over, BRICKS_CONFIG, true), null);
+  assert.equal(finisherAt({ type: 'game-over', winner: 'opponent' }, over, BRICKS_CONFIG, true), null);
+  assert.equal(finisherAt({ type: 'game-over', winner: 'opponent' }, over, RUSH_CONFIG, true), null, 'nor does a Rush run');
 });

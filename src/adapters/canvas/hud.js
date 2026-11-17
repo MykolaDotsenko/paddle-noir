@@ -130,7 +130,11 @@ export function drawMeters(ctx, state, config, now) {
   const twoPlayers = config.opponent.controller === 'human';
 
   drawMeter(ctx, state.meters.player, 'player', config, now, { turned: false, person: true });
-  drawMeter(ctx, state.meters.opponent, 'opponent', config, now, { turned: twoPlayers, person: twoPlayers });
+
+  // A wall has no meter.
+  if (!state.bricks) {
+    drawMeter(ctx, state.meters.opponent, 'opponent', config, now, { turned: twoPlayers, person: twoPlayers });
+  }
 }
 
 /**

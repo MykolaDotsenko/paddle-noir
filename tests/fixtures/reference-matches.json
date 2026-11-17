@@ -194,5 +194,46 @@
         "wall-bounce": 40
       }
     }
+  },
+  "bricks": {
+    "digest": "acf2b1f3a37abd684a7f503290f7f99f555510b3ec75a601fcad01a42d34d575",
+    "summary": {
+      "steps": 28800,
+      "score": {
+        "player": 0,
+        "opponent": 0
+      },
+      "hits": {
+        "player": 65,
+        "opponent": 0
+      },
+      "longestRally": 19,
+      "phase": "running",
+      "events": {
+        "blast": 6,
+        "bolt-fire": 16,
+        "brick-break": 155,
+        "brick-hit": 55,
+        "countdown": 3,
+        "drop": 11,
+        "drop-spawn": 29,
+        "level-clear": 4,
+        "life-lost": 9,
+        "paddle-hit": 65,
+        "point": 9,
+        "serve": 14,
+        "shield-save": 4,
+        "strike": 4,
+        "super-ready": 10,
+        "super:fireball": 2,
+        "super:phantom": 1,
+        "super:thunder": 3,
+        "super:zigzag": 3,
+        "wall-bounce": 243
+      },
+      "level": 4,
+      "points": 7070,
+      "lives": 6
+    }
   }
 }

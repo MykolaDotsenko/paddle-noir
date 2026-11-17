@@ -2,7 +2,7 @@
 
 [![Quality](https://github.com/MykolaDotsenko/paddle-noir/actions/workflows/quality.yml/badge.svg)](https://github.com/MykolaDotsenko/paddle-noir/actions/workflows/quality.yml)
 
-**A neon arcade ping-pong game for phones and desktops, built with Vanilla JavaScript, Canvas and Web Audio.**
+**A neon arcade ping-pong game for phones and desktops, with a brick-breaking game beside it, built with Vanilla JavaScript, Canvas and Web Audio.**
 
 [**Play Paddle Noir →**](https://paddle-noir.vercel.app/)
 
@@ -20,6 +20,8 @@ Paddle Noir is meant to feel like the last surviving arcade cabinet in town, not
 - **Rush** — three-life survival where the ball keeps getting faster, with an arcade high-score table to climb: the regulars' best runs under a record nobody signed, and yours once you put three initials to it.
 - **2P** — two people sharing one phone or keyboard.
 - **Career: The Last Arcade** — a ladder of nine opponents with different rules, ending with **The Landlord**, who wants to replace the arcade with a parking lot. Each is announced on a versus card under a neon emblem of its own, and has something to say when the match is over.
+
+- **Bricks** — the cabinet's second game: the same paddle and ball against eight walls of bricks instead of an opponent. Tough bricks take two hits, steel only gives way to a blast or a super, and a bomb takes its neighbors with it, one bomb setting off the next. Bonuses fall for the paddle to catch (a wider paddle, more balls, a laser, a safety net, a slower ball, a spare ball), bricks broken without the paddle touching a ball build a combo, and the supers work on the wall: a fireball goes through bricks, thunder takes a column, a zigzag a row, a phantom splits the ball in three.
 
 Career opponents change the same underlying simulation rather than loading separate game implementations. Boss attacks, difficulty and scoring differences are data/rules layered on top of the core match.
 
@@ -55,6 +57,8 @@ Contact position controls bounce angle; paddle motion adds curve without changin
 
 Property-style simulation checks cover more than 100,000 steps without unresolved paddle overlap.
 
+Bricks get the same swept contact: a ball meets a brick's face or its rounded corner where it really would, leaves a corner at the angle a real corner sends it, and can meet several bricks in one step. Broken bricks fly apart the way the ball was going, and fall.
+
 ### Fixed-step simulation
 
 Gameplay advances at a fixed timestep and rendering interpolates between simulation states.
@@ -63,9 +67,9 @@ Slow motion and hit-stop change time scale/hold behaviour without changing the s
 
 ### Rules and content as data
 
-Solo, 2P, Rush and Career all use the same simulation.
+Solo, 2P, Rush and Career all use the same simulation, and Bricks runs on the same paddle, ball, walls, spin and supers, with a wall of its own in place of the far paddle.
 
-A rules object decides how a point counts, while the Career catalogue defines opponents and boss behaviour without duplicating the engine.
+A rules object decides how a point counts, while the Career catalogue defines opponents and boss behaviour, and the Bricks levels are drawn as text, a character a brick, without duplicating the engine.
 
 ## Architecture
 

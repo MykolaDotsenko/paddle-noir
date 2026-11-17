@@ -26,7 +26,7 @@ export const GAME_COMMAND = Object.freeze({
 export const DIFFICULTIES = Object.freeze(['easy', 'normal', 'hard']);
 
 /** @type {readonly Mode[]} */
-export const MODES = Object.freeze(['solo', 'rush', 'duo', 'career']);
+export const MODES = Object.freeze(['solo', 'rush', 'duo', 'career', 'bricks']);
 
 /**
  * The backing tracks, in the order the track button cycles through them.
@@ -38,8 +38,8 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @typedef {(typeof GAME_COMMAND)[keyof typeof GAME_COMMAND]} GameCommand
  * @typedef {(command: GameCommand) => void} CommandHandler
  * @typedef {'easy' | 'normal' | 'hard'} Difficulty
- * @typedef {'solo' | 'rush' | 'duo' | 'career'} Mode Solo against the computer, a Rush survival run,
- *   two people, or the career ladder of rivals.
+ * @typedef {'solo' | 'rush' | 'duo' | 'career' | 'bricks'} Mode Solo against the computer, a Rush
+ *   survival run, two people, the career ladder of rivals, or Bricks, the paddle against a wall.
  * @typedef {'neon' | 'arena' | 'anthem' | 'contender' | 'iron' | 'eurodance' | 'rave' | 'trance' | 'rondo' | 'cancan' | 'ode' | 'shchedryk'} TrackId
  *
  * @typedef {object} MatchStats Solo results, kept across visits.
@@ -61,6 +61,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {boolean} tutorialSeen
  * @property {number} bestRally longest rally ever played
  * @property {number} bestRush most hits in a Rush run
+ * @property {number} bestBricks most points in a Bricks game
  * @property {string} initials the three letters the player signs the high-score table with, or '' until they do
  * @property {MatchStats} stats
  * @property {number} rival the career rival the next career match is against, as a place on the ladder from 0
@@ -89,6 +90,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {Readonly<Record<Difficulty, GameConfig>>} difficulties
  * @property {GameConfig} rush
  * @property {GameConfig} duo
+ * @property {GameConfig} bricks
  * @property {readonly Rival[]} career the career ladder, from the first rival to the last boss
  * @property {readonly HighScore[]} highScores the Rush high-score table as the arcade left it, best first
  *
@@ -121,6 +123,14 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {boolean} signed whether the player has entered initials
  * @property {readonly string[]} passed whose rows the run just finished went past, lowest first
  *
+ * @typedef {object} BricksView How a Bricks game stands.
+ * @property {number} level the wall being played, counted from 1
+ * @property {number} levels walls in the game
+ * @property {string} name the wall's name
+ * @property {number} points
+ * @property {number} best the most points the player ever made
+ * @property {boolean} newBest whether the game just finished set a new record
+ *
  * @typedef {object} Presentation What the view shows around the board.
  * @property {GamePhase} phase
  * @property {Mode} mode
@@ -130,7 +140,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {string} status
  * @property {Record<Side, number>} score
  * @property {Record<Side, number>} hits
- * @property {number} lives misses left in Rush
+ * @property {number} lives misses left in Rush, or balls left in Bricks
  * @property {number} maxLives
  * @property {number} rally
  * @property {number} longestRally
@@ -144,6 +154,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {Side | null} winner
  * @property {CareerView | null} career in the career mode
  * @property {HighScoresView | null} highScores in Rush
+ * @property {BricksView | null} bricks in Bricks
  *
  * @typedef {object} InputPort
  * @property {(handler: CommandHandler) => void} onCommand

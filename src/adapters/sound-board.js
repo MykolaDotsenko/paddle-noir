@@ -28,6 +28,22 @@ const MASTER_VOLUME = 0.28;
 /** How long the coin takes to drop; the fanfare that starts a match waits for it. */
 const COIN_SECONDS = 0.2;
 
+// Bricks breaking in a combo climb a pentatonic scale, a note a brick, for two octaves and a bit.
+const COMBO_SCALE = Object.freeze([0, 2, 4, 7, 9]);
+const COMBO_BASE = 440;
+const COMBO_TOP = 12;
+/** A bomb can take eight bricks in one step; only this many of them sound, so the blast is heard, not a chord. */
+const BREAKS_PER_STEP = 2;
+
+/**
+ * @param {number} combo bricks broken in the combo so far, from 1
+ * @returns {number} the frequency of the note that brick sounds
+ */
+export function comboNote(combo) {
+  const step = Math.min(Math.max(1, combo) - 1, COMBO_TOP);
+  return COMBO_BASE * 2 ** ((12 * Math.floor(step / COMBO_SCALE.length) + COMBO_SCALE[step % COMBO_SCALE.length]) / 12);
+}
+
 /**
  * @typedef {object} Tone
  * @property {number} frequency start frequency in Hz
@@ -76,8 +92,15 @@ export class SoundBoard {
     }
 
     const final = config ? isFinalBoss(config) : false;
+    // What one step may sound at most, however much breaks or fires in it.
+    let breaks = 0;
+    let volleys = 0;
 
     for (const event of events) {
+      if ((event.type === 'brick-break' && (breaks += 1) > BREAKS_PER_STEP) || (event.type === 'bolt-fire' && (volleys += 1) > 1)) {
+        continue;
+      }
+
       this.play(event, jokes);
 
       if (whoops.includes(event)) {
@@ -339,6 +362,48 @@ export class SoundBoard {
         } else {
           this.arpeggio([NOTE.G4, NOTE.E4, NOTE.C4], 0.2, 'sawtooth', 0.3, 0.25);
         }
+        break;
+      case 'brick-hit':
+        if (event.kind === 'steel') {
+          // Steel rings; a tough brick only knocks.
+          this.tone({ frequency: 1760, endFrequency: 1560, duration: 0.09, type: 'triangle', volume: 0.16 });
+          this.tone({ frequency: 2640, duration: 0.05, type: 'sine', volume: 0.07 });
+        } else {
+          this.tone({ frequency: 300, endFrequency: 220, duration: 0.07, type: 'square', volume: 0.2 });
+        }
+        break;
+      case 'brick-break':
+        // A bomb is heard as its blast.
+        if (event.kind !== 'bomb') {
+          this.tone({ frequency: comboNote(event.combo), duration: 0.08, type: 'triangle', volume: 0.3 });
+          this.tone({ frequency: comboNote(event.combo) * 2, duration: 0.04, type: 'sine', volume: 0.1 });
+        }
+        break;
+      case 'blast':
+        this.tone({ frequency: 120, endFrequency: 30, duration: 0.42, type: 'sawtooth', volume: 0.42 });
+        this.tone({ frequency: 620, endFrequency: 70, duration: 0.2, type: 'square', volume: 0.2, delay: 0.01 });
+        break;
+      case 'strike':
+        // The super lands: thunder cracks down, a zigzag rips across.
+        if (event.kind === 'thunder') {
+          this.tone({ frequency: 1900, endFrequency: 50, duration: 0.32, type: 'sawtooth', volume: 0.3 });
+          this.tone({ frequency: 60, endFrequency: 38, duration: 0.5, type: 'square', volume: 0.22, delay: 0.05 });
+        } else {
+          this.arpeggio([1400, 900, 1300, 800, 1200, 700], 0.035, 'square', 0.16);
+        }
+        break;
+      case 'drop':
+        this.arpeggio([NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6], 0.045, 'triangle', 0.36);
+        break;
+      case 'bolt-fire':
+        this.tone({ frequency: 2200, endFrequency: 700, duration: 0.07, type: 'square', volume: 0.07 });
+        break;
+      case 'shield-save':
+        this.tone({ frequency: 260, endFrequency: 780, duration: 0.18, type: 'sine', volume: 0.32 });
+        this.tone({ frequency: NOTE.G6, duration: 0.12, type: 'triangle', volume: 0.14, delay: 0.08 });
+        break;
+      case 'level-clear':
+        this.arpeggio([NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6], 0.08, 'triangle', 0.4, 0.2);
         break;
       case 'paused':
         this.tone({ frequency: 520, endFrequency: 360, duration: 0.09, type: 'sine', volume: 0.22 });

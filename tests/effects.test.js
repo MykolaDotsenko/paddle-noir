@@ -369,3 +369,29 @@ test('clearing the effects sends the cameo away too', () => {
 
   assert.equal(effects.cameo, null);
 });
+
+test('a sparing flash is skipped while the board has flashed within the gap, so it cannot strobe', () => {
+  const effects = new Effects({ random: seededRandom() });
+
+  effects.flashSparingly('#f00', 0.3);
+  assert.equal(effects.flashAlpha, 0.3, 'the first one flashes');
+
+  effects.update(0.1);
+  const faded = effects.flashAlpha;
+  effects.flashSparingly('#0f0', 0.3);
+  assert.equal(effects.flashAlpha, faded, 'a tenth of a second later it does not');
+  assert.equal(effects.flashColor, '#f00');
+
+  effects.update(0.35);
+  effects.flashSparingly('#0f0', 0.3);
+  assert.equal(effects.flashAlpha, 0.3, 'after the gap it does');
+
+  // Any flash counts toward the gap, an ordinary one too; and the gap can be chosen.
+  effects.update(1);
+  effects.flash('#00f', 0.2);
+  effects.flashSparingly('#0f0', 0.9);
+  assert.equal(effects.flashColor, '#00f');
+  effects.update(0.1);
+  effects.flashSparingly('#0f0', 0.9, 0.05);
+  assert.equal(effects.flashColor, '#0f0');
+});

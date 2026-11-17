@@ -2,6 +2,7 @@ import { GAME_PHASE } from '../domain/game.js';
 import { BallTrail } from './canvas/ball-trail.js';
 import { GlowSprites, paintCourt, paintGrid } from './canvas/court.js';
 import { playEvents } from './canvas/event-effects.js';
+import { drawBricks, drawCombo, drawDrops, drawLaser, drawNet } from './canvas/bricks.js';
 import { drawCameo, drawLabels, drawMeters, drawRally, drawServeCountdown } from './canvas/hud.js';
 import { drawBall, drawExtraBalls, drawGhostFog, drawHazards, drawPaddle, drawPickups, drawTrail } from './canvas/scene.js';
 import { THEME } from './canvas/theme.js';
@@ -287,7 +288,16 @@ export class CanvasRenderer {
     }
 
     drawGhostFog(ctx, state, config);
-    drawRally(ctx, state, config, effects.popAmount);
+
+    if (state.bricks) {
+      // Against a wall the counter shows the combo, and the wall stands under everything that flies.
+      drawCombo(ctx, state.bricks, config, effects.popAmount);
+      drawBricks(ctx, state, config, now, effects.reducedMotion);
+      drawNet(ctx, state, config, now);
+    } else {
+      drawRally(ctx, state, config, effects.popAmount);
+    }
+
     drawPickups(ctx, state, config, now, glows);
     drawHazards(ctx, state, config);
 
@@ -303,9 +313,13 @@ export class CanvasRenderer {
     drawExtraBalls(ctx, shown, config, glows);
     drawBall(ctx, shown, config, now, glows);
 
-    // A paddle a finisher has destroyed is its flying pieces now, drawn with the effects.
+    drawDrops(ctx, state, now, glows);
+    drawLaser(ctx, state, config, now);
+
+    // A paddle a finisher has destroyed is its flying pieces now, drawn with the effects; and
+    // against a wall there is no paddle at the far end.
     for (const side of /** @type {const} */ (['opponent', 'player'])) {
-      if (effects.hiddenPaddle !== side) {
+      if (effects.hiddenPaddle !== side && !(side === 'opponent' && state.bricks)) {
         drawPaddle(ctx, state, side, config, effects.squash[side], glows);
       }
     }

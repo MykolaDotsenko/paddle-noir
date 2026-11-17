@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { THEME } from '../src/adapters/canvas/theme.js';
 import { CanvasRenderer } from '../src/adapters/canvas-renderer.js';
 import { HIGH_SCORES } from '../src/catalog.js';
-import { GAME_CONFIG, RUSH_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG, RUSH_CONFIG } from '../src/config.js';
 import { createInitialState, GAME_PHASE, startGame } from '../src/domain/game.js';
 import { callsNamed, createFrameScheduler, createRendererWindow, FakeCanvas } from './support/fake-canvas.js';
 
@@ -320,4 +320,74 @@ test('with the fun extras off nobody leans in', () => {
 
   assert.equal(renderer.effects.cameo, null);
   assert.equal(callsNamed(canvas.contexts[0], 'fillText').filter((call) => call.args[0] === 'WHOOPEE!').length, 0);
+});
+
+// Bricks: the wall on the board.
+
+function bricksSetup({ supers = false } = {}) {
+  const config = { ...BRICKS_CONFIG, supers: { ...BRICKS_CONFIG.supers, enabled: supers } };
+  const canvas = new FakeCanvas({ clientWidth: 400 });
+  const renderer = new CanvasRenderer({ canvas, window: createRendererWindow(), scheduler: createFrameScheduler(), config, preferences: { get: () => ({ jokes: false }) }, random: () => 0.5 });
+  const state = { ...startGame(createInitialState(config), config), serveCountdown: 0, rally: 7, ball: { x: 250, y: 500, vx: 0, vy: -470, spin: 0 } };
+  return { canvas, renderer, config, state: { ...state, bricks: { ...state.bricks, time: 5 } } };
+}
+
+test('a Bricks frame draws the wall, the player\'s paddle alone, and the combo where a match shows its rally', () => {
+  const { canvas, renderer, config, state } = bricksSetup();
+  const ctx = canvas.contexts[0];
+
+  renderer.render({ ...state, bricks: { ...state.bricks, combo: 4 } }, config);
+
+  const fills = callsNamed(ctx, 'fill').map((call) => call.brush.fillStyle);
+  assert.ok(fills.includes(THEME.side.player.core), 'the player\'s paddle');
+  assert.ok(!fills.includes(THEME.side.opponent.core), 'and no paddle at the far end');
+
+  const texts = callsNamed(ctx, 'fillText').map((call) => call.args[0]);
+  assert.ok(texts.includes('×4') && texts.includes('COMBO 4'));
+  assert.ok(!texts.includes('RALLY'), 'not the rally');
+
+  const frames = callsNamed(ctx, 'stroke').filter((call) => call.brush.lineWidth === 1.5);
+  assert.ok(frames.length >= state.bricks.bricks.length, 'every brick is framed');
+});
+
+test('a match frame still draws both paddles and the rally', () => {
+  const { canvas, renderer } = setup();
+
+  renderer.render(running({ rally: 7 }), GAME_CONFIG);
+
+  const fills = callsNamed(canvas.contexts[0], 'fill').map((call) => call.brush.fillStyle);
+  assert.ok(fills.includes(THEME.side.player.core) && fills.includes(THEME.side.opponent.core));
+  assert.ok(callsNamed(canvas.contexts[0], 'fillText').some((call) => call.args[0] === 'RALLY'));
+});
+
+test('bonuses, bolts and the safety net are drawn over the wall', () => {
+  const { canvas, renderer, config, state } = bricksSetup();
+  const wall = { ...state.bricks, shield: 1, laser: 3, bolts: [{ id: 1, x: 100, y: 400 }], drops: [{ id: 2, kind: 'multi', x: 300, y: 450, vy: 100 }] };
+
+  renderer.render({ ...state, bricks: wall }, config);
+
+  const ctx = canvas.contexts[0];
+  assert.ok(callsNamed(ctx, 'fillText').some((call) => call.args[0] === '••'), 'the falling bonus');
+  assert.ok(callsNamed(ctx, 'moveTo').some((call) => call.args[0] === 100 && call.args[1] === 400), 'the bolt');
+  assert.ok(callsNamed(ctx, 'lineTo').some((call) => call.args[1] === config.height - config.paddle.inset / 4), 'the net');
+});
+
+test('with supers on, Bricks shows the player\'s meter and none for the wall', () => {
+  const { canvas, renderer, config, state } = bricksSetup({ supers: true });
+  const loaded = { ...state, meters: { player: { charge: 1, kind: 'thunder' }, opponent: { charge: 1, kind: 'fireball' } } };
+
+  renderer.render(loaded, config);
+
+  const texts = callsNamed(canvas.contexts[0], 'fillText').map((call) => String(call.args[0]));
+  assert.ok(texts.some((text) => text.startsWith('THUNDER')));
+  assert.ok(!texts.some((text) => text.startsWith('FIREBALL')));
+});
+
+test('the wall\'s events reach the board: a brick breaks into pieces', () => {
+  const { renderer, config, state } = bricksSetup();
+
+  renderer.render(state, config);
+  renderer.handle([{ type: 'brick-break', kind: 'plain', row: 0, x: 200, y: 150, w: 44, h: 20, by: 'ball', vx: 0, vy: -470, combo: 1, points: 10 }], state, config);
+
+  assert.equal(renderer.effects.shards.length, 6);
 });

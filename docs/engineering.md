@@ -60,6 +60,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   ├── adapters
 │   │   ├── canvas
 │   │   │   ├── ball-trail.js
+│   │   │   ├── brick-effects.js
+│   │   │   ├── bricks.js
 │   │   │   ├── court.js
 │   │   │   ├── event-effects.js
 │   │   │   ├── hud.js
@@ -89,6 +91,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── nicknames.js
 │   │   └── ports.js
 │   ├── domain
+│   │   ├── bricks.js
 │   │   ├── game.js
 │   │   ├── hazards.js
 │   │   ├── opponent.js
@@ -98,7 +101,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── supers.js
 │   │   └── types.js
 │   ├── catalog.js              the matches a player can choose, the career ladder and the high-score table included
-│   └── config.js
+│   ├── config.js
+│   └── levels.js               the walls of the Bricks game, drawn a character a brick
 ├── tests                       unit tests per module, reference matches, collision and module-load checks, support/ fakes
 ├── ARCHITECTURE.md
 ├── LICENSE

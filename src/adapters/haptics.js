@@ -24,6 +24,17 @@ function patternFor(event) {
       return event.scorer === 'player' ? [18, 40, 18] : 45;
     case 'hazard-hit':
       return 35;
+    // In Bricks a brick breaks several times a second, so only what stands out is felt.
+    case 'blast':
+      return 40;
+    case 'strike':
+      return [20, 30, 40];
+    case 'drop':
+      return 15;
+    case 'shield-save':
+      return 30;
+    case 'level-clear':
+      return [30, 50, 30];
     case 'game-over':
       return event.winner === 'player' ? [30, 60, 30, 60, 120] : [160];
     default:

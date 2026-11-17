@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { AudioOutput } from '../src/adapters/audio-output.js';
 import { MusicPlayer } from '../src/adapters/music-player.js';
-import { SoundBoard } from '../src/adapters/sound-board.js';
+import { comboNote, SoundBoard } from '../src/adapters/sound-board.js';
 import { finisherFor } from '../src/adapters/finisher.js';
 import { RIVALS } from '../src/catalog.js';
 import { GAME_CONFIG, RUSH_CONFIG } from '../src/config.js';
@@ -394,4 +394,78 @@ test('the cameo is counted while the sound is off, so sound switched on mid-matc
   board.handle([fired], undefined, GAME_CONFIG);
 
   assert.equal(FakeAudioContext.created[0].oscillators.length, plain * 2, 'he already came, in silence');
+});
+
+const brokenBrick = (overrides = {}) => ({ type: 'brick-break', kind: 'plain', row: 0, x: 0, y: 0, w: 44, h: 20, by: 'ball', vx: 0, vy: 0, combo: 1, points: 10, ...overrides });
+
+test('bricks breaking in a combo climb a scale, a note a brick, and stop climbing after two octaves', () => {
+  const notes = Array.from({ length: 16 }, (_, index) => comboNote(index + 1));
+
+  assert.equal(notes[0], 440);
+  assert.ok(notes.slice(0, 13).every((note, index) => index === 0 || note > notes[index - 1]), 'each higher than the last');
+  assert.ok(Math.abs(notes[5] - 880) < 1e-9, 'an octave every five bricks');
+  assert.equal(notes[13], notes[12], 'the top note holds');
+  assert.equal(notes[15], notes[12]);
+  assert.ok(notes[12] < 2500, 'within what a phone plays well');
+  assert.equal(comboNote(0), 440, 'a combo of nothing sounds the first note');
+});
+
+test('a brick sounds the note of its place in the combo', () => {
+  const { board, contexts } = setup();
+  const pitch = (combo) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle([brokenBrick({ combo })]);
+    return contexts[0].oscillators[before].frequency.events[0][1];
+  };
+
+  assert.equal(pitch(1), comboNote(1));
+  assert.equal(pitch(7), comboNote(7));
+});
+
+test('however many bricks a blast takes in one step, two of them sound, and the bomb is heard as its blast', () => {
+  const { board, contexts } = setup();
+  const count = (events) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle(events);
+    return contexts[0].oscillators.length - before;
+  };
+  const one = count([brokenBrick()]);
+  const blast = count([{ type: 'blast', x: 0, y: 0, radius: 62 }]);
+
+  assert.equal(one, 2);
+  assert.equal(blast, 2, 'a low boom and a crack');
+  assert.equal(count([brokenBrick({ kind: 'bomb' })]), 0);
+  assert.equal(count(Array.from({ length: 8 }, (_, index) => brokenBrick({ combo: index + 1 }))), 2 * one);
+  assert.equal(count([brokenBrick(), { type: 'blast', x: 0, y: 0, radius: 62 }, ...Array.from({ length: 7 }, () => brokenBrick())]), 2 * one + blast);
+  assert.equal(count([brokenBrick()]), one, 'the next step sounds again');
+});
+
+test('every other event of the Bricks game has its sound', () => {
+  const { board, contexts } = setup();
+  const sounds = (event) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle([event]);
+    return contexts[0].oscillators.slice(before).map((oscillator) => `${oscillator.type}@${Math.round(oscillator.frequency.events[0][1])}`).join(' ');
+  };
+  const heard = [
+    sounds({ type: 'brick-hit', kind: 'tough', row: 0, x: 0, y: 0, hp: 1 }),
+    sounds({ type: 'brick-hit', kind: 'steel', row: 0, x: 0, y: 0, hp: 1 }),
+    sounds({ type: 'strike', kind: 'thunder', x: 0, y: 0 }),
+    sounds({ type: 'strike', kind: 'zigzag', x: 0, y: 0 }),
+    sounds({ type: 'drop', kind: 'wide', x: 0, y: 0 }),
+    sounds({ type: 'bolt-fire', x: 0, y: 0 }),
+    sounds({ type: 'shield-save', x: 0, y: 0 }),
+    sounds({ type: 'level-clear', level: 0, bonus: 100, last: false }),
+  ];
+
+  assert.ok(heard.every((sound) => sound.length > 0));
+  assert.equal(new Set(heard).size, heard.length, 'each its own');
+  assert.equal(sounds({ type: 'drop-spawn', kind: 'wide', x: 0, y: 0 }), '', 'a bonus leaving its brick is silent');
+});
+
+test('a laser volley sounds once, though it is two bolts', () => {
+  const { board, contexts } = setup();
+  board.handle([{ type: 'bolt-fire', x: 0, y: 0 }, { type: 'bolt-fire', x: 10, y: 0 }]);
+
+  assert.equal(contexts[0].oscillators.length, 1);
 });
