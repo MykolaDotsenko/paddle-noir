@@ -269,7 +269,7 @@ test('the first track still opens as it always has: an A2 bass under an A4 lead'
 });
 
 test('each track plays at its own tempo, from the track saved in the preferences', () => {
-  for (const [track, bpm] of [['neon', 128], ['arena', 140], ['anthem', 118], ['contender', 108], ['iron', 124]]) {
+  for (const [track, bpm] of [['neon', 128], ['arena', 140], ['anthem', 118], ['contender', 108], ['iron', 124], ['eurodance', 132], ['rave', 150], ['trance', 138]]) {
     const { player } = setup({ track });
 
     player.handle(events('match-start'), running);

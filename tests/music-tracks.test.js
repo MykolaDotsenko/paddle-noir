@@ -58,3 +58,15 @@ test('an unknown or missing track id falls back to the first track', () => {
   assert.equal(findTrack('polka'), MUSIC_TRACKS[0]);
   assert.equal(findTrack(undefined), MUSIC_TRACKS[0]);
 });
+
+test('the nineties tracks dance: a kick on every beat, a clap on two and four, and all three layers', () => {
+  for (const id of ['eurodance', 'rave', 'trance']) {
+    const track = findTrack(id);
+
+    assert.equal(track.id, id);
+    assert.equal(track.drums?.kick, 'x...x...x...x...', id);
+    assert.ok(track.drums?.snare.startsWith('....x.......x'), id);
+    assert.ok(track.bpm >= 130, `${id} is fast enough to dance to`);
+    assert.equal(track.lead.notes.length * track.lead.every, STEPS_PER_BAR * track.bars.length, `${id}: the lead runs the whole loop`);
+  }
+});
