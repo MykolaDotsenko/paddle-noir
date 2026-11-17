@@ -70,3 +70,41 @@ test('the nineties tracks dance: a kick on every beat, a clap on two and four, a
     assert.equal(track.lead.notes.length * track.lead.every, STEPS_PER_BAR * track.bars.length, `${id}: the lead runs the whole loop`);
   }
 });
+
+// The three nineties tracks carry tunes people know, so a wrong note would be heard at once.
+// These spell each lead's opening out by name, as it is sung.
+const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+/** The lead's notes by name, rests left out; the root's own name is where the count starts. */
+const sung = (track, rootName, count) => track.lead.notes
+  .filter((note) => note !== null)
+  .slice(0, count)
+  .map((note) => NAMES[(NAMES.indexOf(rootName) + note) % 12])
+  .join(' ');
+
+test('the nineties tracks play the melodies they are named for in the notes', () => {
+  assert.equal(sung(findTrack('eurodance'), 'A', 19), 'E B C D C B A A C E D C B C D E C A A', 'Korobeiniki');
+  assert.equal(sung(findTrack('rave'), 'D', 13), 'D E F G A F A G# E G# G D# G', 'In the Hall of the Mountain King');
+  // The Canon's line is the note each bar begins on; the plucks under it are that bar's chord.
+  const canon = findTrack('trance');
+  const tops = canon.bars.map((_, bar) => canon.lead.notes[bar * STEPS_PER_BAR]);
+  assert.equal(tops.map((note) => NAMES[(NAMES.indexOf('D') + note) % 12]).join(' '), 'F# E D C# B A B C#', 'Pachelbel\'s Canon');
+
+  canon.bars.forEach((root, bar) => {
+    const chord = canon.chord.chords[bar].map((interval) => (root + interval) % 12);
+    const plucked = canon.lead.notes.slice(bar * STEPS_PER_BAR, (bar + 1) * STEPS_PER_BAR);
+    assert.ok(plucked.every((note) => chord.includes(note % 12)), `bar ${bar + 1} stays in its chord`);
+  });
+});
+
+test('Korobeiniki sits on the chords that belong under it', () => {
+  // Every bar's first lead note is a note of that bar's chord, or the bar begins on a rest.
+  const track = findTrack('eurodance');
+  const perBar = STEPS_PER_BAR / track.lead.every;
+
+  track.bars.forEach((root, bar) => {
+    const note = track.lead.notes[bar * perBar];
+    const chord = track.chord.chords[bar].map((interval) => (root + interval + 120) % 12);
+
+    assert.ok(note === null || chord.includes(note % 12), `bar ${bar + 1}`);
+  });
+});

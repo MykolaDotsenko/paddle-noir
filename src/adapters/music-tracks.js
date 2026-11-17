@@ -1,10 +1,11 @@
 /** @import { TrackId } from '../application/ports.js' */
 
 /**
- * Original backing tracks for the music player, written as step sequences. A step is a
- * sixteenth note and a bar has 16 of them. Pitches are semitones above the track's root
- * frequency; null is a rest. Every part loops, so a pattern shorter than the whole track
- * repeats (a 16-step bass line plays in every bar).
+ * Backing tracks for the music player, written as step sequences. Five are original; the three
+ * in nineties dance styles arrange melodies long in the public domain, so nothing here is
+ * taken from a record. A step is a sixteenth note and a bar has 16 of them. Pitches are
+ * semitones above the track's root frequency; null is a rest. Every part loops, so a pattern
+ * shorter than the whole track repeats (a 16-step bass line plays in every bar).
  *
  * Each track has three layers that the player brings in as a rally grows: the bass (with the
  * kick) from the first hit, the chords (with the snare and hi-hat) at 3 hits and the lead
@@ -160,50 +161,58 @@ export const MUSIC_TRACKS = Object.freeze([
     drums: { kick: 'x.x...x.x.x...x.', snare: '....x.......x...', hat: 'x...x...x...x...' },
   },
   {
-    // Nineties eurodance in A minor at 132 bpm (Am, F, C, G): the kick on every beat with the
-    // bass answering off it, a house piano stabbing across the bar and a hook to hum.
+    // Korobeiniki, the Russian peddlers' song of the 1860s that a generation knows from a
+    // falling-blocks game, as nineties eurodance in A minor at 132 bpm: the kick on every beat
+    // with the bass answering off it and a house piano stabbing across the bar.
     id: 'eurodance',
     label: 'Eurodance',
     bpm: 132,
     root: 110,
-    bars: [0, -4, 3, -2],
+    bars: [-5, 0, -5, 0, 5, 0, -5, 0],
     bass: { wave: 'sawtooth', volume: 0.14, length: 1.1, notes: [_, _, 0, 0, _, _, 0, 0, _, _, 0, 0, _, _, 0, 12] },
     chord: {
       wave: 'triangle',
       volume: 0.05,
       length: 1.4,
       hits: 'x..x..x..x..x.x.',
-      chords: [[12, 15, 19], [12, 16, 19], [12, 16, 19], [12, 16, 19]],
+      // E, A minor, E, A minor; D minor, A minor, E, A minor.
+      chords: [[12, 16, 19], [12, 15, 19], [12, 16, 19], [12, 15, 19], [12, 15, 19], [12, 15, 19], [12, 16, 19], [12, 15, 19]],
     },
     lead: {
       wave: 'square',
       volume: 0.05,
-      length: 1.6,
+      length: 1.8,
       every: 2,
       notes: [
-        31, 31, 29, 31, _, 27, 24, _,
-        27, 27, 24, 27, _, 29, 27, _,
-        31, 31, 34, 31, _, 29, 27, _,
-        29, 29, 26, 29, _, 31, 34, _,
+        31, _, 26, 27, 29, _, 27, 26,
+        24, _, 24, 27, 31, _, 29, 27,
+        26, _, _, 27, 29, _, 31, _,
+        27, _, 24, _, 24, _, _, _,
+        _, 29, _, 32, 36, _, 34, 32,
+        31, _, _, 27, 31, _, 29, 27,
+        26, _, 26, 27, 29, _, 31, _,
+        27, _, 24, _, 24, _, _, _,
       ],
     },
     drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...xx' },
   },
   {
-    // A warehouse rave in D minor at 150 bpm (Dm, F, C, B flat): a rolling sixteenth-note
-    // bass, piano stabs off the beat, a shuffling hi-hat and a siren of a lead up high.
+    // Grieg's In the Hall of the Mountain King (1875) as a warehouse rave in D minor at 150 bpm:
+    // the creeping theme once low and once an octave up over a rolling sixteenth-note bass,
+    // bare fifths stabbed off the beat and a shuffling hi-hat.
     id: 'rave',
     label: 'Rave',
     bpm: 150,
     root: 73.42,
-    bars: [0, 3, -2, -4],
+    bars: [0, 0, 0, 3, 0, 0, 0, 3],
     bass: { wave: 'sawtooth', volume: 0.13, length: 0.8, notes: [0, 0, 12, 0, 0, 12, 0, 0, 12, 0, 0, 12, 0, 12, 0, 12] },
     chord: {
       wave: 'triangle',
       volume: 0.05,
       length: 1.2,
       hits: '..x..x..x.x..x.x',
-      chords: [[12, 15, 19, 24], [12, 16, 19, 24], [12, 16, 19, 24], [12, 16, 19, 24]],
+      // No third under the theme's chromatic turns; the phrase ends on F major.
+      chords: [[12, 19, 24], [12, 19, 24], [12, 19, 24], [12, 16, 19, 24]],
     },
     lead: {
       wave: 'sawtooth',
@@ -211,30 +220,35 @@ export const MUSIC_TRACKS = Object.freeze([
       length: 1.5,
       every: 2,
       notes: [
-        36, _, 36, 39, _, 36, 43, 41,
-        39, _, 39, 43, _, 39, 46, 43,
-        38, _, 38, 41, _, 38, 46, 43,
-        36, _, 36, 39, _, 41, 39, 36,
+        24, 26, 27, 29, 31, 27, 31, _,
+        30, 26, 30, _, 29, 25, 29, _,
+        24, 26, 27, 29, 31, 27, 31, 36,
+        34, 31, 27, 31, 34, _, _, _,
+        36, 38, 39, 41, 43, 39, 43, _,
+        42, 38, 42, _, 41, 37, 41, _,
+        36, 38, 39, 41, 43, 39, 43, 48,
+        46, 43, 39, 43, 46, _, _, _,
       ],
     },
     drums: { kick: 'x...x...x...x...', snare: '....x.......x.x.', hat: 'x.xxx.xxx.xxx.xx' },
   },
   {
-    // Late-nineties trance in F sharp minor at 138 bpm (F sharp minor twice, D, C sharp minor):
-    // a bass that ducks under every kick, one long pad a bar and a plucked arpeggio climbing
-    // the chord in threes against the four of the beat.
+    // Pachelbel's Canon as late-nineties trance in D at 138 bpm: its eight chords a bar each
+    // (D, A, B minor, F sharp minor, G, D, G, A) on one long pad, a bass that ducks under every
+    // kick, and the violins' descending line on top, plucked in threes down each chord against
+    // the four of the beat.
     id: 'trance',
     label: 'Trance',
     bpm: 138,
-    root: 92.5,
-    bars: [0, 0, -4, -5],
+    root: 73.42,
+    bars: [12, 7, 9, 4, 5, 0, 5, 7],
     bass: { wave: 'sawtooth', volume: 0.13, length: 0.8, notes: [_, 0, 0, 0, _, 0, 0, 0, _, 0, 0, 0, _, 0, 0, 0] },
     chord: {
       wave: 'sawtooth',
       volume: 0.02,
       length: 15,
       hits: 'x...............',
-      chords: [[12, 15, 19, 24], [12, 15, 19, 24], [12, 16, 19, 24], [12, 15, 19, 24]],
+      chords: [[12, 16, 19], [12, 16, 19], [12, 15, 19], [12, 15, 19], [12, 16, 19], [12, 16, 19], [12, 16, 19], [12, 16, 19]],
     },
     lead: {
       wave: 'square',
@@ -242,10 +256,14 @@ export const MUSIC_TRACKS = Object.freeze([
       length: 0.9,
       every: 1,
       notes: [
-        24, 27, 31, 24, 27, 31, 24, 27, 31, 36, 31, 27, 36, 31, 27, 31,
-        24, 27, 31, 24, 27, 31, 24, 27, 31, 38, 36, 31, 38, 36, 31, 27,
-        20, 24, 27, 20, 24, 27, 20, 24, 27, 32, 27, 24, 32, 27, 24, 27,
-        19, 22, 26, 19, 22, 26, 19, 22, 26, 31, 26, 22, 31, 29, 26, 22,
+        40, 36, 31, 40, 36, 31, 40, 36, 31, 40, 36, 31, 40, 31, 40, 31,
+        38, 35, 31, 38, 35, 31, 38, 35, 31, 38, 35, 31, 38, 31, 38, 31,
+        36, 33, 28, 36, 33, 28, 36, 33, 28, 36, 33, 28, 36, 28, 36, 28,
+        35, 31, 28, 35, 31, 28, 35, 31, 28, 35, 31, 28, 35, 28, 35, 28,
+        33, 29, 24, 33, 29, 24, 33, 29, 24, 33, 29, 24, 33, 24, 33, 24,
+        31, 28, 24, 31, 28, 24, 31, 28, 24, 31, 28, 24, 31, 24, 31, 24,
+        33, 29, 24, 33, 29, 24, 33, 29, 24, 33, 29, 24, 33, 24, 33, 24,
+        35, 31, 26, 35, 31, 26, 35, 31, 26, 35, 31, 26, 35, 26, 35, 26,
       ],
     },
     drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
