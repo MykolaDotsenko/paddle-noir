@@ -131,6 +131,9 @@ function createRoot({ modalDialogs = true } = {}) {
     ['rush', { 'data-mode': 'rush' }],
     ['duo', { 'data-mode': 'duo' }],
     ['career', { 'data-mode': 'career' }],
+    ['bricks', { 'data-mode': 'bricks' }],
+    ['tutorialBricks', { 'data-bricks-only': '' }],
+    ['tutorialMatch', { 'data-match-only': '' }],
     ['rivalGroup', { 'data-career-only': '' }],
     ['rivalPrevious', { 'data-rival-step': '-1' }],
     ['rivalNext', { 'data-rival-step': '1' }],
@@ -196,6 +199,8 @@ function createRoot({ modalDialogs = true } = {}) {
     ['overDifficulty', { 'data-over-difficulty': '' }],
     ['overBest', { 'data-over-best': '' }],
     ['overBestRush', { 'data-over-best-rush': '' }],
+    ['overBestBricks', { 'data-over-best-bricks': '' }],
+    ['overWall', { 'data-over-wall': '' }],
     ['overChampion', { 'data-over-champion': '' }],
     ['continueLine', { 'data-continue': '', 'aria-hidden': 'true' }],
     ['overStars', { 'data-over-stars': '' }],
@@ -344,6 +349,7 @@ function presentation(overrides = {}) {
     winner: null,
     career: null,
     highScores: null,
+    bricks: null,
     ...overrides,
   };
 }
@@ -1615,4 +1621,140 @@ test('the scoreboard names the player by their initials once they have signed, i
   const unsigned = setup();
   unsigned.view.render(presentation({ phase: GAME_PHASE.RUNNING }));
   assert.equal(unsigned.dom.playerLabel.textContent, 'You');
+});
+
+// Bricks: the second game.
+
+const wall = (overrides = {}) => ({ level: 1, levels: 8, name: 'First Coin', points: 0, best: 0, newBest: false, ...overrides });
+const bricksGame = (overrides = {}) => presentation({
+  mode: 'bricks',
+  rules: { kind: 'bricks', lives: 3 },
+  opponent: { label: 'Wall', name: 'The wall', proper: false },
+  lives: 3,
+  maxLives: 3,
+  bricks: wall(),
+  ...overrides,
+});
+
+test('in Bricks the scoreboard shows the points and the wall being played, under their own labels', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'bricks', initials: 'MYK' }) });
+
+  view.render(bricksGame({ phase: GAME_PHASE.RUNNING, bricks: wall({ points: 1280, level: 3 }) }));
+
+  assert.equal(dom.playerLabel.textContent, 'Score', 'not the player\'s initials: the number beside it is not theirs to name');
+  assert.equal(dom.opponentLabel.textContent, 'Wall');
+  assert.equal(dom.playerScore.textContent, '1280');
+  assert.equal(dom.opponentScore.textContent, '3');
+  assert.equal(dom.opponentLabel.classes.has('scoreboard__label--nick'), false);
+  assert.equal(dom.lives.hidden, false);
+  assert.equal(dom.lives.children.length, 3);
+});
+
+test('points tick up without the fanfare a point of a match gets; a new wall still pops', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'bricks' }) });
+
+  view.render(bricksGame({ phase: GAME_PHASE.RUNNING, bricks: wall({ points: 10 }) }));
+  view.render(bricksGame({ phase: GAME_PHASE.RUNNING, bricks: wall({ points: 30 }) }));
+  assert.equal(dom.playerScore.textContent, '30');
+  assert.equal(dom.playerScore.classes.has('is-popping'), false);
+
+  view.render(bricksGame({ phase: GAME_PHASE.RUNNING, bricks: wall({ points: 130, level: 2 }) }));
+  assert.ok(dom.opponentScore.classes.has('is-popping'));
+});
+
+test('the menu says how many walls there are and the best score', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'bricks' }) });
+  const record = () => dom.menuMeta.children.find((child) => typeof child !== 'string');
+
+  view.render(bricksGame({ bricks: wall({ best: 18730 }) }));
+  assert.equal(dom.menuMeta.textContent, '8 walls · Best 18730 points');
+  assert.equal(record().textContent, '18730', 'the record stands out');
+
+  view.render(bricksGame({ bricks: wall({ best: 1 }) }));
+  assert.equal(dom.menuMeta.textContent, '8 walls · Best 1 point');
+});
+
+test('a lost Bricks game is told by its points and the wall it reached, with no rally and no finisher', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'bricks' }) });
+
+  view.render(bricksGame({ phase: GAME_PHASE.RUNNING }));
+  view.render(bricksGame({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', lives: 0, bricks: wall({ points: 1690, level: 4, name: 'Crosshair', best: 1690, newBest: true }) }));
+
+  assert.equal(dom.over.hidden, false, 'the result comes at once');
+  assert.equal(dom.overTitle.textContent, 'Game over');
+  assert.equal(dom.overTitle.dataset.winner, 'opponent');
+  assert.equal(dom.overScore.textContent, '1690');
+  assert.equal(dom.overWall.textContent, 'points · wall 4 of 8 · Crosshair');
+  assert.equal(dom.overWall.hidden, false);
+  assert.equal(dom.overMeta.hidden, true, 'the longest rally belongs to a match');
+  assert.equal(dom.overDifficulty.textContent, 'Bricks');
+  assert.equal(dom.overBestBricks.hidden, false);
+  assert.equal(dom.overBestRush.hidden, true);
+  assert.equal(dom.overScores.hidden, true);
+  assert.equal(dom.continueLine.hidden, false, 'and the arcade asks whether to continue');
+});
+
+test('a won Bricks game is all clear, at once: a wall has no paddle for a finisher to break', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'bricks' }) });
+
+  view.render(bricksGame({ phase: GAME_PHASE.RUNNING }));
+  view.render(bricksGame({ phase: GAME_PHASE.GAME_OVER, winner: 'player', bricks: wall({ points: 21840, level: 8, name: 'The Key', best: 30000 }) }));
+
+  assert.equal(dom.over.hidden, false);
+  assert.equal(dom.overTitle.textContent, 'All clear');
+  assert.equal(dom.overTitle.dataset.winner, 'player');
+  assert.equal(dom.overScore.textContent, '21840');
+  assert.equal(dom.overWall.textContent, 'points · all 8 walls down');
+  assert.equal(dom.overBestBricks.hidden, true);
+  assert.equal(dom.continueLine.hidden, true);
+});
+
+test('a match after a Bricks game shows its own result again', () => {
+  const { view, dom } = setup();
+
+  view.render(bricksGame({ phase: GAME_PHASE.RUNNING }));
+  view.render(bricksGame({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', bricks: wall({ points: 50, newBest: true }) }));
+  view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  view.render(presentation({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', score: { player: 2, opponent: 7 }, longestRally: 6 }));
+
+  assert.equal(dom.overWall.hidden, true);
+  assert.equal(dom.overBestBricks.hidden, true);
+  assert.equal(dom.overMeta.hidden, false);
+  assert.equal(dom.overScore.textContent, '2 : 7');
+});
+
+test('a Bricks game is shared with its points, and how far it got', async () => {
+  const { view, dom, device } = setup({ preferences: createPreferences({ mode: 'bricks' }) });
+  const shared = async (result) => {
+    view.render(bricksGame({ phase: GAME_PHASE.RUNNING }));
+    view.render(bricksGame({ phase: GAME_PHASE.GAME_OVER, ...result }));
+    click(dom.share);
+    await nextTick();
+    return device.shared.at(-1);
+  };
+
+  assert.equal(
+    await shared({ winner: 'opponent', bricks: wall({ points: 1690, level: 4 }) }),
+    'I made 1690 points in Bricks mode of Paddle Noir, up to wall 4 of 8. Beat that!',
+  );
+  assert.equal(
+    await shared({ winner: 'player', bricks: wall({ points: 21840, level: 8 }) }),
+    'I broke all 8 walls of Bricks in Paddle Noir: 21840 points. Beat that!',
+  );
+  assert.equal(await shared({ winner: 'opponent', bricks: wall({ points: 1 }) }), 'I made 1 point in Bricks mode of Paddle Noir, up to wall 1 of 8. Beat that!');
+});
+
+test('choosing Bricks in the menu hides what belongs to the other modes', () => {
+  const { dom, preferences } = setup();
+
+  click(dom.bricks);
+
+  assert.equal(preferences.get().mode, 'bricks');
+  assert.equal(dom.bricks.getAttribute('aria-pressed'), 'true');
+  assert.equal(dom.solo.getAttribute('aria-pressed'), 'false');
+  assert.equal(dom.root.dataset.mode, 'bricks');
+  assert.deepEqual([dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [false, true], 'How to play tells of the wall');
+
+  click(dom.solo);
+  assert.deepEqual([dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [true, false], 'and of power-ups again in a match');
 });

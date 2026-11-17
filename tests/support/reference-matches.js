@@ -5,7 +5,7 @@
 // re-records them when a change to classic play is intended.
 import { createHash } from 'node:crypto';
 
-import { DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../../src/config.js';
+import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../../src/config.js';
 import { advanceGame, createInitialState, GAME_PHASE, startGame } from '../../src/domain/game.js';
 import { nextBetween, nextRandom } from '../../src/domain/random.js';
 
@@ -81,6 +81,9 @@ export const SCENARIOS = Object.freeze([
   { name: 'solo-power-ups', config: () => GAME_CONFIG, seed: 5150, seconds: 60, device: 'pointer' },
   // Supers, which classic play leaves off: the meters fill, and both sides fire.
   { name: 'solo-supers', config: () => withSupers(withoutPowerUps(GAME_CONFIG)), seed: 6027, seconds: 90, device: 'pointer' },
+  // The Bricks game, supers on, with lives enough for this bot to bring walls down: bonuses
+  // fall, bombs go off and supers land.
+  { name: 'bricks', config: () => withSupers({ ...BRICKS_CONFIG, rules: { kind: 'bricks', lives: 15 } }), seed: 8086, seconds: 240, device: 'pointer' },
 ]);
 
 /**
@@ -126,6 +129,10 @@ export function playReference(scenario) {
       // while there are none, so a classic match digests exactly as it did before either existed.
       ...state.extraBalls.map((extra) => `${extra.x.toFixed(6)}/${extra.y.toFixed(6)}`),
       ...(config.supers.enabled ? [state.meters.player.charge.toFixed(6), state.meters.opponent.charge.toFixed(6)] : []),
+      // The wall, in the Bricks game only.
+      ...(state.bricks
+        ? [state.bricks.level, state.bricks.bricks.length, state.bricks.points, state.bricks.combo, state.bricks.drops.length, state.bricks.bolts.length, state.bricks.drift.toFixed(6)]
+        : []),
     ].join(',') + '\n');
   }
 
@@ -138,6 +145,7 @@ export function playReference(scenario) {
       longestRally: state.longestRally,
       phase: state.phase,
       events: Object.fromEntries(Object.entries(counts).sort()),
+      ...(state.bricks ? { level: state.bricks.level, points: state.bricks.points, lives: state.lives } : {}),
     },
   };
 }

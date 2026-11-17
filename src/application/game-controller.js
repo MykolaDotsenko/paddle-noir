@@ -19,6 +19,7 @@ import { GAME_COMMAND } from './ports.js';
 /**
  * @import { GameConfig, GameState } from '../domain/types.js'
  * @import {
+ *   BricksView,
  *   CareerView,
  *   FeedbackPort,
  *   FrameScheduler,
@@ -47,7 +48,7 @@ const DRAMA_MIN_SPEED_SHARE = 0.55;
 /**
  * Builds the tuning for the next match from the player's choices. A career rival plays as it
  * always does, power-ups included, unless it has beaten the player twice in a row. Supers are
- * the player's choice in every match but a Rush run, which never has them.
+ * the player's choice in every match and in Bricks, but never in a Rush run.
  *
  * @param {MatchCatalog} catalog
  * @param {{ mode: Mode, difficulty: string, powerUps: boolean, supers?: boolean, rival?: number, losses?: number }} choices
@@ -56,6 +57,10 @@ const DRAMA_MIN_SPEED_SHARE = 0.55;
 export function buildMatchConfig(catalog, choices) {
   if (choices.mode === 'rush') {
     return catalog.rush;
+  }
+
+  if (choices.mode === 'bricks') {
+    return withSupers(catalog.bricks, choices.supers);
   }
 
   if (choices.mode === 'career') {
@@ -113,6 +118,7 @@ export class GameController {
     this.previousState = this.state;
     this.newBest = false;
     this.newBestRush = false;
+    this.newBestBricks = false;
     /** Stars the career match just finished earned. */
     this.careerEarned = 0;
     /** @type {number | null} the best Rush run before the one just finished, which tells whose rows it passed */
@@ -237,6 +243,7 @@ export class GameController {
     this.applyChoices();
     this.newBest = false;
     this.newBestRush = false;
+    this.newBestBricks = false;
     this.careerEarned = 0;
     this.rushBefore = null;
     this.recorded = false;
@@ -297,13 +304,19 @@ export class GameController {
   }
 
   /**
-   * Hit-stop on hard hits, and slow motion while a match-point ball flies at a paddle.
+   * Hit-stop on hard hits, and slow motion while a match-point ball flies at a paddle. In
+   * Bricks, where returns come thick and fast, the picture stops only for a super fired, a bomb
+   * going off and a super landing.
    *
    * @param {GameState} state
    */
   dramatize(state) {
     for (const event of state.events) {
-      if (event.type === 'paddle-hit' && this.speedShare(event.speed) > DRAMA_MIN_SPEED_SHARE) {
+      const hard = state.bricks
+        ? (event.type === 'paddle-hit' && event.super !== undefined) || event.type === 'blast' || event.type === 'strike'
+        : event.type === 'paddle-hit' && this.speedShare(event.speed) > DRAMA_MIN_SPEED_SHARE;
+
+      if (hard) {
         this.loop.hold(HIT_STOP_SECONDS);
       }
     }
@@ -356,7 +369,7 @@ export class GameController {
   }
 
   /**
-   * Saves the outcome of a finished match: the Rush record, or the Solo win statistics.
+   * Saves the outcome of a finished match: the Rush or Bricks record, or the Solo win statistics.
    *
    * @param {GameState} state
    */
@@ -374,6 +387,14 @@ export class GameController {
       if (state.hits.player > bestRush) {
         this.newBestRush = true;
         this.preferences.set({ bestRush: state.hits.player });
+      }
+      return;
+    }
+
+    if (state.bricks) {
+      if (state.bricks.points > this.preferences.get().bestBricks) {
+        this.newBestBricks = true;
+        this.preferences.set({ bestBricks: state.bricks.points });
       }
       return;
     }
@@ -452,6 +473,10 @@ export class GameController {
       return { label: 'P2', name: 'Player 2', proper: false };
     }
 
+    if (this.mode === 'bricks') {
+      return { label: 'Wall', name: 'The wall', proper: false };
+    }
+
     if (this.mode === 'career') {
       const { short, name } = this.catalog.career[this.rival];
       return { label: short, name, proper: true };
@@ -480,7 +505,8 @@ export class GameController {
       score,
       hits,
       lives,
-      maxLives: this.config.rules.kind === 'rush' ? this.config.rules.lives : 0,
+      // A life won in Bricks shows as one more, not as one already lost.
+      maxLives: this.config.rules.kind === 'match' ? 0 : Math.max(this.config.rules.lives, lives),
       rally,
       longestRally,
       bestRally,
@@ -493,6 +519,26 @@ export class GameController {
       winner: getWinner(this.state),
       career: this.careerView(),
       highScores: this.highScoresView(),
+      bricks: this.bricksView(),
+    };
+  }
+
+  /** @returns {BricksView | null} */
+  bricksView() {
+    const wall = this.state.bricks;
+    const rules = this.config.bricks;
+
+    if (!wall || !rules) {
+      return null;
+    }
+
+    return {
+      level: wall.level + 1,
+      levels: rules.levels.length,
+      name: rules.levels[wall.level].name,
+      points: wall.points,
+      best: this.preferences.get().bestBricks,
+      newBest: this.newBestBricks,
     };
   }
 
@@ -548,13 +594,19 @@ export class GameController {
   statusText() {
     const { phase, score, hits } = this.state;
     const { rules } = this.config;
+    const bricks = this.bricksView();
+
+    if (rules.kind === 'bricks' && bricks) {
+      return this.bricksStatus(bricks);
+    }
+
     const rush = rules.kind === 'rush';
     const opponent = this.opponentName();
     // "computer" and "player 2" read as common nouns mid-sentence; a proper name keeps its case.
     const opponentName = opponent.proper ? opponent.name : opponent.name.toLowerCase();
 
     if (phase === GAME_PHASE.READY) {
-      if (rush) {
+      if (rules.kind !== 'match') {
         return 'Rush: survive as long as you can.';
       }
 
@@ -582,5 +634,28 @@ export class GameController {
     return rush
       ? `${hits.player} hits, ${this.state.lives} lives left`
       : `You ${score.player} — ${score.opponent} ${opponent.name}`;
+  }
+
+  /**
+   * @param {BricksView} bricks
+   */
+  bricksStatus({ level, levels, name, points }) {
+    const { phase, lives } = this.state;
+
+    if (phase === GAME_PHASE.READY) {
+      return `Bricks: break all ${levels} walls.`;
+    }
+
+    if (phase === GAME_PHASE.PAUSED) {
+      return 'Game paused.';
+    }
+
+    if (phase === GAME_PHASE.GAME_OVER) {
+      return getWinner(this.state) === 'player'
+        ? `Every wall is down — ${points} points.`
+        : `Game over on wall ${level} of ${levels} — ${points} points.`;
+    }
+
+    return `Wall ${level}, ${name}: ${points} points, ${lives} ${lives === 1 ? 'ball' : 'balls'} left`;
   }
 }

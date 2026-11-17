@@ -61,3 +61,21 @@ test('a boss\'s attack that lands is felt too', () => {
 
   assert.deepEqual(calls, [35]);
 });
+
+test('in Bricks only what stands out is felt: a blast, a super landing, a bonus, a save, a wall down', () => {
+  const { haptics, calls } = setup();
+
+  haptics.handle([
+    { type: 'brick-break', kind: 'plain', row: 0, x: 0, y: 0, w: 44, h: 20, by: 'ball', vx: 0, vy: 0, combo: 1, points: 10 },
+    { type: 'brick-hit', kind: 'steel', row: 0, x: 0, y: 0, hp: 1 },
+    { type: 'bolt-fire', x: 0, y: 0 },
+    { type: 'drop-spawn', kind: 'wide', x: 0, y: 0 },
+    { type: 'blast', x: 0, y: 0, radius: 62 },
+    { type: 'strike', kind: 'thunder', x: 0, y: 0 },
+    { type: 'drop', kind: 'wide', x: 0, y: 0 },
+    { type: 'shield-save', x: 0, y: 0 },
+    { type: 'level-clear', level: 0, bonus: 100, last: false },
+  ]);
+
+  assert.deepEqual(calls, [40, [20, 30, 40], 15, 30, [30, 50, 30]], 'a brick breaking, several times a second, is not');
+});

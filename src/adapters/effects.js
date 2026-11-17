@@ -129,6 +129,8 @@ export class Effects {
     this.scheduled = [];
     this.flashColor = '#ffffff';
     this.flashAlpha = 0;
+    /** Seconds since the board last flashed, so that events coming thick and fast cannot make it strobe. */
+    this.flashAge = Infinity;
     this.shakeAmount = 0;
     this.pulseAmount = 0;
     this.popAmount = 0;
@@ -341,6 +343,22 @@ export class Effects {
   flash(color, strength) {
     this.flashColor = color;
     this.flashAlpha = Math.max(this.flashAlpha, this.reducedMotion ? strength * 0.3 : strength);
+    this.flashAge = 0;
+  }
+
+  /**
+   * A flash for an event that can come many times a second, such as a bomb in a row of
+   * bombs: it is skipped if the board flashed within the last `gap` seconds, so the board
+   * never flashes more than three times a second on its account.
+   *
+   * @param {string} color
+   * @param {number} strength peak opacity
+   * @param {number} [gap] seconds
+   */
+  flashSparingly(color, strength, gap = 0.4) {
+    if (this.flashAge >= gap) {
+      this.flash(color, strength);
+    }
   }
 
   /** @param {number} amount 0 for none, 1 for a heavy hit */
@@ -438,6 +456,7 @@ export class Effects {
     this.bolts = this.bolts.filter((bolt) => bolt.life > 0);
     this.labels = this.labels.filter((label) => label.life > 0);
     this.flashAlpha = settle(this.flashAlpha * Math.exp(-DECAY.flash * deltaSeconds));
+    this.flashAge += deltaSeconds;
     this.shakeAmount = settle(this.shakeAmount * Math.exp(-DECAY.shake * deltaSeconds));
     this.pulseAmount = settle(this.pulseAmount * Math.exp(-DECAY.pulse * deltaSeconds));
     this.popAmount = settle(this.popAmount * Math.exp(-DECAY.pop * deltaSeconds));

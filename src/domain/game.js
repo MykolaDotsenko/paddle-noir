@@ -9,13 +9,28 @@ import {
   movePaddle,
   reflectFromSideWalls,
 } from './physics.js';
+import {
+  afterMiss,
+  ballsInPlay,
+  bounceOffCeiling,
+  bounceOffNet,
+  brickServeBall,
+  flyThroughBricks,
+  initialBricksState,
+  levelCleared,
+  levelState,
+  returnInBricks,
+  tickBricks,
+  unstall,
+  withBalls,
+} from './bricks.js';
 import { bossPhase, initialHazardState, NO_HAZARDS, tickHazards } from './hazards.js';
 import { moveOpponent } from './opponent.js';
 import { collectPowerUps, initialPowerUpState, NO_EXTRA_BALLS, otherSide, paddleWidth, tickEffects, tickPowerUps } from './power-ups.js';
 import { chargeMeter, initialSuperState, returnCharge, scoringSuper, steerSuper, strikeBack } from './supers.js';
 
 /**
- * @import { Ball, ExtraBall, GameConfig, GameEvent, GameState, InputSnapshot, Side, SuperKind } from './types.js'
+ * @import { Ball, BricksConfig, BricksState, ExtraBall, GameConfig, GameEvent, GameState, InputSnapshot, Side, SuperKind } from './types.js'
  * @import { PaddleContact } from './physics.js'
  *
  * @typedef {object} Collision what a ball met during one step
@@ -67,10 +82,10 @@ export function createInitialState(config, seed = 1) {
     phase: GAME_PHASE.READY,
     player: { x: config.width / 2, vx: 0 },
     opponent: { x: config.width / 2, vx: 0 },
-    ball: createServeBall(config, 1, 1),
+    ball: config.bricks ? brickServeBall(config, 0, 0) : createServeBall(config, 1, 1),
     score: { player: 0, opponent: 0 },
     hits: { player: 0, opponent: 0 },
-    lives: config.rules.kind === 'rush' ? config.rules.lives : 0,
+    lives: config.rules.kind === 'match' ? 0 : config.rules.lives,
     lastPoint: null,
     serveNumber: 0,
     serveCountdown: config.startDelaySeconds,
@@ -79,6 +94,7 @@ export function createInitialState(config, seed = 1) {
     ...powerUps,
     ...initialHazardState(powerUps.seed, config),
     ...initialSuperState(),
+    bricks: initialBricksState(config),
     events: NO_EVENTS,
   };
 }
@@ -151,6 +167,11 @@ export function togglePause(state) {
 export function getWinner(state) {
   if (state.phase !== GAME_PHASE.GAME_OVER) {
     return null;
+  }
+
+  // A Bricks game is not won on points: the player wins by clearing the last wall.
+  if (state.bricks) {
+    return state.lastPoint;
   }
 
   return state.score.player > state.score.opponent ? 'player' : 'opponent';
@@ -288,7 +309,7 @@ function awardPoint(state, scorer, x, config, events, superKind = null) {
         return endMatch({ ...state, score, lives }, 'opponent', events, superKind);
       }
     }
-  } else {
+  } else if (rules.kind === 'match') {
     if (score[scorer] >= rules.winningScore) {
       return endMatch({ ...state, score }, scorer, events, superKind);
     }
@@ -436,7 +457,7 @@ function glanceOffSide(state, before, ball, side, contact, paddleX, deltaSeconds
  * @param {GameState} state
  * @param {GameState} before the state the step began with
  * @param {Ball} ball where the ball ends the step if it meets nothing
- * @param {Ball} previousBall where it began the step
+ * @param {{ x: number, y: number }} previousBall where it began the step
  * @param {number} deltaSeconds
  * @param {GameConfig} config
  * @param {GameEvent[]} events
@@ -451,6 +472,12 @@ function collide(state, before, ball, previousBall, deltaSeconds, config, events
 
   // Only the paddle the ball is heading for can meet it.
   const side = walled.vy > 0 ? 'player' : 'opponent';
+
+  // Against a wall of bricks there is no paddle at the far end.
+  if (side === 'opponent' && state.bricks) {
+    return { state, ball: walled, hit: null };
+  }
+
   const contact = findPaddleContact({
     from: previousBall,
     to: walled,
@@ -625,6 +652,142 @@ function waitForServe(state, deltaSeconds, config, events) {
 }
 
 /**
+ * The player lost the last ball in play of a Bricks game: a life goes, and with the last life
+ * the game. Otherwise the ball is served again, to a paddle without its bonuses.
+ *
+ * @param {GameState} state
+ * @param {number} x where the ball left the court
+ * @param {GameConfig} config
+ * @param {GameEvent[]} events
+ * @returns {GameState}
+ */
+function missInBricks(state, x, config, events) {
+  const lives = state.lives - 1;
+  events.push({ type: 'point', scorer: 'opponent', x, y: config.height }, { type: 'life-lost', lives });
+
+  if (lives === 0) {
+    return endMatch({ ...afterMiss(state), lives }, 'opponent', events, null);
+  }
+
+  const serveNumber = state.serveNumber + 1;
+
+  return withEvents({
+    ...afterMiss(state),
+    lives,
+    lastPoint: 'opponent',
+    ball: brickServeBall(config, /** @type {BricksState} */ (state.bricks).level, serveNumber),
+    extraBalls: NO_EXTRA_BALLS,
+    serveNumber,
+    serveCountdown: config.serveDelaySeconds,
+    rally: 0,
+    superShot: null,
+  }, events);
+}
+
+/**
+ * The wall is down. After the last level the game is won; otherwise the next wall goes up and
+ * the ball is served to it, after a pause. Clearing a level earns a bonus, larger each level;
+ * the paddle keeps its width and its safety net.
+ *
+ * @param {GameState} state
+ * @param {GameConfig} config
+ * @param {GameEvent[]} events
+ * @returns {GameState}
+ */
+function clearLevel(state, config, events) {
+  const rules = /** @type {BricksConfig} */ (config.bricks);
+  const wall = /** @type {BricksState} */ (state.bricks);
+  const bonus = rules.clearBonus * (wall.level + 1);
+  const last = wall.level + 1 >= rules.levels.length;
+  const points = wall.points + bonus;
+
+  events.push({ type: 'level-clear', level: wall.level, bonus, last });
+
+  if (last) {
+    return endMatch({ ...state, bricks: { ...wall, points, drops: [], bolts: [], laser: 0 } }, 'player', events, null);
+  }
+
+  const serveNumber = state.serveNumber + 1;
+
+  return withEvents({
+    ...state,
+    lastPoint: 'player',
+    ball: brickServeBall(config, wall.level + 1, serveNumber),
+    extraBalls: NO_EXTRA_BALLS,
+    serveNumber,
+    serveCountdown: rules.clearSeconds,
+    rally: 0,
+    superShot: null,
+    bricks: levelState(config, wall.level + 1, points, wall.shield),
+  }, events);
+}
+
+/**
+ * One step of a Bricks game. The wall runs its own business: bombs, bonuses and bolts. Then
+ * every ball in play flies: through the bricks, off the ceiling and the side walls, back from
+ * the paddle or the safety net, or out of the court. Losing the last ball costs a life;
+ * breaking the last brick clears the level.
+ *
+ * @param {GameState} state the state, with the player's paddle already moved
+ * @param {GameState} before the state the step began with
+ * @param {number} deltaSeconds
+ * @param {GameConfig} config
+ * @param {GameEvent[]} events
+ * @returns {GameState}
+ */
+function advanceBricks(state, before, deltaSeconds, config, events) {
+  let next = tickBricks(tickEffects(state, deltaSeconds), deltaSeconds, config, events);
+
+  if (next.serveCountdown > 0) {
+    return waitForServe(next, deltaSeconds, config, events);
+  }
+
+  /** @type {Ball[]} */
+  const alive = [];
+  let lostAt = next.ball.x;
+
+  ballsInPlay(next).forEach((ball, index) => {
+    const main = index === 0;
+    const mark = events.length;
+    const moved = moveBall(curveBall(ball, deltaSeconds, config), deltaSeconds);
+    const flown = flyThroughBricks(next, ball, moved, config, events, main);
+    const topped = bounceOffCeiling(flown.state, flown.ball, config, events, main);
+    const collision = collide(topped.state, before, topped.ball, flown.from, deltaSeconds, config, events);
+    let flying = collision.ball;
+    /** @type {Ball[]} */
+    let split = [];
+    next = collision.state;
+
+    if (collision.hit) {
+      const played = returnInBricks(next, flying, collision.hit.offset, config, events, main);
+      ({ state: next, ball: flying, split } = played);
+    }
+
+    ({ state: next, ball: flying } = bounceOffNet(next, flying, config, events));
+
+    const bounces = events.slice(mark).filter((event) => event.type === 'wall-bounce').length;
+    ({ state: next, ball: flying } = unstall(next, flying, bounces, config));
+
+    if (flying.y - config.ball.radius > config.height) {
+      lostAt = flying.x;
+      // The ball takes its super with it.
+      next = main && next.superShot ? { ...next, superShot: null } : next;
+      return;
+    }
+
+    alive.push('id' in ball ? { ...ball, ...flying } : flying, ...split);
+  });
+
+  if (alive.length === 0) {
+    return missInBricks(next, lostAt, config, events);
+  }
+
+  next = withBalls(next, alive, config);
+
+  return levelCleared(/** @type {BricksState} */ (next.bricks)) ? clearLevel(next, config, events) : withEvents(next, events);
+}
+
+/**
  * Advances the simulation by one fixed step. Does nothing unless the match is running.
  * The returned state lists the events of this step, such as hits, bounces and points.
  *
@@ -642,6 +805,11 @@ export function advanceGame(state, deltaSeconds, input, config) {
   /** @type {GameEvent[]} */
   const events = [];
   let nextState = steerPaddle(state, 'player', input.pointerX, input.horizontalAxis, deltaSeconds, config);
+
+  if (nextState.bricks) {
+    return advanceBricks(nextState, state, deltaSeconds, config, events);
+  }
+
   nextState = config.opponent.controller === 'human'
     ? steerPaddle(nextState, 'opponent', input.opponentPointerX, input.opponentAxis, deltaSeconds, config)
     : moveOpponent(nextState, deltaSeconds, config);

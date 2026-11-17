@@ -5,7 +5,7 @@ import { buildMatchConfig, GameController } from '../src/application/game-contro
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { GAME_COMMAND } from '../src/application/ports.js';
 import { HIGH_SCORES, MATCH_CATALOG, RIVALS } from '../src/catalog.js';
-import { DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
 import { GAME_PHASE } from '../src/domain/game.js';
 
 function createFrameScheduler() {
@@ -61,6 +61,7 @@ function createPreferences(initial = {}) {
     tutorialSeen: true,
     bestRally: 0,
     bestRush: 0,
+    bestBricks: 0,
     stats: DEFAULT_STATS,
     rival: 0,
     careerStars: [],
@@ -188,6 +189,7 @@ test('connecting draws the ready screen, sets up one player, and leaves the loop
     winner: null,
     career: null,
     highScores: null,
+    bricks: null,
   });
   assert.equal(scheduler.pending.size, 0);
 });
@@ -990,4 +992,165 @@ test('in a career match the Fun switch never renames the rival', () => {
   const { view } = setup({ mode: 'career', jokes: true, rival: 0 });
 
   assert.deepEqual(lastOf(view.presentations).opponent, { label: 'Roma', name: 'Rookie Roma', proper: true });
+});
+
+// Bricks: the second game, the paddle against a wall.
+
+const BRICKS = BRICKS_CONFIG.bricks;
+/** A ball about to fall out of the court, with the paddle out of its way. */
+const lostBall = { x: 440, y: BRICKS_CONFIG.height + BRICKS_CONFIG.ball.radius - 1, vx: 0, vy: 400, spin: 0 };
+
+test('Bricks plays on its own tuning, with supers as the player chose', () => {
+  const choose = (choices) => buildMatchConfig(MATCH_CATALOG, { mode: 'bricks', difficulty: 'hard', powerUps: true, ...choices });
+
+  assert.strictEqual(choose({ supers: false }), BRICKS_CONFIG, 'neither the difficulty nor the power-ups setting touches it');
+  assert.equal(choose({ supers: true }).supers.enabled, true);
+  assert.strictEqual(choose({ supers: true }).bricks, BRICKS);
+  assert.equal(MATCH_CATALOG.bricks.rules.kind, 'bricks');
+});
+
+test('in the menu Bricks tells what there is to do, and one person plays', () => {
+  const { view, input, controller } = setup({ mode: 'bricks', bestBricks: 4200 });
+  const presentation = lastOf(view.presentations);
+
+  assert.equal(presentation.mode, 'bricks');
+  assert.equal(presentation.status, `Bricks: break all ${BRICKS.levels.length} walls.`);
+  assert.deepEqual(presentation.bricks, { level: 1, levels: BRICKS.levels.length, name: BRICKS.levels[0].name, points: 0, best: 4200, newBest: false });
+  assert.deepEqual(presentation.opponent, { label: 'Wall', name: 'The wall', proper: false });
+  assert.equal(presentation.maxLives, BRICKS_CONFIG.rules.lives);
+  assert.equal(presentation.highScores, null);
+  assert.equal(presentation.career, null);
+  assert.equal(presentation.matchPoint, null);
+  assert.deepEqual(lastOf(input.layouts), { players: 1 });
+  assert.ok(controller.state.bricks.bricks.length > 0, 'the wall is up behind the menu');
+});
+
+test('the other modes have nothing of Bricks to show', () => {
+  for (const mode of ['solo', 'rush', 'duo', 'career']) {
+    assert.equal(lastOf(setup({ mode }).view.presentations).bricks, null, mode);
+  }
+});
+
+test('while a Bricks game runs the status line tells the wall, the points and the balls left', () => {
+  const { controller, scheduler, view } = setup({ mode: 'bricks' });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { bricks: { ...controller.state.bricks, points: 340 }, ball: { x: 250, y: 600, vx: 0, vy: -1, spin: 0 } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+  assert.equal(lastOf(view.presentations).status, `Wall 1, ${BRICKS.levels[0].name}: 340 points, 3 balls left`);
+  assert.equal(lastOf(view.presentations).bricks.points, 340);
+
+  inPlay(controller, { lives: 1 });
+  scheduler.flush(1040);
+  assert.match(lastOf(view.presentations).status, /1 ball left$/);
+
+  view.handler(GAME_COMMAND.TOGGLE_PAUSE);
+  assert.equal(lastOf(view.presentations).status, 'Game paused.');
+});
+
+test('a life won in Bricks shows as one more, not as one already lost', () => {
+  const { controller, scheduler, view } = setup({ mode: 'bricks' });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { lives: 5, ball: { x: 250, y: 600, vx: 0, vy: -1, spin: 0 } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  assert.deepEqual([lastOf(view.presentations).lives, lastOf(view.presentations).maxLives], [5, 5]);
+});
+
+test('a Bricks game lost on its last ball records the points, and a record is celebrated', () => {
+  const { controller, scheduler, view, preferences } = setup({ mode: 'bricks', bestBricks: 500 });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { lives: 1, player: { x: 60, vx: 0 }, bricks: { ...controller.state.bricks, points: 1280, level: 2 }, ball: lostBall });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  const presentation = lastOf(view.presentations);
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.equal(presentation.winner, 'opponent');
+  assert.equal(presentation.status, `Game over on wall 3 of ${BRICKS.levels.length} — 1280 points.`);
+  assert.deepEqual({ best: presentation.bricks.best, newBest: presentation.bricks.newBest }, { best: 1280, newBest: true });
+  assert.deepEqual(lastOf(preferences.writes), { bestBricks: 1280 });
+  assert.equal(presentation.stats.matches, 0, 'it is not a Solo match');
+});
+
+test('a Bricks game short of the record changes nothing, and the next game starts unmarked', () => {
+  const { controller, scheduler, view, preferences } = setup({ mode: 'bricks', bestBricks: 5000 });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { lives: 1, player: { x: 60, vx: 0 }, bricks: { ...controller.state.bricks, points: 90 }, ball: lostBall });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  assert.equal(lastOf(view.presentations).bricks.newBest, false);
+  assert.ok(!preferences.writes.some((write) => 'bestBricks' in write));
+
+  // A record, then another game: the badge does not carry over.
+  preferences.set({ bestBricks: 10 });
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { lives: 1, player: { x: 60, vx: 0 }, bricks: { ...controller.state.bricks, points: 90 }, ball: lostBall });
+  scheduler.flush(2000);
+  scheduler.flush(2020);
+  assert.equal(lastOf(view.presentations).bricks.newBest, true);
+
+  view.handler(GAME_COMMAND.START);
+  assert.equal(lastOf(view.presentations).bricks.newBest, false);
+  assert.equal(lastOf(view.presentations).bricks.points, 0);
+});
+
+test('clearing the last wall wins the game', () => {
+  const { controller, scheduler, view } = setup({ mode: 'bricks' });
+  const last = BRICKS.levels.length - 1;
+
+  view.handler(GAME_COMMAND.START);
+  const [brick] = controller.state.bricks.bricks;
+  inPlay(controller, {
+    bricks: { ...controller.state.bricks, level: last, time: 0, drift: 0, points: 9000, bricks: [{ ...brick, x: 230, y: 300 }] },
+    ball: { x: 250, y: 334, vx: 0, vy: -500, spin: 0 },
+  });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  const presentation = lastOf(view.presentations);
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.equal(presentation.winner, 'player');
+  assert.equal(presentation.bricks.level, BRICKS.levels.length);
+  assert.equal(presentation.status, `Every wall is down — ${presentation.bricks.points} points.`);
+  assert.ok(presentation.bricks.points > 9000, 'with the last wall\'s bonus');
+});
+
+test('in Bricks the picture stops for a bomb and a super, not for every return', () => {
+  const { controller, scheduler, view } = setup({ mode: 'bricks', supers: true });
+  const paddleTop = BRICKS_CONFIG.height - BRICKS_CONFIG.paddle.inset - BRICKS_CONFIG.paddle.height;
+
+  view.handler(GAME_COMMAND.START);
+  // A fast ball returned by the paddle: in a match this would freeze the picture for an instant.
+  inPlay(controller, { player: { x: 250, vx: 0 }, ball: { x: 250, y: paddleTop - BRICKS_CONFIG.ball.radius - 3, vx: 0, vy: 800, spin: 0 } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+  assert.equal(controller.state.rally, 1, 'the ball was returned');
+  assert.equal(controller.loop.holdSeconds, 0);
+
+  // A bomb going off does.
+  const [brick] = controller.state.bricks.bricks;
+  inPlay(controller, {
+    bricks: { ...controller.state.bricks, time: 0, drift: 0, bricks: [{ ...brick, x: 230, y: 300, kind: 'bomb' }, { ...brick, id: 999, x: 20, y: 100 }] },
+    ball: { x: 250, y: 334, vx: 0, vy: -500, spin: 0 },
+  });
+  scheduler.flush(1040);
+  assert.ok(controller.loop.holdSeconds > 0);
+});
+
+test('leaving a Bricks game is no Solo forfeit', () => {
+  const { controller, view, preferences } = setup({ mode: 'bricks' });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { bricks: { ...controller.state.bricks, points: 300 } });
+  view.handler(GAME_COMMAND.RESET);
+
+  assert.ok(!preferences.writes.some((write) => 'stats' in write || 'bestBricks' in write));
+  assert.equal(lastOf(view.presentations).bricks.points, 0);
 });

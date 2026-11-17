@@ -2,7 +2,7 @@
  * The neon look shared by every part of the canvas renderer: colors, fonts and the few
  * drawing helpers they all use.
  *
- * @import { GameConfig, HazardKind, PowerUpKind, SuperKind } from '../../domain/types.js'
+ * @import { DropKind, GameConfig, HazardKind, PowerUpKind, SuperKind } from '../../domain/types.js'
  */
 
 // Pure white (#ffffff) is reserved for the ball core, and each paddle has a unique core
@@ -39,6 +39,33 @@ export const PICKUP_STYLE = Object.freeze({
   turbo: Object.freeze({ rgb: '251, 191, 36', glyph: '⚡', label: 'TURBO' }),
   ghost: Object.freeze({ rgb: '167, 139, 250', glyph: '◌', label: 'GHOST' }),
   multi: Object.freeze({ rgb: '163, 230, 53', glyph: '••', label: 'MULTIBALL' }),
+});
+
+// The Bricks game's wall is colored by row, top to bottom, in the neon of the court; steel is
+// the gray of the court's lines and a bomb the amber of a warning.
+/** @type {readonly string[]} */
+export const BRICK_ROWS = Object.freeze(['244, 114, 182', '251, 113, 133', '251, 146, 60', '251, 191, 36', '163, 230, 53', '45, 212, 191', '34, 211, 238', '96, 165, 250', '167, 139, 250', '232, 121, 249']);
+export const STEEL_RGB = '148, 163, 184';
+export const BOMB_RGB = '251, 146, 60';
+
+/**
+ * @param {{ kind: string, row: number }} brick
+ * @returns {string} "r, g, b"
+ */
+export function brickRgb({ kind, row }) {
+  return kind === 'steel' ? STEEL_RGB : kind === 'bomb' ? BOMB_RGB : BRICK_ROWS[row % BRICK_ROWS.length];
+}
+
+// What falls from a broken brick: a capsule in its color, with its sign, and the word the
+// board calls out when the paddle catches it.
+/** @type {Readonly<Record<DropKind, { rgb: string, glyph: string, label: string }>>} */
+export const DROP_STYLE = Object.freeze({
+  wide: Object.freeze({ rgb: '34, 211, 238', glyph: '⟷', label: 'WIDE' }),
+  multi: Object.freeze({ rgb: '163, 230, 53', glyph: '••', label: 'MULTIBALL' }),
+  laser: Object.freeze({ rgb: '251, 113, 133', glyph: '⇈', label: 'LASER' }),
+  shield: Object.freeze({ rgb: '167, 139, 250', glyph: '▂', label: 'SHIELD' }),
+  slow: Object.freeze({ rgb: '96, 165, 250', glyph: '◔', label: 'SLOW' }),
+  life: Object.freeze({ rgb: '244, 114, 182', glyph: '♥', label: '+1 BALL' }),
 });
 
 // Each super has a color of its own, which its ball, its trail, its callout and a full meter

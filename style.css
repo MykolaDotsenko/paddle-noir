@@ -288,6 +288,12 @@ canvas:focus-visible {
   text-shadow: 0 0 12px rgba(var(--opponent-rgb), 0.8), 0 0 28px rgba(var(--opponent-rgb), 0.45);
 }
 
+/* In Bricks the score runs to five figures, so it is set smaller than a match's. */
+[data-mode="bricks"] .scoreboard__score {
+  min-width: 0;
+  font-size: clamp(1.3rem, 3vh, 1.75rem);
+}
+
 .scoreboard__divider {
   width: 2px;
   height: 26px;
@@ -672,10 +678,12 @@ kbd {
   box-shadow: 0 0 calc(4 * var(--u)) rgba(var(--player-rgb), 0.45);
 }
 
-/* The four modes as cards, two by two: an icon, the name and a line on what it is. */
+/* The modes as cards in two rows: the three kinds of match across the top, and under them the
+   career and the second game, Bricks, each with a line on what it is. The top three are too
+   narrow for theirs, which stays in their names for screen readers. */
 .modes {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: calc(2 * var(--u));
   /* On a tablet the type outgrows a fixed cap, so the cap grows with it. */
   width: min(100%, max(26rem, calc(76 * var(--u))));
@@ -695,6 +703,23 @@ kbd {
   color: var(--muted);
   background: linear-gradient(180deg, rgba(22, 26, 56, 0.72), rgba(10, 12, 28, 0.72));
   transition: color 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, transform 120ms ease;
+}
+
+.mode--third {
+  grid-column: span 2;
+  justify-content: center;
+  column-gap: calc(1.6 * var(--u));
+  padding-inline: calc(1.2 * var(--u));
+}
+
+.mode--third .mode__icon {
+  grid-row: auto;
+  width: max(18px, calc(5.4 * var(--u)));
+  height: max(18px, calc(5.4 * var(--u)));
+}
+
+.mode--half {
+  grid-column: span 3;
 }
 
 .mode:hover {
@@ -1737,6 +1762,11 @@ kbd {
   color: var(--muted);
 }
 
+/* A line that belongs to the other game. */
+.tutorial li[hidden] {
+  display: none;
+}
+
 .tutorial strong {
   color: var(--text);
 }
@@ -2016,6 +2046,21 @@ kbd {
   .scoreboard__divider {
     width: 26px;
     height: 2px;
+  }
+
+  /* Lives won in Bricks would run off the screen in a row, so here they stand three across. */
+  .lives {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: var(--hud-w);
+    gap: 2px 3px;
+    font-size: 0.8rem;
+  }
+
+  /* Five figures must fit the narrow column the HUD stands in here. */
+  [data-mode="bricks"] .scoreboard__side--player .scoreboard__score {
+    font-size: min(1.3rem, calc(var(--hud-w) * 0.3));
+    letter-spacing: -0.02em;
   }
 
   .overlay {

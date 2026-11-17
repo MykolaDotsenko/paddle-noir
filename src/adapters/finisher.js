@@ -117,7 +117,8 @@ export function finisherAt(event, state, config, jokes) {
   return finisherFor({
     winner: event.winner,
     twoPlayers: config.opponent.controller === 'human',
-    rush: config.rules.kind === 'rush',
+    // A run or a wall has no paddle to finish off.
+    rush: config.rules.kind !== 'match',
     jokes,
     final: isFinalBoss(config),
     seed: state.seed,

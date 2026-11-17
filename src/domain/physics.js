@@ -250,6 +250,56 @@ export function findPaddleContact({ from, to, paddleFrom, paddleTo, paddleTop, p
 }
 
 /**
+ * @typedef {object} BoxContact Where a moving ball first touches a box that stands still.
+ * @property {number} time share of the step at which they touch, from 0 to 1
+ * @property {number} x the ball's center, touching the box
+ * @property {number} y
+ * @property {number} normalX the box surface's outward normal where they touch; a corner's
+ *   points from the corner to the ball
+ * @property {number} normalY
+ * @property {boolean} approaching whether the ball moves into the surface rather than along or away
+ */
+
+/**
+ * Finds where a ball moving in a straight line first touches a box, faces and rounded corners
+ * alike, so a fast ball cannot tunnel through a brick and one that clips a corner leaves at the
+ * angle a real corner would send it. A ball resting against the box, or leaving it, is no
+ * contact; one found inside it, as when the box moved into the ball, is reported at its surface.
+ *
+ * @param {Point} from ball center at the start of the step
+ * @param {Point} to ball center at the end of the step
+ * @param {Box} box
+ * @param {number} radius
+ * @returns {BoxContact | null}
+ */
+export function findBoxContact(from, to, box, radius) {
+  const delta = { x: to.x - from.x, y: to.y - from.y };
+  const time = firstTouch(from, delta, box, radius);
+
+  if (time === null) {
+    return null;
+  }
+
+  const touch = { x: from.x + delta.x * time, y: from.y + delta.y * time };
+  const surface = nearestSurface(touch, box);
+  const overlapping = time === 0 && surface.distance < radius - CONTACT_EPSILON;
+  const approaching = delta.x * surface.normal.x + delta.y * surface.normal.y < 0;
+
+  if (!overlapping && !approaching) {
+    return null;
+  }
+
+  return {
+    time,
+    x: surface.nearest.x + surface.normal.x * radius,
+    y: surface.nearest.y + surface.normal.y * radius,
+    normalX: surface.normal.x,
+    normalY: surface.normal.y,
+    approaching,
+  };
+}
+
+/**
  * A glancing blow off a paddle's side or back corner: the ball bounces off the surface as off
  * a wall, at the same speed and without spin. A paddle never passes its own speed on this way;
  * one that runs into the ball side-on stops against it instead.

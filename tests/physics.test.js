@@ -6,6 +6,7 @@ import {
   bounceFromPaddle,
   clampPaddleCenter,
   curveBall,
+  findBoxContact,
   findPaddleContact,
   foldIntoRange,
   glanceOffPaddle,
@@ -317,4 +318,49 @@ test('even an absurd spin never turns the ball back toward its own side', () => 
 
   assert.ok(curved.vy > 0);
   assert.equal(curved.spin, 0);
+});
+
+// A box that stands still, as a brick does.
+const box = { left: 100, right: 140, top: 200, bottom: 220 };
+
+test('a ball flying into a box\'s face touches it one radius short, with the face\'s normal', () => {
+  const touch = findBoxContact({ x: 120, y: 260 }, { x: 120, y: 220 }, box, radius);
+
+  assert.deepEqual({ x: touch.x, y: touch.y, normalX: touch.normalX, normalY: touch.normalY, approaching: touch.approaching }, { x: 120, y: 220 + radius, normalX: 0, normalY: 1, approaching: true });
+  assert.ok(Math.abs(touch.time - (40 - radius) / 40) < 1e-9, 'at the moment of the touch');
+
+  const side = findBoxContact({ x: 60, y: 210 }, { x: 110, y: 210 }, box, radius);
+  assert.deepEqual([side.x, side.normalX, side.normalY], [100 - radius, -1, 0]);
+});
+
+test('a ball that clips a box\'s corner gets the normal from the corner to the ball', () => {
+  // Straight up, half a radius outside the left edge.
+  const touch = findBoxContact({ x: 100 - radius / 2, y: 260 }, { x: 100 - radius / 2, y: 200 }, box, radius);
+
+  assert.ok(touch.normalX < 0 && touch.normalY > 0, 'down and to the left');
+  assert.ok(Math.abs(Math.hypot(touch.normalX, touch.normalY) - 1) < 1e-9);
+  assert.ok(Math.abs(Math.hypot(touch.x - 100, touch.y - 220) - radius) < 1e-9, 'one radius from the corner');
+});
+
+test('a fast ball cannot tunnel through a box in one step', () => {
+  const touch = findBoxContact({ x: 120, y: 400 }, { x: 120, y: 0 }, box, radius);
+
+  assert.ok(touch);
+  assert.equal(touch.y, 220 + radius);
+});
+
+test('a ball that misses a box, rests against it or flies away from it is no contact', () => {
+  assert.equal(findBoxContact({ x: 300, y: 260 }, { x: 300, y: 100 }, box, radius), null, 'a miss');
+  assert.equal(findBoxContact({ x: 120, y: 220 + radius }, { x: 160, y: 220 + radius }, box, radius), null, 'sliding along the face');
+  assert.equal(findBoxContact({ x: 120, y: 220 + radius }, { x: 120, y: 300 }, box, radius), null, 'leaving it');
+  assert.equal(findBoxContact({ x: 120, y: 300 }, { x: 120, y: 260 }, box, radius), null, 'not there yet');
+});
+
+test('a ball found inside a box is put at its nearest surface, whichever way it moves', () => {
+  // Just inside the right edge, drifting down: the way out is to the right.
+  const touch = findBoxContact({ x: 138, y: 210 }, { x: 138, y: 211 }, box, radius);
+
+  assert.equal(touch.time, 0);
+  assert.deepEqual([touch.x, touch.y, touch.normalX, touch.normalY], [140 + radius, 210, 1, 0]);
+  assert.equal(touch.approaching, false, 'it is not flying into that side');
 });

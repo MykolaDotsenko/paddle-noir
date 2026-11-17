@@ -27,7 +27,14 @@ test('the reference matches cover real play: points, hits and long rallies', () 
   for (const scenario of SCENARIOS) {
     const { summary } = fixtures[scenario.name];
     assert.ok(summary.hits.player + summary.hits.opponent >= 15, `${scenario.name} has hits`);
-    assert.ok(summary.score.player + summary.score.opponent >= 1, `${scenario.name} has points`);
     assert.ok(summary.longestRally >= 4, `${scenario.name} has rallies`);
+
+    if (scenario.name === 'bricks') {
+      // A wall is not played for points against anyone: it is real play if walls come down.
+      assert.ok(summary.events['brick-break'] >= 60 && summary.events['level-clear'] >= 1, 'bricks break and a wall comes down');
+      assert.ok(summary.events['drop'] >= 1 && summary.events['blast'] >= 1, 'bonuses are caught and bombs go off');
+    } else {
+      assert.ok(summary.score.player + summary.score.opponent >= 1, `${scenario.name} has points`);
+    }
   }
 });
