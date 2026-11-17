@@ -1,5 +1,6 @@
 import { GAME_PHASE } from '../domain/game.js';
 import { isFinalBoss } from '../domain/hazards.js';
+import { CameoCue } from './cameo.js';
 import { finisherAt } from './finisher.js';
 
 /**
@@ -57,6 +58,7 @@ export class SoundBoard {
     this.context = null;
     /** @type {GainNode | null} */
     this.master = null;
+    this.cameoCue = new CameoCue();
   }
 
   /**
@@ -65,15 +67,22 @@ export class SoundBoard {
    * @param {GameConfig} [config]
    */
   handle(events, state, config) {
+    const jokes = this.preferences.get().jokes === true;
+    // The cameo is counted with the sound off too, so it stays in step with the picture.
+    const whoops = config ? events.filter((event) => this.cameoCue.take(event, config, jokes) !== null) : [];
+
     if (!this.preferences.get().sound || !this.ensureContext()) {
       return;
     }
 
-    const jokes = this.preferences.get().jokes === true;
     const final = config ? isFinalBoss(config) : false;
 
     for (const event of events) {
       this.play(event, jokes);
+
+      if (whoops.includes(event)) {
+        this.whoop();
+      }
 
       if (final) {
         this.finalBoss(event, state, jokes);
@@ -153,6 +162,13 @@ export class SoundBoard {
       const frequency = 150 - index * 9;
       this.tone({ frequency: frequency * 1.2, endFrequency: frequency, duration: 0.13, type: 'sawtooth', volume: 0.2, delay: index * 0.16 });
     }
+  }
+
+  /** The sound man's whoop, just after the super's own sound: two rising notes, high and gleeful. */
+  whoop() {
+    this.tone({ frequency: 620, endFrequency: 990, duration: 0.16, type: 'sine', volume: 0.26, delay: 0.12 });
+    this.tone({ frequency: 1180, endFrequency: 1570, duration: 0.22, type: 'sine', volume: 0.26, delay: 0.29 });
+    this.tone({ frequency: 2360, endFrequency: 3140, duration: 0.18, type: 'triangle', volume: 0.06, delay: 0.29 });
   }
 
   /** The finisher landing: a low crack and a falling whine. */

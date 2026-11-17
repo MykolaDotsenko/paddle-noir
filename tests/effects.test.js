@@ -342,3 +342,30 @@ test('a shrinking ring never reaches the canvas with a negative radius', () => {
 
   assert.equal(context.calls.find(([name]) => name === 'arc')[3], 0);
 });
+
+test('a cameo leans in for its time, keeps the effects alive, and is gone', () => {
+  const effects = new Effects({ random: seededRandom() });
+  assert.equal(effects.cameo, null);
+  assert.ok(!effects.active);
+
+  effects.leanIn('opponent', 1.1);
+  assert.deepEqual(effects.cameo, { side: 'opponent', life: 1.1, maxLife: 1.1 });
+  assert.ok(effects.active, 'frames keep coming while he is there');
+
+  effects.update(0.5);
+  assert.ok(Math.abs(effects.cameo.life - 0.6) < 1e-9);
+  assert.equal(effects.cameo.maxLife, 1.1);
+
+  effects.update(0.7);
+  assert.equal(effects.cameo, null);
+  assert.ok(!effects.active);
+});
+
+test('clearing the effects sends the cameo away too', () => {
+  const effects = new Effects({ random: seededRandom() });
+
+  effects.leanIn('player', 1.1);
+  effects.clear();
+
+  assert.equal(effects.cameo, null);
+});

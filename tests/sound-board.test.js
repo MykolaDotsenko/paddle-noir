@@ -345,3 +345,53 @@ test('the coin is for the start of a match only', () => {
 
   assert.ok(contexts[0].oscillators.every((oscillator) => oscillator.frequency.events[0][1] < 2000));
 });
+
+test('the sound man whoops at the first super a person fires, once a match, and never for the computer', () => {
+  const { board, contexts } = setup({ jokes: true });
+  const count = (events) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle(events, undefined, GAME_CONFIG);
+    return contexts[0].oscillators.length - before;
+  };
+  const fired = (side = 'player') => ({ ...hit(1, side), super: 'fireball' });
+  const plain = count([fired('opponent')]);
+
+  const before = contexts[0].oscillators.length;
+  assert.equal(count([fired()]), plain + 3, 'two rising notes and a glint on top');
+  const whoop = contexts[0].oscillators.slice(before + plain);
+  assert.ok(whoop.every((oscillator) => oscillator.frequency.events[1][1] > oscillator.frequency.events[0][1]), 'each rises');
+  assert.ok(whoop.every((oscillator) => oscillator.startedAt > contexts[0].currentTime), 'just after the super\'s own sound');
+
+  assert.equal(count([fired()]), plain, 'the next super is only a super');
+  board.handle([{ type: 'match-start' }], undefined, GAME_CONFIG);
+  assert.equal(count([fired()]), plain + 3, 'until the next match');
+});
+
+test('without the fun extras, or without a match\'s settings, there is no whoop', () => {
+  const fired = { ...hit(1), super: 'fireball' };
+  const sounds = (jokes, config) => {
+    const { board, contexts } = setup({ jokes });
+    board.handle([fired], undefined, config);
+    return contexts[0].oscillators.length;
+  };
+
+  assert.equal(sounds(false, GAME_CONFIG), sounds(true, undefined));
+  assert.equal(sounds(true, GAME_CONFIG), sounds(false, GAME_CONFIG) + 3);
+});
+
+test('the cameo is counted while the sound is off, so sound switched on mid-match stays in step with the picture', () => {
+  const preferences = { sound: false, jokes: true };
+  FakeAudioContext.created = [];
+  const board = new SoundBoard({ audio: new AudioOutput({ AudioContext: FakeAudioContext }), preferences: { get: () => preferences } });
+  const fired = { ...hit(1), super: 'fireball' };
+
+  board.handle([fired], undefined, GAME_CONFIG);
+  assert.equal(FakeAudioContext.created.length, 0);
+
+  preferences.sound = true;
+  board.handle([{ ...hit(1, 'opponent'), super: 'fireball' }], undefined, GAME_CONFIG);
+  const plain = FakeAudioContext.created[0].oscillators.length;
+  board.handle([fired], undefined, GAME_CONFIG);
+
+  assert.equal(FakeAudioContext.created[0].oscillators.length, plain * 2, 'he already came, in silence');
+});

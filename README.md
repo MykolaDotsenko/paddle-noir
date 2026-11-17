@@ -29,7 +29,7 @@ Returns charge a super meter. A full meter can fire **Fireball, Zigzag, Phantom 
 
 Optional power-ups add Wide, Shrink, Turbo, Ghost and Multiball. Curve shots come from paddle movement at impact rather than a separate button.
 
-The game also includes match-point drama, long-rally escalation, synthesized music/sound, vibration, small arcade jokes — a coin drops and CREDIT 01 shows as a match starts — and over-the-top finishing animations. Those effects are driven by domain events rather than mixed into the physics loop.
+The game also includes match-point drama, long-rally escalation, synthesized music/sound, vibration, small arcade jokes — a coin drops and CREDIT 01 shows as a match starts, and the arcade's sound man leans in to whoop at your first super of a match — and over-the-top finishing animations. Those effects are driven by domain events rather than mixed into the physics loop.
 
 ## Engineering
 
