@@ -60,7 +60,7 @@ test('an unknown or missing track id falls back to the first track', () => {
 });
 
 test('the nineties tracks dance: a kick on every beat, a clap on two and four, and all three layers', () => {
-  for (const id of ['eurodance', 'rave', 'trance', 'rondo', 'cancan']) {
+  for (const id of ['eurodance', 'rave', 'trance', 'rondo', 'cancan', 'ode']) {
     const track = findTrack(id);
 
     assert.equal(track.id, id);
@@ -71,7 +71,7 @@ test('the nineties tracks dance: a kick on every beat, a clap on two and four, a
   }
 });
 
-// The five nineties tracks carry tunes people know, so a wrong note would be heard at once.
+// The seven nineties tracks carry tunes people know, so a wrong note would be heard at once.
 // These spell each lead's opening out by name, as it is sung.
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 /** The lead's notes by name, rests left out; the root's own name is where the count starts. */
@@ -86,6 +86,12 @@ test('the nineties tracks play the melodies they are named for in the notes', ()
   assert.equal(sung(findTrack('rave'), 'D', 13), 'D E F G A F A G# E G# G D# G', 'In the Hall of the Mountain King');
   assert.equal(sung(findTrack('rondo'), 'A', 21), 'C D C B C E F E D# E B A G# A B A G# A C A C', 'Rondo alla Turca');
   assert.equal(sung(findTrack('cancan'), 'D', 26), 'D D E G F# E A A A B F# G E E E G F# E D D C# B A G F# E', 'the can-can');
+  assert.equal(
+    sung(findTrack('ode'), 'C', 30),
+    'E E F G G F E D C C D E E D D E E F G G F E D C C D E D C C',
+    'Ode to Joy',
+  );
+  assert.equal(sung(findTrack('shchedryk'), 'G', 8), 'A# A A# G A# A A# G', 'Shchedryk');
   // The Canon's line is the note each bar begins on; the plucks under it are that bar's chord.
   const canon = findTrack('trance');
   const tops = canon.bars.map((_, bar) => canon.lead.notes[bar * STEPS_PER_BAR]);
@@ -109,4 +115,22 @@ test('Korobeiniki sits on the chords that belong under it', () => {
 
     assert.ok(note === null || chord.includes(note % 12), `bar ${bar + 1}`);
   });
+});
+
+test('Shchedryk keeps its three beats a bar: every pattern is a bar of twelve steps, a kick on each beat', () => {
+  const track = findTrack('shchedryk');
+  const bar = 12;
+
+  for (const pattern of [track.chord.hits, track.drums.kick, track.drums.snare, track.drums.hat]) {
+    assert.equal(pattern.length, bar);
+  }
+
+  assert.equal(track.bass.notes.length, bar);
+  assert.equal(track.drums.kick, 'x...x...x...');
+  // The bell figure, B flat, A, B flat, G, starts every bar of the melody.
+  const perBar = bar / track.lead.every;
+  for (let start = 0; start < track.lead.notes.length; start += perBar) {
+    const figure = track.lead.notes.slice(start, start + perBar).filter((note) => note !== null);
+    assert.deepEqual(figure.map((note) => note - figure[3]), [3, 2, 3, 0], `bar ${start / perBar + 1}`);
+  }
 });

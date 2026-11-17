@@ -1,7 +1,7 @@
 /** @import { TrackId } from '../application/ports.js' */
 
 /**
- * Backing tracks for the music player, written as step sequences. Five are original; the five
+ * Backing tracks for the music player, written as step sequences. Five are original; the seven
  * in nineties dance styles arrange melodies long in the public domain, so nothing here is
  * taken from a record. A step is a sixteenth note and a bar has 16 of them. Pitches are
  * semitones above the track's root frequency; null is a rest. Every part loops, so a pattern
@@ -328,6 +328,73 @@ export const MUSIC_TRACKS = Object.freeze([
       ],
     },
     drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+  },
+  {
+    // Beethoven's Ode to Joy as nineties eurotrance in C at 132 bpm: the hymn whole, both
+    // verses and the bridge between, over a bass off the beat, the same way a dozen dance
+    // records of the decade set it.
+    id: 'ode',
+    label: 'Ode',
+    bpm: 132,
+    root: 65.41,
+    bars: [0, -5, 0, -5, 0, -5, 0, 0, -5, -5, -5, -5, 0, -5, 0, 0],
+    bass: { wave: 'sawtooth', volume: 0.14, length: 1.1, notes: [_, _, 0, _, _, _, 0, _, _, _, 0, _, _, _, 0, 12] },
+    chord: { wave: 'triangle', volume: 0.05, length: 1.4, hits: '..x...x...x...x.', chords: [[12, 16, 19]] },
+    lead: {
+      wave: 'square',
+      volume: 0.045,
+      length: 3.2,
+      every: 2,
+      notes: [
+        28, _, 28, _, 29, _, 31, _,
+        31, _, 29, _, 28, _, 26, _,
+        24, _, 24, _, 26, _, 28, _,
+        28, _, _, 26, 26, _, _, _,
+        28, _, 28, _, 29, _, 31, _,
+        31, _, 29, _, 28, _, 26, _,
+        24, _, 24, _, 26, _, 28, _,
+        26, _, _, 24, 24, _, _, _,
+        26, _, 26, _, 28, _, 24, _,
+        26, _, 28, 29, 28, _, 24, _,
+        26, _, 28, 29, 28, _, 26, _,
+        24, _, 26, _, 19, _, _, _,
+        28, _, 28, _, 29, _, 31, _,
+        31, _, 29, _, 28, _, 26, _,
+        24, _, 24, _, 26, _, 28, _,
+        26, _, _, 24, 24, _, _, _,
+      ],
+    },
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+  },
+  {
+    // Leontovych's Shchedryk (1916), the four-note carol the world sings as the Carol of the
+    // Bells, as a dance track in G minor that keeps its three beats a bar: every pattern here
+    // is a bar of twelve steps, a kick on each beat, oom-pah-pah in the bass, the bell figure
+    // four times low and four times an octave up.
+    id: 'shchedryk',
+    label: 'Shchedryk',
+    bpm: 144,
+    root: 49,
+    bars: [0, 0, 0, 0, 0, 0],
+    bass: { wave: 'sawtooth', volume: 0.14, length: 1.6, notes: [0, _, _, _, 12, _, _, _, 12, _, _, _] },
+    chord: { wave: 'triangle', volume: 0.05, length: 2.4, hits: '....x...x...', chords: [[12, 15, 19]] },
+    lead: {
+      wave: 'square',
+      volume: 0.045,
+      length: 1.8,
+      every: 2,
+      notes: [
+        39, _, 38, 39, 36, _,
+        39, _, 38, 39, 36, _,
+        39, _, 38, 39, 36, _,
+        39, _, 38, 39, 36, _,
+        51, _, 50, 51, 48, _,
+        51, _, 50, 51, 48, _,
+        51, _, 50, 51, 48, _,
+        51, _, 50, 51, 48, _,
+      ],
+    },
+    drums: { kick: 'x...x...x...', snare: '....x.......', hat: '..x...x...x.' },
   },
 ]);
 

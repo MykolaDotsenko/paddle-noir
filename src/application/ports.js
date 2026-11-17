@@ -32,7 +32,7 @@ export const MODES = Object.freeze(['solo', 'rush', 'duo', 'career']);
  * The backing tracks, in the order the track button cycles through them.
  * @type {readonly TrackId[]}
  */
-export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 'iron', 'eurodance', 'rave', 'trance', 'rondo', 'cancan']);
+export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 'iron', 'eurodance', 'rave', 'trance', 'rondo', 'cancan', 'ode', 'shchedryk']);
 
 /**
  * @typedef {(typeof GAME_COMMAND)[keyof typeof GAME_COMMAND]} GameCommand
@@ -40,7 +40,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @typedef {'easy' | 'normal' | 'hard'} Difficulty
  * @typedef {'solo' | 'rush' | 'duo' | 'career'} Mode Solo against the computer, a Rush survival run,
  *   two people, or the career ladder of rivals.
- * @typedef {'neon' | 'arena' | 'anthem' | 'contender' | 'iron' | 'eurodance' | 'rave' | 'trance' | 'rondo' | 'cancan'} TrackId
+ * @typedef {'neon' | 'arena' | 'anthem' | 'contender' | 'iron' | 'eurodance' | 'rave' | 'trance' | 'rondo' | 'cancan' | 'ode' | 'shchedryk'} TrackId
  *
  * @typedef {object} MatchStats Solo results, kept across visits.
  * @property {number} matches
