@@ -60,7 +60,7 @@ test('an unknown or missing track id falls back to the first track', () => {
 });
 
 test('the nineties tracks dance: a kick on every beat, a clap on two and four, and all three layers', () => {
-  for (const id of ['eurodance', 'rave', 'trance']) {
+  for (const id of ['eurodance', 'rave', 'trance', 'rondo', 'cancan']) {
     const track = findTrack(id);
 
     assert.equal(track.id, id);
@@ -71,7 +71,7 @@ test('the nineties tracks dance: a kick on every beat, a clap on two and four, a
   }
 });
 
-// The three nineties tracks carry tunes people know, so a wrong note would be heard at once.
+// The five nineties tracks carry tunes people know, so a wrong note would be heard at once.
 // These spell each lead's opening out by name, as it is sung.
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 /** The lead's notes by name, rests left out; the root's own name is where the count starts. */
@@ -84,6 +84,8 @@ const sung = (track, rootName, count) => track.lead.notes
 test('the nineties tracks play the melodies they are named for in the notes', () => {
   assert.equal(sung(findTrack('eurodance'), 'A', 19), 'E B C D C B A A C E D C B C D E C A A', 'Korobeiniki');
   assert.equal(sung(findTrack('rave'), 'D', 13), 'D E F G A F A G# E G# G D# G', 'In the Hall of the Mountain King');
+  assert.equal(sung(findTrack('rondo'), 'A', 21), 'C D C B C E F E D# E B A G# A B A G# A C A C', 'Rondo alla Turca');
+  assert.equal(sung(findTrack('cancan'), 'D', 26), 'D D E G F# E A A A B F# G E E E G F# E D D C# B A G F# E', 'the can-can');
   // The Canon's line is the note each bar begins on; the plucks under it are that bar's chord.
   const canon = findTrack('trance');
   const tops = canon.bars.map((_, bar) => canon.lead.notes[bar * STEPS_PER_BAR]);

@@ -1,7 +1,7 @@
 /** @import { TrackId } from '../application/ports.js' */
 
 /**
- * Backing tracks for the music player, written as step sequences. Five are original; the three
+ * Backing tracks for the music player, written as step sequences. Five are original; the five
  * in nineties dance styles arrange melodies long in the public domain, so nothing here is
  * taken from a record. A step is a sixteenth note and a bar has 16 of them. Pitches are
  * semitones above the track's root frequency; null is a rest. Every part loops, so a pattern
@@ -264,6 +264,67 @@ export const MUSIC_TRACKS = Object.freeze([
         31, 28, 24, 31, 28, 24, 31, 28, 24, 31, 28, 24, 31, 24, 31, 24,
         33, 29, 24, 33, 29, 24, 33, 29, 24, 33, 29, 24, 33, 24, 33, 24,
         35, 31, 26, 35, 31, 26, 35, 31, 26, 35, 31, 26, 35, 26, 35, 26,
+      ],
+    },
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+  },
+  {
+    // Mozart's Rondo alla Turca, the Turkish March of a thousand ringtones, as techno in
+    // A minor at 132 bpm: the tune in its own running sixteenths over a bass off the beat.
+    id: 'rondo',
+    label: 'Rondo',
+    bpm: 132,
+    root: 110,
+    bars: [0, 0, -5, -5],
+    bass: { wave: 'sawtooth', volume: 0.14, length: 1.1, notes: [_, _, 0, _, _, _, 0, _, _, _, 0, _, _, _, 0, 0] },
+    chord: {
+      wave: 'triangle',
+      volume: 0.05,
+      length: 1.4,
+      hits: '..x...x...x...x.',
+      // A minor twice, E minor, then a bare fifth on E under the turn that leads back.
+      chords: [[12, 15, 19], [12, 15, 19], [12, 15, 19], [12, 19, 24]],
+    },
+    lead: {
+      wave: 'square',
+      volume: 0.045,
+      length: 1,
+      every: 1,
+      notes: [
+        27, _, _, _, 29, 27, 26, 27, 31, _, _, _, 32, 31, 30, 31,
+        38, 36, 35, 36, 38, 36, 35, 36, 39, _, _, _, 36, _, 39, _,
+        38, _, 36, _, 34, _, 36, _, 38, _, 36, _, 34, _, 36, _,
+        38, _, 36, _, 34, _, 33, _, 31, _, _, _, 26, 24, 23, 24,
+      ],
+    },
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+  },
+  {
+    // Offenbach's galop from Orpheus in the Underworld (1858), the can-can, as happy hardcore
+    // in D at 152 bpm: an oom-pah bass that steps to the fifth halfway through each bar, as
+    // the tune does, and the melody once low and once an octave up.
+    id: 'cancan',
+    label: 'Cancan',
+    bpm: 152,
+    root: 73.42,
+    bars: [0, 0, 7, 0, 0, 0, 7, 0],
+    bass: { wave: 'sawtooth', volume: 0.13, length: 1.2, notes: [0, _, 12, _, 0, _, 12, _, 7, _, 19, _, 7, _, 19, _] },
+    // The chord sounds while the bass is on the bar's root, and leaves the fifth to the bass.
+    chord: { wave: 'triangle', volume: 0.05, length: 1.2, hits: '..x...x.........', chords: [[12, 16, 19]] },
+    lead: {
+      wave: 'square',
+      volume: 0.04,
+      length: 1.6,
+      every: 2,
+      notes: [
+        24, _, 24, _, 26, 29, 28, 26,
+        31, _, 31, _, 31, 33, 28, 29,
+        26, _, 26, _, 26, 29, 28, 26,
+        24, 36, 35, 33, 31, 29, 28, 26,
+        36, _, 36, _, 38, 41, 40, 38,
+        43, _, 43, _, 43, 45, 40, 41,
+        38, _, 38, _, 38, 41, 40, 38,
+        36, 48, 47, 45, 43, 41, 40, 38,
       ],
     },
     drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
