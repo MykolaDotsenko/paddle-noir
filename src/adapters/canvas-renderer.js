@@ -9,7 +9,7 @@ import { Effects } from './effects.js';
 
 /**
  * @import { GameConfig, GameEvent, GameState } from '../domain/types.js'
- * @import { FeedbackPort, FrameScheduler, RendererPort } from '../application/ports.js'
+ * @import { FeedbackPort, FrameScheduler, HighScore, RendererPort } from '../application/ports.js'
  */
 
 // Rendering above twice the CSS size costs battery on phones without visibly sharper glow.
@@ -35,10 +35,12 @@ export class CanvasRenderer {
    * @param {Window & typeof globalThis} options.window
    * @param {FrameScheduler} options.scheduler runs effects after a match ends, when the game loop is idle
    * @param {GameConfig} options.config the court geometry; the match config arrives with each frame
-   * @param {{ get: () => { jokes: boolean } }} [options.preferences] the preferences, for the fun extras switch
+   * @param {{ get: () => { jokes: boolean, bestRush?: number } }} [options.preferences] the preferences, for the fun
+   *   extras switch and the best Rush run
+   * @param {readonly HighScore[]} [options.highScores] the Rush high-score table, whose rows a run passes
    * @param {() => number} [options.random]
    */
-  constructor({ canvas, window, scheduler, config, preferences = { get: () => ({ jokes: false }) }, random = Math.random }) {
+  constructor({ canvas, window, scheduler, config, preferences = { get: () => ({ jokes: false }) }, highScores = [], random = Math.random }) {
     const context = canvas.getContext('2d', { alpha: false });
 
     if (!context) {
@@ -50,6 +52,7 @@ export class CanvasRenderer {
     this.scheduler = scheduler;
     this.config = config;
     this.preferences = preferences;
+    this.highScores = highScores;
     this.context = context;
     this.random = random;
     this.reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -183,11 +186,16 @@ export class CanvasRenderer {
       this.trail.clear();
     }
 
+    const { jokes, bestRush = 0 } = this.preferences.get();
+
     playEvents(this.effects, events, {
       config: this.config,
       random: this.random,
-      jokes: this.preferences.get().jokes === true,
+      jokes: jokes === true,
       state,
+      highScores: this.highScores,
+      // The record is saved when a run ends, so during one this is the best before it.
+      bestRush,
     });
     this.ensureEffectsLoop();
   }

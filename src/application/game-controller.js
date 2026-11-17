@@ -11,6 +11,7 @@ import {
 } from '../domain/game.js';
 import { EASE_AFTER, easedConfig, starsFor, unlockedRival } from './career.js';
 import { FixedStepLoop } from './game-loop.js';
+import { highScores } from './high-scores.js';
 import { interpolateState } from './interpolation.js';
 import { nicknameFor } from './nicknames.js';
 import { GAME_COMMAND } from './ports.js';
@@ -22,6 +23,7 @@ import { GAME_COMMAND } from './ports.js';
  *   FeedbackPort,
  *   FrameScheduler,
  *   GameCommand,
+ *   HighScoresView,
  *   InputPort,
  *   MatchCatalog,
  *   Mode,
@@ -113,6 +115,10 @@ export class GameController {
     this.newBestRush = false;
     /** Stars the career match just finished earned. */
     this.careerEarned = 0;
+    /** @type {number | null} the best Rush run before the one just finished, which tells whose rows it passed */
+    this.rushBefore = null;
+    /** @type {{ best: number, initials: string, before: number, view: HighScoresView } | null} */
+    this.highScoresMemo = null;
     this.recorded = false;
 
     this.loop = new FixedStepLoop({
@@ -170,6 +176,11 @@ export class GameController {
 
   /** @param {GameCommand} command */
   handleCommand(command) {
+    if (command === GAME_COMMAND.REFRESH) {
+      this.render();
+      return;
+    }
+
     const nextState = this.stateAfter(command);
 
     if (nextState === this.state) {
@@ -227,6 +238,7 @@ export class GameController {
     this.newBest = false;
     this.newBestRush = false;
     this.careerEarned = 0;
+    this.rushBefore = null;
     this.recorded = false;
 
     // The menu already shows the rival drawn for the next match; a restart draws a new one.
@@ -241,6 +253,7 @@ export class GameController {
   menu() {
     this.recordForfeit();
     this.applyChoices();
+    this.rushBefore = null;
     this.matchSeed = this.seed();
     return resetGame(this.config, this.matchSeed);
   }
@@ -355,7 +368,10 @@ export class GameController {
     this.recorded = true;
 
     if (this.mode === 'rush') {
-      if (state.hits.player > this.preferences.get().bestRush) {
+      const { bestRush } = this.preferences.get();
+      this.rushBefore = bestRush;
+
+      if (state.hits.player > bestRush) {
         this.newBestRush = true;
         this.preferences.set({ bestRush: state.hits.player });
       }
@@ -476,7 +492,33 @@ export class GameController {
       stats,
       winner: getWinner(this.state),
       career: this.careerView(),
+      highScores: this.highScoresView(),
     };
+  }
+
+  /**
+   * The Rush high-score table with the player's best run in its place, and after a run whose
+   * rows that run went past. It is worked out again only when the record or the initials
+   * change, so the view can tell by the object alone whether to redraw it.
+   *
+   * @returns {HighScoresView | null}
+   */
+  highScoresView() {
+    if (this.mode !== 'rush') {
+      return null;
+    }
+
+    const { bestRush, initials } = this.preferences.get();
+    const before = this.rushBefore ?? bestRush;
+    const memo = this.highScoresMemo;
+
+    if (memo && memo.best === bestRush && memo.initials === initials && memo.before === before) {
+      return memo.view;
+    }
+
+    const view = highScores(this.catalog.highScores, bestRush, initials, before);
+    this.highScoresMemo = { best: bestRush, initials, before, view };
+    return view;
   }
 
   /** @returns {CareerView | null} */
@@ -486,14 +528,14 @@ export class GameController {
     }
 
     const { rival: chosen, careerStars, careerLosses } = this.preferences.get();
-    const { name, short, story, boss } = this.catalog.career[this.rival];
+    const { name, short, story, emblem, says, boss } = this.catalog.career[this.rival];
     const over = this.state.phase === GAME_PHASE.GAME_OVER;
 
     return {
       index: this.rival,
       count: this.catalog.career.length,
       unlocked: unlockedRival(careerStars, this.catalog.career.length),
-      rival: { name, short, story, boss },
+      rival: { name, short, story, emblem, says, boss },
       stars: careerStars[this.rival] ?? 0,
       earned: over ? this.careerEarned : 0,
       eased: (careerLosses[this.rival] ?? 0) >= EASE_AFTER,
@@ -527,7 +569,9 @@ export class GameController {
 
     if (phase === GAME_PHASE.GAME_OVER) {
       if (rush) {
-        return `Run over — ${hits.player} hits.`;
+        const table = this.highScoresView();
+        const climbed = table !== null && table.passed.length > 0 && table.own.rank > 0;
+        return `Run over — ${hits.player} hits.${climbed ? ` Number ${table.own.rank} on the high-score table.` : ''}`;
       }
 
       return getWinner(this.state) === 'player'

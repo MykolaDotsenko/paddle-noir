@@ -18,6 +18,7 @@ const DEFAULTS = {
   tutorialSeen: false,
   bestRally: 0,
   bestRush: 0,
+  initials: '',
   stats: NO_STATS,
   rival: 0,
   careerStars: [],
@@ -53,6 +54,7 @@ test('restores stored choices', () => {
     tutorialSeen: true,
     bestRally: 17,
     bestRush: 40,
+    initials: 'MYK',
     stats: { matches: 9, wins: 6, streak: 2, bestStreak: 4 },
     rival: 3,
     careerStars: [3, 1, 2],
@@ -64,13 +66,27 @@ test('restores stored choices', () => {
 });
 
 test('ignores malformed or outdated stored values', () => {
-  const stored = { mode: 'battle-royale', difficulty: 'impossible', track: 'polka', sound: 'yes', supers: 'maybe', jokes: 'lots', vibration: null, bestRally: -3, bestRush: '12', stats: 'lots' };
+  const stored = { mode: 'battle-royale', difficulty: 'impossible', track: 'polka', sound: 'yes', supers: 'maybe', jokes: 'lots', vibration: null, bestRally: -3, bestRush: '12', initials: 'myk', stats: 'lots' };
   const preferences = new LocalPreferences({ localStorage: createStorage({ [KEY]: JSON.stringify(stored) }) });
 
   assert.deepEqual(preferences.get(), DEFAULTS);
   assert.deepEqual(new LocalPreferences({ localStorage: createStorage({ [KEY]: '{broken' }) }).get(), DEFAULTS);
   assert.deepEqual(new LocalPreferences({ localStorage: createStorage({ [KEY]: '42' }) }).get(), DEFAULTS);
   assert.equal(new LocalPreferences({ localStorage: createStorage({ [KEY]: '{"bestRally":2.5}' }) }).get().bestRally, 0);
+});
+
+test('initials are three capital letters, or none at all', () => {
+  const read = (initials) => new LocalPreferences({ localStorage: createStorage({ [KEY]: JSON.stringify({ initials }) }) }).get().initials;
+
+  assert.equal(read('ZIN'), 'ZIN');
+
+  for (const malformed of ['zin', 'ZI', 'ZINA', 'Z1N', ' ZI', 303, null, ['Z', 'I', 'N']]) {
+    assert.equal(read(malformed), '', JSON.stringify(malformed));
+  }
+
+  const preferences = new LocalPreferences({ localStorage: createStorage() });
+  preferences.set({ initials: 'no' });
+  assert.equal(preferences.get().initials, '', 'a malformed change is not kept either');
 });
 
 test('career progress that cannot be true is brought back into range', () => {

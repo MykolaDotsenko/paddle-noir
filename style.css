@@ -435,10 +435,16 @@ kbd {
   display: contents;
 }
 
+/* One column as wide as the court allows: a long name is cut short, never the menu widened. */
+.panel--menu {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .panel--menu .logo { order: 1; }
 .panel--menu .modes { order: 2; }
 .panel--menu [data-solo-only],
-.panel--menu [data-career-only] { order: 3; }
+.panel--menu [data-career-only],
+.panel--menu [data-rush-only] { order: 3; }
 .panel--menu .cta { order: 4; }
 .panel--menu .panel__meta { order: 5; }
 .panel--menu .panel__stats { order: 6; }
@@ -671,7 +677,8 @@ kbd {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: calc(2 * var(--u));
-  width: min(100%, 26rem);
+  /* On a tablet the type outgrows a fixed cap, so the cap grows with it. */
+  width: min(100%, max(26rem, calc(76 * var(--u))));
 }
 
 .mode {
@@ -842,13 +849,32 @@ kbd {
   line-height: 1;
 }
 
-/* The career rival picker: steps either side of a card with the rival's name, its place on
-   the ladder, a boss tag and the best stars earned against it. */
+/* The neon emblems are drawn once, out of sight, and shown wherever one is used: a line
+   drawing in the color of whoever wears it, lit by a glow. */
+.emblems {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.emblem {
+  display: block;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The career rival picker: steps either side of a card with the rival's emblem and name, its
+   place on the ladder, a boss tag and the best stars earned against it. */
 .rival {
   display: flex;
   align-items: center;
   gap: calc(2 * var(--u));
-  width: min(100%, 24rem);
+  width: min(100%, max(24rem, calc(76 * var(--u))));
 }
 
 .rival[hidden] {
@@ -875,10 +901,8 @@ kbd {
 .rival__card {
   display: flex;
   flex: 1;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: baseline;
-  column-gap: calc(2 * var(--u));
+  align-items: center;
+  gap: calc(2 * var(--u));
   min-width: 0;
   margin: 0;
   padding: calc(1.2 * var(--u)) calc(2 * var(--u));
@@ -887,6 +911,32 @@ kbd {
   text-align: center;
   background: rgba(10, 12, 28, 0.75);
 }
+
+.rival__emblem {
+  flex: none;
+  width: max(26px, calc(8.6 * var(--u)));
+  height: max(26px, calc(8.6 * var(--u)));
+  color: var(--opponent);
+  filter: drop-shadow(0 0 calc(1.2 * var(--u)) rgba(var(--opponent-rgb), 0.85));
+}
+
+.rival__text {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: calc(2 * var(--u));
+  min-width: 0;
+}
+
+/* The place and the boss tag share the line above the name, the stars and the tired tag the
+   one below, so the card is three lines for a tired final boss as for anyone. */
+.rival__place { order: 1; }
+.rival__boss { order: 2; }
+.rival__name { order: 3; }
+.rival__text .stars { order: 4; }
+.rival__tired { order: 5; }
 
 .rival__name {
   flex-basis: 100%;
@@ -929,56 +979,503 @@ kbd {
   display: none;
 }
 
-/* A career rival's name over the court as a match against it starts, gone before the serve. */
-.rival-banner {
+/* The versus card: as a career match starts, the rival's emblem and name over the player's,
+   in the manner of a fighting game. It covers the court for the first half of the countdown
+   only, lets every touch through to the paddle, and is gone well before the serve. */
+.versus {
   position: absolute;
-  top: 28%;
-  left: 50%;
-  z-index: 1;
+  inset: 2px;
+  z-index: 2;
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
   justify-items: center;
-  gap: calc(1 * var(--u));
-  margin: 0;
-  transform: translateX(-50%);
-  font-size: calc(7.5 * var(--u));
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--text);
-  text-shadow: 0 0 calc(3 * var(--u)) rgba(var(--opponent-rgb), 0.9), 0 0 calc(8 * var(--u)) rgba(var(--violet-rgb), 0.5);
+  align-items: center;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(var(--opponent-rgb), 0.2), transparent 42%, transparent 58%, rgba(var(--player-rgb), 0.2)),
+    var(--bg);
   pointer-events: none;
-  animation: banner 2.2s ease-out both;
+  animation: versus 1.5s linear both;
 }
 
-.rival-banner[hidden] {
+.versus[hidden] {
   display: none;
 }
 
-.rival-banner small {
-  padding: 0 calc(2 * var(--u));
-  border-radius: 999px;
-  font-size: 0.42em;
-  letter-spacing: 0.4em;
-  color: #1a0410;
-  text-shadow: none;
-  background: var(--opponent);
+.versus__side {
+  display: grid;
+  justify-items: center;
+  gap: calc(2.4 * var(--u));
+  max-width: calc(92 * var(--u));
 }
 
-@keyframes banner {
+.versus__side--rival {
+  color: var(--opponent);
+  animation: versus-rival 1.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.versus__side--you {
+  color: var(--player);
+  animation: versus-you 1.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.versus__emblem {
+  width: calc(27 * var(--u));
+  height: calc(27 * var(--u));
+  filter: drop-shadow(0 0 calc(1.4 * var(--u)) currentColor) drop-shadow(0 0 calc(5 * var(--u)) currentColor);
+}
+
+.versus__name {
+  margin: 0;
+  font-size: calc(7 * var(--u));
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--text);
+  text-shadow: 0 0 calc(2.6 * var(--u)) currentColor;
+}
+
+.versus__side--you .versus__name {
+  font-size: calc(6 * var(--u));
+}
+
+.versus__tag {
+  margin: 0;
+  font-size: max(10px, calc(3 * var(--u)));
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.versus__tag--boss {
+  padding: calc(0.4 * var(--u)) calc(2.4 * var(--u)) calc(0.4 * var(--u)) calc(3.2 * var(--u));
+  border-radius: 999px;
+  font-weight: 900;
+  color: #1a0410;
+  background: var(--opponent);
+  box-shadow: 0 0 calc(4 * var(--u)) rgba(var(--opponent-rgb), 0.6);
+}
+
+.versus__mark {
+  margin: 0;
+  font-size: calc(17 * var(--u));
+  font-style: italic;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--amber);
+  text-shadow: 0 0 calc(3 * var(--u)) rgba(251, 191, 36, 0.9), 0 0 calc(9 * var(--u)) rgba(251, 191, 36, 0.45);
+  animation: versus-mark 1.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes versus {
   0% {
     opacity: 0;
-    transform: translateX(-50%) scale(1.25);
   }
-  14%,
-  78% {
+  8%,
+  82% {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translateX(-50%) scale(1);
   }
+}
+
+@keyframes versus-rival {
+  0% {
+    transform: translateY(-60%);
+  }
+  18%,
+  80% {
+    transform: none;
+  }
+  100% {
+    transform: translateY(-30%);
+  }
+}
+
+@keyframes versus-you {
+  0% {
+    transform: translateY(60%);
+  }
+  18%,
+  80% {
+    transform: none;
+  }
+  100% {
+    transform: translateY(30%);
+  }
+}
+
+@keyframes versus-mark {
+  0%,
+  10% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+  24%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* What the rival has to say on the result screen, beside its emblem. */
+.quote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(2 * var(--u));
+  max-width: 100%;
+  margin: 0;
+  font-size: max(12px, calc(3.6 * var(--u)));
+  font-style: italic;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.quote[hidden] {
+  display: none;
+}
+
+.quote__emblem {
+  flex: none;
+  width: max(22px, calc(6.4 * var(--u)));
+  height: max(22px, calc(6.4 * var(--u)));
+  color: var(--opponent);
+  filter: drop-shadow(0 0 calc(1.2 * var(--u)) rgba(var(--opponent-rgb), 0.85));
+}
+
+.quote__text {
+  min-width: 0;
+  text-wrap: balance;
+}
+
+/* ---------- High scores ---------- */
+
+/* A row of the Rush high-score table: rank, initials, whose they are and the hits. The record
+   is in amber, the player's own row in their color. */
+.score-row {
+  display: grid;
+  grid-template-columns: 2.2ch 4.6ch minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 1ch;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-align: left;
+  color: var(--muted);
+}
+
+.score-row__rank {
+  text-align: right;
+  opacity: 0.7;
+}
+
+.score-row__initials {
+  letter-spacing: 0.16em;
+  color: var(--text);
+}
+
+.score-row__name {
+  overflow: hidden;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-row__hits {
+  grid-column: -2 / -1;
+  text-align: right;
+  color: var(--text);
+}
+
+.score-row--own,
+.score-row--own .score-row__initials,
+.score-row--own .score-row__hits {
+  color: var(--player);
+}
+
+.score-row--own {
+  background: rgba(var(--player-rgb), 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--player-rgb), 0.4);
+  text-shadow: 0 0 10px rgba(var(--player-rgb), 0.6);
+}
+
+/* In the menu, Rush shows where the player stands on the table and the row to beat next, in
+   the place Solo gives its difficulty and the career its rival. A tap opens the whole table. */
+.scores-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: calc(2.6 * var(--u));
+  width: min(100%, max(24rem, calc(76 * var(--u))));
+  min-height: 48px;
+  padding: calc(1.4 * var(--u)) calc(3 * var(--u));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  line-height: 1.25;
+  text-align: left;
+  color: var(--muted);
+  background: rgba(10, 12, 28, 0.75);
+  transition: border-color 150ms ease, transform 120ms ease;
+}
+
+.scores-card[hidden] {
+  display: none;
+}
+
+.scores-card:hover,
+.standing:hover {
+  border-color: rgba(var(--violet-rgb), 0.6);
+}
+
+.scores-card:active,
+.standing:active {
+  transform: scale(0.98);
+}
+
+.scores-card__icon {
+  width: max(24px, calc(8 * var(--u)));
+  height: max(24px, calc(8 * var(--u)));
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 calc(1.2 * var(--u)) rgba(251, 191, 36, 0.7));
+}
+
+.scores-card__text {
+  display: grid;
+  min-width: 0;
+}
+
+.scores-card__title {
+  font-size: max(10px, calc(2.6 * var(--u)));
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+
+.scores-card__place {
+  overflow: hidden;
+  font-size: max(14px, calc(4.2 * var(--u)));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.scores-card__next {
+  overflow: hidden;
+  font-size: max(11px, calc(3 * var(--u)));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scores-card__more {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+/* On the result screen of a run: the rows around the player's, and what the run did to them. */
+.standing {
+  display: grid;
+  gap: calc(1.4 * var(--u));
+  width: min(92%, max(22rem, calc(66 * var(--u))));
+  min-height: 44px;
+  padding: calc(2 * var(--u)) calc(2.6 * var(--u));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  background: rgba(10, 12, 28, 0.75);
+  transition: border-color 150ms ease, transform 120ms ease;
+}
+
+.standing[hidden] {
+  display: none;
+}
+
+.standing__rows {
+  display: grid;
+  gap: calc(0.8 * var(--u));
+}
+
+.standing .score-row {
+  padding: calc(0.5 * var(--u)) calc(2 * var(--u));
+  font-size: max(13px, calc(3.9 * var(--u)));
+}
+
+.standing__note {
+  font-size: max(11px, calc(3.1 * var(--u)));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--amber);
+}
+
+.standing__hint {
+  font-size: max(11px, calc(2.9 * var(--u)));
+  font-weight: 600;
+  color: var(--player);
+}
+
+.standing__hint[hidden] {
+  display: none;
+}
+
+/* The whole table in a dialog, and in the same dialog the letters to sign it with. */
+.panel--scores {
+  gap: 3.4cqw;
+  min-height: 0;
+  max-height: calc(min(88dvh, 46rem) - 12cqw - 2px);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.panel--scores .panel__title {
+  font-size: 9cqw;
+}
+
+.scores__about {
+  margin: -1.6cqw 0 0;
+  font-size: max(12px, 3.4cqw);
+  color: var(--muted);
+}
+
+.scores {
+  display: grid;
+  align-content: start;
+  gap: 1cqw;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.scores[hidden],
+.sign[hidden],
+.panel__row[hidden] {
+  display: none;
+}
+
+.scores .score-row {
+  grid-template-columns: 2.2ch 4.6ch minmax(0, 1fr) auto;
+  padding: 1.5cqw 3cqw;
+  font-size: max(14px, 4.2cqw);
+}
+
+.scores .score-row:first-child:not(.score-row--own),
+.scores .score-row:first-child:not(.score-row--own) > * {
+  color: var(--amber);
+}
+
+.panel__row--scores {
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.panel__row--scores .cta {
+  width: auto;
+  min-width: 40cqw;
+  animation: none;
+}
+
+.panel__row--scores .cta:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.sign {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 3.4cqw;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sign__slots {
+  display: flex;
+  gap: 3cqw;
+  margin: 0;
+}
+
+/* The slots hold focus while the player types; the blinking one shows where the next letter goes. */
+.sign__slots:focus {
+  outline: none;
+}
+
+.sign__slot {
+  display: grid;
+  place-items: center;
+  width: 13cqw;
+  height: 15cqw;
+  border-bottom: 3px solid rgba(var(--player-rgb), 0.45);
+  font-size: 11cqw;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--player);
+  text-shadow: 0 0 12px rgba(var(--player-rgb), 0.8);
+}
+
+/* The slot to fill next blinks like a cursor, once a second. */
+.sign__slot.is-next {
+  border-color: var(--amber);
+  color: rgba(var(--player-rgb), 0.35);
+  text-shadow: none;
+  animation: caret 1s steps(2, jump-none) infinite;
+}
+
+@keyframes caret {
+  to {
+    border-color: rgba(251, 191, 36, 0.2);
+  }
+}
+
+.sign__pad {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  gap: 1.6cqw;
+  width: 100%;
+}
+
+.sign__pad button {
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: max(15px, 4.4cqw);
+  font-weight: 800;
+  color: var(--text);
+  background: rgba(15, 18, 40, 0.7);
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.sign__pad button:hover {
+  border-color: rgba(var(--violet-rgb), 0.6);
+}
+
+.sign__pad button:active {
+  transform: scale(0.92);
+}
+
+.sign__pad .sign__delete {
+  color: var(--amber);
 }
 
 /* The record badges and the "Continue?" line: rows of their own on the result screen, or
@@ -1044,6 +1541,16 @@ kbd {
 @container board (max-width: 300px) {
   .logo {
     width: min(100%, calc(54 * var(--u)));
+  }
+
+  /* The rival's name needs the whole card here; its emblem shows on the versus card instead. */
+  .rival__emblem {
+    display: none;
+  }
+
+  /* The career's menu is the tallest, with a story of two lines; a little less air fits it. */
+  .panel--menu {
+    gap: calc(2.6 * var(--u));
   }
 }
 
@@ -1564,6 +2071,41 @@ kbd {
     gap: calc(2 * var(--u)) calc(4 * var(--u));
   }
 
+  /* The result screen uses the width: Play again stands beside Share and Menu, and after a
+     Rush run the standing on the high-score table stands beside the headline. */
+  .panel--result {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: calc(4 * var(--u));
+  }
+
+  .panel--result > * {
+    grid-column: 1 / -1;
+  }
+
+  .panel--result > .cta {
+    grid-column: 1;
+    justify-self: end;
+    width: min(100%, 20rem);
+  }
+
+  .panel--result > .panel__row {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .panel--result:has(> .standing:not([hidden])) > .panel__title,
+  .panel--result:has(> .standing:not([hidden])) > .result-score {
+    grid-column: 1;
+    justify-self: end;
+  }
+
+  .panel--result > .standing {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+    justify-self: start;
+    width: min(100%, 20rem);
+  }
+
   /* The tutorial and the settings use the width instead: their rows stand two by two, sized
      for the screen's short side. The credits fill the settings' last cell, and Done moves up
      beside their title. */
@@ -1574,13 +2116,15 @@ kbd {
   }
 
   .panel--tutorial,
-  .panel--settings {
+  .panel--settings,
+  .panel--scores {
     gap: 10px;
     max-height: calc(94dvh - 26px);
   }
 
   .panel--tutorial .panel__title,
-  .panel--settings .panel__title {
+  .panel--settings .panel__title,
+  .panel--scores .panel__title {
     font-size: 26px;
   }
 
@@ -1617,14 +2161,88 @@ kbd {
     font-size: 12px;
   }
 
-  .panel--settings {
+  .panel--settings,
+  .panel--scores {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto minmax(0, 1fr);
   }
 
-  .panel--settings .panel__title {
+  .panel--settings .panel__title,
+  .panel--scores .panel__title {
     grid-area: 1 / 1;
     justify-self: start;
+  }
+
+  /* The high-score table stands in two columns of five, and its buttons move up beside the
+     title; the letters to sign it with stand in two or three long rows. */
+  .scores__about {
+    display: none;
+  }
+
+  .panel--scores .panel__title {
+    white-space: nowrap;
+  }
+
+  .panel__row--scores {
+    grid-area: 1 / 2;
+    flex-wrap: nowrap;
+    width: auto;
+    gap: 10px;
+  }
+
+  .panel__row--scores .ghost {
+    min-width: 0;
+    padding: 0 16px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .dialog .panel__row--scores .cta {
+    min-width: 7rem;
+  }
+
+  .scores,
+  .sign {
+    grid-area: 2 / 1 / auto / -1;
+  }
+
+  .scores {
+    grid-template-rows: repeat(5, auto);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 4px 12px;
+  }
+
+  .scores .score-row {
+    column-gap: 0.8ch;
+    padding: 5px 8px;
+    font-size: 15px;
+  }
+
+  .scores .score-row__name {
+    font-size: 0.76em;
+  }
+
+  .sign {
+    gap: 8px;
+  }
+
+  .sign__slots {
+    gap: 12px;
+  }
+
+  .sign__slot {
+    width: 38px;
+    height: 40px;
+    font-size: 30px;
+  }
+
+  .sign__pad {
+    gap: 6px;
+  }
+
+  .sign__pad button {
+    font-size: 16px;
   }
 
   .panel--settings [data-dismiss-settings] {
@@ -1660,6 +2278,17 @@ kbd {
 
   /* The sign is simply on, without the stutter. */
   .logo__lit {
+    animation: none !important;
+  }
+
+  /* The versus card is simply there until it is taken away. */
+  .versus,
+  .versus * {
+    animation: none !important;
+  }
+
+  /* The slot to fill next keeps its mark, without the blink. */
+  .sign__slot.is-next {
     animation: none !important;
   }
 }

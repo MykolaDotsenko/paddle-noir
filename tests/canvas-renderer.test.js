@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 
 import { THEME } from '../src/adapters/canvas/theme.js';
 import { CanvasRenderer } from '../src/adapters/canvas-renderer.js';
-import { GAME_CONFIG } from '../src/config.js';
+import { HIGH_SCORES } from '../src/catalog.js';
+import { GAME_CONFIG, RUSH_CONFIG } from '../src/config.js';
 import { createInitialState, GAME_PHASE, startGame } from '../src/domain/game.js';
 import { callsNamed, createFrameScheduler, createRendererWindow, FakeCanvas } from './support/fake-canvas.js';
 
@@ -117,6 +118,39 @@ test('the ready screen starts clean: no leftover effects or trail', () => {
 
   assert.equal(renderer.effects.active, false);
   assert.deepEqual(renderer.trail.points, []);
+});
+
+test('the renderer knows the high-score table and the player\'s best run, so a Rush run can pass its rows', () => {
+  const canvas = new FakeCanvas({ clientWidth: 400 });
+  const preferences = { bestRush: 0, jokes: false };
+  const renderer = new CanvasRenderer({
+    canvas,
+    window: createRendererWindow(),
+    scheduler: createFrameScheduler(),
+    config: GAME_CONFIG,
+    preferences: { get: () => preferences },
+    highScores: HIGH_SCORES,
+    random: () => 0.5,
+  });
+  const rom = HIGH_SCORES.at(-1);
+  const state = { ...running(), hits: { player: rom.hits + 1, opponent: rom.hits } };
+  const event = { type: 'paddle-hit', side: 'player', x: 250, y: 734, speed: 500, spin: 0, offset: 0, rally: 3 };
+
+  renderer.render(state, RUSH_CONFIG);
+  renderer.handle([event], state);
+  assert.deepEqual(renderer.effects.labels.map((label) => label.text), ['PASSED ROM!']);
+
+  // With that row already beaten on an earlier run, the same hit is nothing new.
+  renderer.effects.clear();
+  preferences.bestRush = 20;
+  renderer.handle([event], state);
+  assert.deepEqual(renderer.effects.labels, []);
+
+  // A renderer given no table shows none, and one given no record counts from nothing.
+  const bare = setup();
+  bare.renderer.render(state, RUSH_CONFIG);
+  bare.renderer.handle([event], state);
+  assert.deepEqual(bare.renderer.effects.labels, []);
 });
 
 test('a new match clears the old trail', () => {

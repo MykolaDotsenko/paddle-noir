@@ -25,14 +25,14 @@ script.js  ← composition root; the only module that touches browser globals
    +--> adapters/local-preferences.js
    +--> adapters/browser-frame-scheduler.js
    |
-   +--> catalog.js ──> config.js      the choosable matches, the career ladder included
+   +--> catalog.js ──> config.js      the choosable matches, the career ladder and the high-score table included
    |
    +--> application/game-controller.js
                  |
                  +--> application/ports.js
                  +--> application/game-loop.js
                  +--> application/interpolation.js
-                 +--> application/career.js, application/nicknames.js
+                 +--> application/career.js, application/nicknames.js, application/high-scores.js
                  +--> domain/game.js
                            |
                            +--> domain/physics.js
@@ -103,6 +103,8 @@ Events are plain data on the state rather than callbacks or an event bus. The do
 - count leaving a Solo match after its first point as a loss, so quitting cannot protect a winning streak
 - run the career (`career.js`): a win earns up to three stars and moves the ladder on to the next rival, the ladder is open up to the first rival not yet beaten, and a rival that beats the player twice in a row plays tired, slower and, for a boss, attacking less often. Career matches keep their own record and never touch the Solo ones
 - name the opponent: a career rival by its own name, otherwise, with the Fun switch on, the computer under an arcade-club nickname drawn from the match seed
+- keep the Rush high-score table (`high-scores.js`): ten rows of three initials and a run's hits, which the catalog hands over filled in by the arcade's regulars. The player's best run takes its place among them, under YOU until they sign it; a run has to beat a row to pass it, so on equal hits the row that was there first stays above. After a run the table also names whose rows that run went past. It is worked out again only when the record or the initials change, so the view can tell by the object alone whether to redraw it
+- show the screen again as it is on the `refresh` command, which the view sends after a preference the screen draws on has changed, such as the initials: nothing about the match changes and nothing is announced twice
 - run the frame loop only while a match is running
 - translate current state into presentation data
 
@@ -155,11 +157,13 @@ Translates pointer, touch, and keyboard input into device-neutral movement snaps
 
 ### DomGameView
 
-Owns the HUD, the title menu with its mode cards and the career's rival picker, the tutorial and settings dialogs, and the pause and result overlays. On the title screen the scoreboard, the pause button and the thumb rail stay hidden in the room kept for them, so a match starts without the court moving; the menu's neon sign is SVG lit by CSS, once a visit. Controls declare their meaning in markup — `data-command`, `data-mode`, `data-difficulty`, `data-setting`, `data-rival-step` — so the view binds them generically. After a won match with a finisher (`finisher.js`, which the renderer and the sound board consult too), the result screen waits the 1.2 seconds the finisher takes; a tap or a key brings it at once, and that key goes no further, so `Space` cannot also start the next match unseen. After a loss, a decorative CONTINUE? line counts down under the result; a career match starts under the rival's name for a moment. Both are hidden from screen readers, which the status line informs. It hands sharing and full screen to `BrowserDevice`, hiding those buttons where the browser lacks the feature. It only writes to the DOM when the presentation changes, which keeps the `aria-live` status region from being rewritten every frame, and it never repeats the rules from memory: the menu line is built from the rules in the presentation.
+Owns the HUD, the title menu with its mode cards, the career's rival picker and Rush's high-score card, the tutorial, settings and high-score dialogs, the versus card, and the pause and result overlays. On the title screen the scoreboard, the pause button and the thumb rail stay hidden in the room kept for them, so a match starts without the court moving; the menu's neon sign is SVG lit by CSS, once a visit. Controls declare their meaning in markup — `data-command`, `data-mode`, `data-difficulty`, `data-setting`, `data-rival-step`, `data-show-scores`, `data-letter` — so the view binds them generically. After a won match with a finisher (`finisher.js`, which the renderer and the sound board consult too), the result screen waits the 1.2 seconds the finisher takes; a tap or a key brings it at once, and that key goes no further, so `Space` cannot also start the next match unseen. After a loss, a decorative CONTINUE? line counts down under the result. A career match starts under a versus card, the rival's neon emblem and name over the player's: it rides the first half of the three-second countdown, which waits for nothing, lets every touch through to the paddle, and is gone a second and a half before the serve. Both are hidden from screen readers, which the status line informs. After a career match the rival has a line to say on the result screen, one of the fun extras. The emblems are SVG symbols drawn once in the page; the catalog names each rival's, and a test checks that the page draws every one.
+
+In Rush the menu shows where the player stands on the high-score table and the row to beat next, in the place Solo gives its difficulty and the career its rival; the result of a run shows the rows around the player's and what the run did to them; and a dialog shows the whole table. The same dialog holds the letters to sign it with: three taps, or three keys, and the initials are kept. Nothing asks for them: a run on the table is YOU until the player chooses to sign, and the standing says a tap does it. Once signed, the scoreboard and the versus card name the player by them. It hands sharing and full screen to `BrowserDevice`, hiding those buttons where the browser lacks the feature. It only writes to the DOM when the presentation changes, which keeps the `aria-live` status region from being rewritten every frame, and it never repeats the rules from memory: the menu line is built from the rules in the presentation.
 
 Focus is managed deliberately:
 
-- the tutorial and the settings are native `<dialog>`s opened with `showModal()`, the tutorial once on a first visit and the settings from the menu: the page behind is inert, focus starts inside (on the tutorial's button, on the first switch of the settings) and `Escape` closes them; `InputController` ignores game keys and touches while any dialog is open, so `Space` presses the dialog's focused button instead of starting a match behind it
+- the tutorial, the settings and the high scores are native `<dialog>`s opened with `showModal()`, the tutorial once on a first visit and the others from the menu or the result screen: the page behind is inert, focus starts inside (on the tutorial's button, on the first switch of the settings, on Done under the table, on the slots while signing, so a typed Enter never presses a letter by mistake) and `Escape` closes them; `InputController` ignores game keys and touches while any dialog is open, so `Space` presses the dialog's focused button instead of starting a match behind it
 - the pause and result screens are labelled dialogs whose main button takes focus when they appear; play hands focus back to the board, unless the player had moved it elsewhere on the page
 - after a command button, focus returns to the board, so `Space` controls the game instead of re-activating the button
 
@@ -168,6 +172,8 @@ Focus is managed deliberately:
 The renderer converts game state into pixels and implements `FeedbackPort`: game events become sparks, shockwave rings, screen shake, flashes, paddle squash, a grid pulse and victory fireworks, simulated by `Effects`, a small presentation-only particle system with injectable randomness.
 
 `canvas-renderer.js` only owns the canvas, its size and its frames. What a frame contains lives in `src/adapters/canvas/`: `theme.js` (colors and shared helpers), `court.js` (the pre-rendered court and glow sprites), `scene.js` (ball, trail, Multiball balls, paddles, power-ups, a boss's drips and beams, the Ghost fog), `hud.js` (countdown, rally counter, the super meters, callouts), `ball-trail.js` and `event-effects.js` (the visual side of each game event). Each is unit-tested against a recording 2D context. Like Ghost, Lag lives only in the picture: while it lasts, the renderer redraws the balls about seven times a second, with no trail to give them away, and the game underneath runs on smoothly. A phantom is hidden the same way, from the stretch of court the domain reports (`phantomBand`), and shows only as a faint ring that careful eyes can follow.
+
+Three callouts belong to the arcade rather than to the rally. With the fun extras on, a match starts under CREDIT 01, as a cabinet shows when a coin has dropped. During a Rush run the board says whose row of the high-score table the player has just passed (PASSED ROM!), or that the record has fallen: only for rows above the player's best before the run, so it is news each time, and up by the far paddle, where the ball has just been sent and the player need not read it. The renderer is handed the table at the composition root and reads the best run from the preferences, where it is saved only when a run ends.
 
 `finisher.js` decides the finisher once, from the game-over event and the final score, for the board, the sound board and the view alike: the EVICTALITY for beating the final boss, a super's own finisher for a match a super won, otherwise one of seven drawn from the match seed, now and then a comic one instead, and PERFECT! for a win to nil. Every finisher fits in the 1.2 seconds the result screen waits, flashes at most once, and is skipped by a tap.
 
@@ -187,7 +193,7 @@ The page is laid out in CSS only. The stage is a size container, and the court t
 
 ### SoundBoard and MusicPlayer
 
-Both implement `FeedbackPort` with Web Audio, and every sound is synthesized at play time from oscillators and generated noise, with no audio files. The sound board plays effects: hit pitch climbs with the rally, every fifth hit adds a chime, and the countdown, power-ups, match point, a lost life, a meter filling, each super and each finisher have their own cue. The music player is a step sequencer that plays one of five original tracks, written as data in `music-tracks.js` (tempo, bar roots, bass, chords, lead and drum patterns). Notes are scheduled ahead of the clock, so timing stays exact whatever the frame rate; a track starts with bass and kick alone, adds the chords with snare and hi-hat at three hits and the lead at six, fades on pause, stops at the menu, and starts every match from the bass again. Drums are synthesized too: a falling sine for the kick and high-passed noise for the snare and hi-hat. Choosing a track in the settings or on the pause screen plays a four-second preview with every layer in; it never interrupts a match, and a track changed during a pause plays from its first bar on resume. Every envelope starts silent before its first scheduled value, because a new gain node passes full level until then and a source starting a sample early would click. Both play through one audio context, owned by `AudioOutput`: browsers limit how many a page may open, so it is created once, on the first event, which always follows a click or key press, and resumed whenever the browser suspended it.
+Both implement `FeedbackPort` with Web Audio, and every sound is synthesized at play time from oscillators and generated noise, with no audio files. The sound board plays effects: hit pitch climbs with the rally, every fifth hit adds a chime, and the countdown, power-ups, match point, a lost life, a meter filling, each super and each finisher have their own cue. With the fun extras on a match starts with a coin dropping into the cabinet, two clinks and the thud of the coin box, and the opening fanfare waits the fifth of a second it takes. The music player is a step sequencer that plays one of five original tracks, written as data in `music-tracks.js` (tempo, bar roots, bass, chords, lead and drum patterns). Notes are scheduled ahead of the clock, so timing stays exact whatever the frame rate; a track starts with bass and kick alone, adds the chords with snare and hi-hat at three hits and the lead at six, fades on pause, stops at the menu, and starts every match from the bass again. Drums are synthesized too: a falling sine for the kick and high-passed noise for the snare and hi-hat. Choosing a track in the settings or on the pause screen plays a four-second preview with every layer in; it never interrupts a match, and a track changed during a pause plays from its first bar on resume. Every envelope starts silent before its first scheduled value, because a new gain node passes full level until then and a source starting a sample early would click. Both play through one audio context, owned by `AudioOutput`: browsers limit how many a page may open, so it is created once, on the first event, which always follows a click or key press, and resumed whenever the browser suspended it.
 
 ### Haptics
 
@@ -199,7 +205,7 @@ Implements `FeedbackPort` with `navigator.vibrate`: short pulses for the player'
 
 ### LocalPreferences
 
-Implements `PreferencesPort` over `localStorage`, validating everything it reads. Storage that is missing or throws, as in private browsing, falls back to in-memory values, so the game never breaks over storage.
+Implements `PreferencesPort` over `localStorage`, validating everything it reads: the player's initials, for one, are three capital letters or nothing. Storage that is missing or throws, as in private browsing, falls back to in-memory values, so the game never breaks over storage.
 
 The game may be open in several tabs. Each tab follows the others' saves through the `storage` event, and merges its own changes into what is stored at that moment, so one tab never writes back another's older records. After a save fails, a tab trusts its own newer values over storage.
 
@@ -264,6 +270,8 @@ Supers were tuned with the same bots, and with a second harness that fires each 
 
 The three presets in `config.js` were tuned by simulating hundreds of matches against human-like bots of three skill levels. The bots have finger-speed limits, reaction delays, aim errors that grow with ball speed, and occasional flicks. The target was that a casual player wins almost every match on Easy, a confident one about two in three on Normal, and Hard is beaten mostly with curved shots. A unit test pins the ordering of the presets.
 
+The rows of the Rush high-score table were set the same way. Bots of the three levels, matched to those targets (a casual one winning about nine Easy matches in ten, a decent one about six in ten on Normal, a skilled one two in three on Hard), each played a thousand runs. A casual bot's run is 20 hits at the median and a decent one's 27; a skilled one's is 37, and one in ten of its runs reaches 52. So the regulars' rows climb from 8 to 48 in the order of the career ladder, under an unsigned record of 60. Almost every first run lands a casual bot on the table, in eighth place at the median, and twenty runs take it to sixth; a decent one stands sixth after a run and fourth after twenty; a skilled one beats the record on about one run in fifty. These are simulated players, not people.
+
 ## Executable architecture constraints
 
 Documentation can become stale, so the project encodes its rules as checks that fail CI:
@@ -281,8 +289,8 @@ Documentation can become stale, so the project encodes its rules as checks that 
 The dependency-free unit suite targets deterministic rules and the logic of the adapters:
 
 - domain: state machine and events, the match and Rush rules, scoring and match point, the countdown and serve pauses, paddle control for one or two people, paddle contact on faces, corners and sides with a no-overlap property test, spin and curves, the speed cap, the opponent, power-ups, supers, the random source, and a full rally
-- application: loop lifecycle with time scale and hold, interpolation, commands, the match built per mode, drama, feedback dispatch, the rally, Rush and win-streak records, and forfeits
-- adapters: input with two-player halves and dialogs, the view with modes, the modal tutorial and settings, and focus, the canvas renderer and its modules, effects and callouts, sound and music on one audio context, vibration, the wake lock, sharing and full screen, and preferences across tabs, driven through fake event targets, a recording 2D context, fake audio contexts and fake storage thanks to injected globals
+- application: loop lifecycle with time scale and hold, interpolation, commands, the match built per mode, drama, feedback dispatch, the rally, Rush and win-streak records, forfeits, and the high-score table: a run's place among the regulars, ties, the rows a run passes, and the few rows shown around the player's
+- adapters: input with two-player halves and dialogs, the view with modes, the modal tutorial and settings, the high-score table and the letters that sign it, the versus card, and focus, the canvas renderer and its modules, effects and callouts, sound and music on one audio context, vibration, the wake lock, sharing and full screen, and preferences across tabs, driven through fake event targets, a recording 2D context, fake audio contexts and fake storage thanks to injected globals
 - architecture: the lint rules themselves, and that every module loads without a browser
 
 ### Reference matches
@@ -302,8 +310,10 @@ Playwright checks the assembled system on desktop and mobile Chromium. Instead o
 - the first-visit tutorial as a modal dialog: `Space` closes it without starting a match, `Escape` closes it too, and either is remembered; the settings dialog, whose keys belong to it too
 - the title screen keeping the scoreboard, the pause button and the thumb rail for the match, without moving the court
 - Rush lives running out, and two players steering their own halves of the board
-- the heads-up display fitting a 320px-wide phone without sideways scrolling, and every control of its menu and pause screen at least 44 by 44 pixels
-- a phone held sideways: the HUD beside a full-height court, and a menu sheet that fits with fingertip-sized controls
+- the Rush high-score table: the table the arcade left, signing it with three letters by touch or by keyboard, the standing after a run, and a real run, played by following the ball, that beats the table's last row and is named for it
+- the career's versus card, which leaves the paddle steerable and is gone before the serve, and the rival's line after a match
+- the heads-up display fitting a 320px-wide phone without sideways scrolling, and every control of its menu, in every mode, and of its pause screen at least 44 by 44 pixels
+- a phone held sideways: the HUD beside a full-height court, and a menu sheet that fits, in every mode, with fingertip-sized controls
 - preferences surviving a reload, the Supers switch saying where it applies, the super meter on the court only while supers are on, and the result screen after a full match
 - auto-pause on focus loss, and an idle render loop outside of a match
 - a canvas backing store that matches device pixels, and an installable manifest
@@ -332,6 +342,7 @@ The boundaries make future changes local:
 - add a mode → a `Rules` variant in `domain/types.js` and a preset in `config.js`
 - add a power-up → a kind in `domain/power-ups.js`, its look in `adapters/canvas/theme.js`, its sound in the sound board; the power-up reference match is re-recorded, since the kinds are drawn from the seeded random source
 - add a super → a kind in `domain/supers.js` with its launch and flight, its look in `adapters/canvas/theme.js`, a finisher in `adapters/finisher.js`, its sound in the sound board; the supers reference match is re-recorded, since the kinds are drawn from the seeded random source
+- add a career rival → an entry in `catalog.js` with its tuning, story, lines and emblem, and the emblem's symbol in `index.html`; a test checks the page draws it
 - change the opponent's personality → `domain/opponent.js`
 - new effects or sounds for an event → `adapters/canvas/event-effects.js` or the sound board, without touching the game
 - randomize serves → draw from the seeded random source already in the state, keeping the core deterministic

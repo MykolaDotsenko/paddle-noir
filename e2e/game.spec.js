@@ -1,6 +1,7 @@
 import { expect, test as base } from '@playwright/test';
 
 import { NICKNAMES } from '../src/application/nicknames.js';
+import { HIGH_SCORES } from '../src/catalog.js';
 import { GAME_CONFIG } from '../src/config.js';
 
 // A first visit opens the tutorial over the menu. Most tests model a returning player, so
@@ -26,6 +27,9 @@ const status = (page) => page.locator('[data-game-status]');
 const board = (page) => page.locator('[data-game-canvas]');
 const playButton = (page) => page.getByRole('button', { name: 'Play', exact: true });
 const settings = (page) => page.getByRole('dialog', { name: 'Settings' });
+const scores = (page) => page.getByRole('dialog', { name: 'High scores' });
+/** The rows of a high-score list, each as its cells' text: rank, initials, the name if shown, hits. */
+const scoreRows = (list) => list.locator('.score-row').evaluateAll((rows) => rows.map((row) => [...row.children].map((cell) => cell.textContent)));
 
 /** Opens the settings from the menu, where every switch but sound lives. */
 async function openSettings(page) {
@@ -285,6 +289,13 @@ test.describe('on the smallest phone held upright', () => {
     await page.goto('/');
     expect(await touchProblems(page)).toEqual(noTouchProblems);
 
+    // Rush has its high-score card there, and the career its rival.
+    for (const mode of [/Rush/, /Career/]) {
+      await page.getByRole('button', { name: mode }).tap();
+      expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
+    }
+
+    await page.getByRole('button', { name: /Solo/ }).tap();
     await playButton(page).tap();
     await page.keyboard.press('Escape');
     await expect(page.locator('[data-overlay="pause"]')).toBeVisible();
@@ -300,8 +311,14 @@ test.describe('on a phone held sideways', () => {
 
     await page.goto('/');
     expect(await touchProblems(page)).toEqual(noTouchProblems);
-    const menuFits = await page.locator('[data-overlay="menu"]').evaluate((sheet) => sheet.scrollHeight <= sheet.clientHeight);
-    expect(menuFits).toBe(true);
+    const menuFits = () => page.locator('[data-overlay="menu"]').evaluate((sheet) => sheet.scrollHeight <= sheet.clientHeight);
+    expect(await menuFits()).toBe(true);
+
+    for (const mode of [/Rush/, /Career/, /Solo/]) {
+      await page.getByRole('button', { name: mode }).tap();
+      expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
+      expect(await menuFits(), String(mode)).toBe(true);
+    }
 
     await playButton(page).tap();
     const layout = await page.evaluate(() => {
@@ -807,7 +824,7 @@ test.describe('the career', () => {
     const press = (locator) => (hasTouch ? locator.tap() : locator.click());
     const next = page.getByRole('button', { name: 'Next rival' });
 
-    await page.goto('/');
+    await freezeTime(page);
     await expect(page.getByRole('group', { name: 'Difficulty' })).toBeHidden();
     await expect(page.locator('[data-rival-name]')).toHaveText('Rookie Roma');
     await expect(page.getByRole('button', { name: 'Previous rival' })).toBeDisabled();
@@ -821,11 +838,33 @@ test.describe('the career', () => {
     await expect(next).toBeDisabled();
     await expect(page.locator('[data-rival-boss]')).toBeVisible();
     await expect(page.locator('[data-menu-meta]')).toContainText('bucket');
+    await expect(page.locator('[data-rival-emblem]')).toHaveAttribute('href', '#emblem-bucket');
 
     await press(playButton(page));
     await expect(status(page)).toHaveText('You 0 — 0 The Janitor');
     await expect(page.locator('[data-label="opponent"]')).toHaveText('Janitor');
-    await expect(page.locator('[data-rival-banner]')).toContainText('The Janitor');
+
+    // The versus card: the rival's emblem and name over the player's, for half the countdown.
+    const versus = page.locator('[data-versus]');
+    await expect(versus).toBeVisible();
+    await expect(versus.locator('[data-versus-name]')).toHaveText('The Janitor');
+    await expect(versus.locator('[data-versus-tag]')).toHaveText('Boss');
+    await expect(versus.locator('[data-versus-emblem]')).toHaveAttribute('href', '#emblem-bucket');
+    await expect(versus.locator('[data-versus-you]')).toHaveText('You');
+
+    // It takes no touch for itself: the paddle steers under it.
+    const surface = hasTouch ? page.locator('.rail') : board(page);
+    const left = await pointOn(surface, 0.2);
+    await (hasTouch ? surface.tap(left) : surface.hover(left));
+    await page.clock.runFor(1000);
+    await expect(versus).toBeVisible();
+    expect(await readPlayerX(page)).toBeCloseTo(0.2 * GAME_CONFIG.width, -1);
+
+    // And it is gone with half the countdown left, the ball still waiting to be served.
+    await page.clock.runFor(600);
+    await expect(versus).toBeHidden();
+    expect(Math.abs((await readBall(page)).y - GAME_CONFIG.height / 2)).toBeLessThan(5);
+    expect(GAME_CONFIG.startDelaySeconds).toBeGreaterThanOrEqual(3);
   });
 
   test.describe('against the first boss', () => {
@@ -874,7 +913,8 @@ test.describe('the career', () => {
 
       await (hasTouch ? playButton(page).tap() : playButton(page).click());
       await expect(status(page)).toHaveText('You 0 — 0 The Landlord');
-      await expect(page.locator('[data-rival-banner]')).toContainText('Final boss');
+      await expect(page.locator('[data-versus-tag]')).toHaveText('Final boss');
+      await expect(page.locator('[data-versus-name]')).toHaveText('The Landlord');
       await expect(page.locator('[data-label="opponent"]')).toHaveText('Landlord');
 
       // The countdown ends in the first serve, and the match plays on.
@@ -896,9 +936,231 @@ test.describe('the career', () => {
 
     await expect(page.getByRole('heading', { name: 'Defeat' })).toBeVisible();
     await expect(page.locator('[data-over-difficulty]')).toHaveText('Career 1/10 · vs Rookie Roma');
+    // The winner has a word to say, beside its emblem.
+    await expect(page.locator('[data-over-quote]')).toHaveText('“I won? Do not tell my mom I was here.”');
+    await expect(page.locator('[data-over-quote-emblem]')).toHaveAttribute('href', '#emblem-wrap');
     await expect(page.locator('[data-continue]')).toBeVisible();
     await expect(page.locator('[data-over-stars]')).toBeHidden();
     await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible();
+  });
+});
+
+// The Rush high-score table.
+
+test('Rush shows the high-score table the arcade left, with the row to beat first', async ({ page, hasTouch }) => {
+  const press = (locator) => (hasTouch ? locator.tap() : locator.click());
+
+  await page.goto('/');
+  await press(page.getByRole('button', { name: /Rush/ }));
+
+  const card = page.getByRole('button', { name: /High scores/ });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('No run yet');
+  await expect(card).toContainText(`Next: ROM · ${HIGH_SCORES.at(-1).hits} hits`);
+
+  await press(card);
+  await expect(scores(page)).toBeVisible();
+  await expect(scores(page).getByRole('button', { name: 'Done' })).toBeFocused();
+  expect(await scoreRows(scores(page))).toEqual(HIGH_SCORES.map((row, index) => [String(index + 1), row.initials, row.name, String(row.hits)]));
+
+  // Closing it starts nothing, and the other modes do not show the card.
+  await page.keyboard.press('Escape');
+  await expect(scores(page)).toBeHidden();
+  await expect(status(page)).toHaveText('Rush: survive as long as you can.');
+  await press(page.getByRole('button', { name: /Solo/ }));
+  await expect(card).toBeHidden();
+});
+
+test.describe('with a Rush run on the table', () => {
+  test.use({ stored: { mode: 'rush', bestRush: 21 } });
+
+  test('the player signs the table with three letters, which are remembered', async ({ page, hasTouch }) => {
+    const press = (locator) => (hasTouch ? locator.tap() : locator.click());
+    const card = page.getByRole('button', { name: /High scores/ });
+
+    await page.goto('/');
+    await expect(card).toContainText('#8 · YOU · 21 hits');
+    await expect(card).toContainText('Next: JAN · 22 hits');
+
+    await press(card);
+    expect((await scoreRows(scores(page)))[7]).toEqual(['8', 'YOU', 'You', '21']);
+    await press(scores(page).getByRole('button', { name: 'Enter initials' }));
+
+    // On a touch screen the letters are tapped; with a keyboard they are typed, and the
+    // game's own keys (A and D steer, Space starts) mean letters and nothing else here.
+    const slots = scores(page).locator('[data-sign-slots]');
+    const ok = scores(page).getByRole('button', { name: 'OK' });
+    await expect(slots).toHaveText('___');
+    await expect(ok).toBeDisabled();
+
+    if (hasTouch) {
+      for (const letter of ['D', 'A', 'X']) {
+        await scores(page).getByRole('button', { name: letter, exact: true }).tap();
+      }
+      await scores(page).getByRole('button', { name: 'Delete the last letter' }).tap();
+      await scores(page).getByRole('button', { name: 'D', exact: true }).tap();
+    } else {
+      await page.keyboard.type('dax');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.type('d');
+    }
+
+    await expect(slots).toHaveText('DAD');
+    await expect(ok).toBeEnabled();
+    await (hasTouch ? ok.tap() : page.keyboard.press('Enter'));
+
+    // The table comes back with the row signed, and nothing has started behind the dialog.
+    expect((await scoreRows(scores(page)))[7]).toEqual(['8', 'DAD', 'You', '21']);
+    await expect(scores(page).locator('.score-row--own')).toHaveCount(1);
+    await expect(scores(page).getByRole('button', { name: 'Change initials' })).toBeVisible();
+    await press(scores(page).getByRole('button', { name: 'Done' }));
+    await expect(scores(page)).toBeHidden();
+    await expect(status(page)).toHaveText('Rush: survive as long as you can.');
+    await expect(card).toContainText('#8 · DAD · 21 hits');
+
+    await page.reload();
+    await expect(card).toContainText('#8 · DAD · 21 hits');
+
+    // Solo names the player by them on the scoreboard.
+    await press(page.getByRole('button', { name: /Solo/ }));
+    await press(playButton(page));
+    await expect(page.locator('[data-label="player"]')).toHaveText('DAD');
+  });
+
+  test('a run short of the best shows the standing and how far the next row is, and a tap signs it', async ({ page, hasTouch }) => {
+    const press = (locator) => (hasTouch ? locator.tap() : locator.click());
+
+    await freezeTime(page);
+    await press(playButton(page));
+
+    // Park the paddle in a corner: the run ends with no hits, so the table stays as it was.
+    const surface = hasTouch ? page.locator('.rail') : board(page);
+    const corner = await pointOn(surface, 0.01);
+    await (hasTouch ? surface.tap(corner) : surface.hover(corner));
+    await page.clock.runFor(13_000);
+    await expect(page.getByRole('heading', { name: 'Run over' })).toBeVisible();
+    await expect(status(page)).toHaveText('Run over — 0 hits.');
+
+    const standing = page.locator('[data-over-scores]');
+    await expect(standing).toBeVisible();
+    expect(await scoreRows(standing)).toEqual([['7', 'JAN', '22'], ['8', 'YOU', '21'], ['9', 'TAR', '18']]);
+    await expect(standing.locator('.score-row--own')).toHaveText(/YOU/);
+    await expect(standing).toContainText('2 more to pass JAN');
+    await expect(standing.getByText('Tap to sign your score')).toBeVisible();
+    await expect(page.locator('[data-over-meta]')).toBeHidden();
+    await expect(page.locator('[data-over-best-rush]')).toBeHidden();
+
+    // The unsigned standing opens on the letters; signing changes the row and starts nothing.
+    await press(standing);
+    await expect(scores(page).locator('[data-sign-slots]')).toHaveText('___');
+    for (const letter of ['Z', 'O', 'E']) {
+      await press(scores(page).getByRole('button', { name: letter, exact: true }));
+    }
+    await press(scores(page).getByRole('button', { name: 'OK' }));
+    expect((await scoreRows(scores(page)))[7]).toEqual(['8', 'ZOE', 'You', '21']);
+    await press(scores(page).getByRole('button', { name: 'Done' }));
+
+    await expect(page.getByRole('heading', { name: 'Run over' })).toBeVisible();
+    expect((await scoreRows(standing))[1]).toEqual(['8', 'ZOE', '21']);
+    await expect(standing.getByText('Tap to sign your score')).toBeHidden();
+    await expect(status(page)).toHaveText('Run over — 0 hits.');
+
+    // The signed standing opens the table, and Play again still starts the next run.
+    await press(standing);
+    await expect(scores(page).locator('.scores')).toBeVisible();
+    await press(scores(page).getByRole('button', { name: 'Done' }));
+    await press(page.getByRole('button', { name: 'Play again' }));
+    await expect(status(page)).toHaveText('0 hits, 3 lives left');
+  });
+});
+
+test.describe('one hit short of the table', () => {
+  // Level with the table's last row, which a run has to beat.
+  test.use({ stored: { mode: 'rush', bestRush: HIGH_SCORES.at(-1).hits, jokes: false } });
+
+  test('a run that beats the last row puts the player on the table and names who it passed', async ({ page, hasTouch }) => {
+    // The test plays a real run, a step at a time.
+    test.setTimeout(120_000);
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    // A fixed seed makes the run replay the same way.
+    await page.addInitScript(() => {
+      Math.random = () => 0.5;
+    });
+    await freezeTime(page);
+
+    const card = page.getByRole('button', { name: /High scores/ });
+    await expect(card).toContainText('YOU · 8 hits');
+    await expect(card).toContainText('Next: ROM · 8 hits');
+    await (hasTouch ? playButton(page).tap() : playButton(page).click());
+
+    // Stand where the ball is going to land, until the run is one hit past the row.
+    const surface = hasTouch ? page.locator('.rail') : board(page);
+    const box = await surface.boundingBox();
+    const steer = (x) => {
+      const at = [box.x + box.width * Math.min(0.98, Math.max(0.02, x / GAME_CONFIG.width)), box.y + box.height / 2];
+      return hasTouch ? page.touchscreen.tap(...at) : page.mouse.move(...at);
+    };
+    const hits = page.locator('[data-score="player"]');
+    const target = HIGH_SCORES.at(-1).hits + 1;
+    const { width, height, paddle, ball: { radius } } = GAME_CONFIG;
+    const face = height - paddle.inset - paddle.height - radius;
+    const step = 100;
+    let previous = null;
+
+    for (let elapsed = 0; elapsed < 90_000 && Number(await hits.textContent()) < target; elapsed += step) {
+      await page.clock.runFor(step);
+      const ball = await readBall(page);
+
+      if (!ball) {
+        continue;
+      }
+
+      const vx = previous ? (ball.x - previous.x) / step : 0;
+      const vy = previous ? (ball.y - previous.y) / step : 0;
+      let landing = ball.x;
+
+      if (vy > 0) {
+        // Where it crosses the paddle's line, its path folded at the side walls.
+        const span = width - 2 * radius;
+        const travelled = ((ball.x + vx * ((face - ball.y) / vy) - radius) % (2 * span) + 2 * span) % (2 * span);
+        landing = radius + (travelled > span ? 2 * span - travelled : travelled);
+      }
+
+      await steer(landing);
+      previous = ball;
+    }
+
+    expect(Number(await hits.textContent())).toBe(target);
+
+    // Then stand aside, wherever the ball is served, until the lives run out.
+    for (let elapsed = 0; elapsed < 60_000 && !(await status(page).textContent()).startsWith('Run over'); elapsed += 250) {
+      const ball = await readBall(page);
+      await steer(ball && ball.x < width / 2 ? width : 0);
+      await page.clock.runFor(250);
+    }
+
+    await expect(page.getByRole('heading', { name: 'Run over' })).toBeVisible();
+    const run = Number(await hits.textContent());
+    expect(run).toBeGreaterThanOrEqual(target);
+    const place = HIGH_SCORES.filter((row) => row.hits >= run).length + 1;
+    const passed = HIGH_SCORES.filter((row) => row.hits < run);
+
+    await expect(status(page)).toHaveText(`Run over — ${run} hits. Number ${place} on the high-score table.`);
+    const standing = page.locator('[data-over-scores]');
+    await expect(standing.locator('.score-row--own')).toHaveText(new RegExp(`^${place}YOU${run}$`));
+    await expect(standing).toContainText(passed.length === 1 ? `You passed ${passed[0].name}!` : `You passed ${passed.length} regulars!`);
+    await expect(page.locator('[data-over-best-rush]')).toBeVisible();
+
+    // Back in the menu the card has the new place, and the table has dropped its last row.
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await expect(card).toContainText(`#${place} · YOU · ${run} hits`);
+    await card.click();
+    const rows = await scoreRows(scores(page));
+    expect(rows).toHaveLength(HIGH_SCORES.length);
+    expect(rows[place - 1]).toEqual([String(place), 'YOU', 'You', String(run)]);
+    expect(rows.flat()).not.toContain('ROM');
+    expect(errors).toEqual([]);
   });
 });
 

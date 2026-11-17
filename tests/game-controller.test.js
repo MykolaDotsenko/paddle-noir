@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildMatchConfig, GameController } from '../src/application/game-controller.js';
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { GAME_COMMAND } from '../src/application/ports.js';
-import { MATCH_CATALOG, RIVALS } from '../src/catalog.js';
+import { HIGH_SCORES, MATCH_CATALOG, RIVALS } from '../src/catalog.js';
 import { DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
 import { GAME_PHASE } from '../src/domain/game.js';
 
@@ -187,6 +187,7 @@ test('connecting draws the ready screen, sets up one player, and leaves the loop
     stats: DEFAULT_STATS,
     winner: null,
     career: null,
+    highScores: null,
   });
   assert.equal(scheduler.pending.size, 0);
 });
@@ -494,11 +495,134 @@ test('a Rush run ends when the lives run out and records the hit count', () => {
 
   const presentation = lastOf(view.presentations);
   assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
-  assert.equal(presentation.status, 'Run over — 9 hits.');
+  assert.equal(presentation.status, 'Run over — 9 hits. Number 10 on the high-score table.');
   assert.equal(presentation.bestRush, 9);
   assert.equal(presentation.newBestRush, true);
   assert.equal(presentation.stats.matches, 0);
   assert.deepEqual(lastOf(preferences.writes), { bestRush: 9 });
+});
+
+// The Rush high-score table: the player's best run among the regulars' rows.
+
+/** Ends the Rush run under way with that many hits. */
+function finishRun({ controller, scheduler }, hits) {
+  inPlay(controller, {
+    lives: 1,
+    hits: { player: hits, opponent: hits },
+    ball: { x: 250, y: GAME_CONFIG.height + GAME_CONFIG.ball.radius + 1, vx: 0, vy: 300, spin: 0 },
+  });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+}
+
+test('in Rush the menu shows where the player stands on the high-score table, and no other mode does', () => {
+  const { view } = setup({ mode: 'rush', bestRush: 21, initials: 'MYK' });
+  const table = lastOf(view.presentations).highScores;
+
+  assert.equal(table.rows.length, HIGH_SCORES.length);
+  assert.deepEqual(table.own, { initials: 'MYK', name: 'You', hits: 21, rank: 8, own: true });
+  assert.equal(table.target.initials, 'JAN');
+  assert.equal(table.signed, true);
+  assert.deepEqual(table.passed, []);
+
+  const fresh = lastOf(setup({ mode: 'rush' }).view.presentations).highScores;
+  assert.equal(fresh.own.rank, 0);
+  assert.equal(fresh.signed, false);
+  assert.deepEqual(fresh.rows.map((row) => row.initials), HIGH_SCORES.map((row) => row.initials));
+
+  for (const mode of ['solo', 'duo', 'career']) {
+    assert.equal(lastOf(setup({ mode, bestRush: 21 }).view.presentations).highScores, null, mode);
+  }
+});
+
+test('a run that beats the player\'s best names whose rows it went past, until the next run or the menu', () => {
+  const context = setup({ mode: 'rush', bestRush: 5 });
+  const { controller, view } = context;
+
+  view.handler(GAME_COMMAND.START);
+  assert.deepEqual(controller.presentation().highScores.passed, [], 'nothing while the run is on');
+  finishRun(context, 21);
+
+  const table = lastOf(view.presentations).highScores;
+  assert.deepEqual(table.passed, ['Rookie Roma', 'Aunt Halyna', 'Twisty Taras']);
+  assert.equal(table.own.rank, 8);
+  assert.equal(lastOf(view.presentations).status, 'Run over — 21 hits. Number 8 on the high-score table.');
+
+  view.handler(GAME_COMMAND.START);
+  assert.deepEqual(controller.presentation().highScores.passed, [], 'the next run starts clean');
+  assert.equal(controller.presentation().highScores.own.rank, 8);
+
+  finishRun(context, 30);
+  assert.deepEqual(lastOf(view.presentations).highScores.passed, ['The Janitor', 'Hoarder Hryts']);
+  view.handler(GAME_COMMAND.RESET);
+  assert.deepEqual(lastOf(view.presentations).highScores.passed, [], 'and so does the menu');
+  assert.equal(lastOf(view.presentations).highScores.own.hits, 30);
+});
+
+test('a run short of the player\'s best changes nothing on the table, and says so plainly', () => {
+  const context = setup({ mode: 'rush', bestRush: 21 });
+  const { view, preferences } = context;
+
+  view.handler(GAME_COMMAND.START);
+  finishRun(context, 12);
+
+  const presentation = lastOf(view.presentations);
+  assert.equal(presentation.status, 'Run over — 12 hits.');
+  assert.equal(presentation.newBestRush, false);
+  assert.deepEqual(presentation.highScores.passed, []);
+  assert.equal(presentation.highScores.own.hits, 21, 'the row is the best run, not the last');
+  assert.ok(!preferences.writes.some((write) => 'bestRush' in write));
+
+  // A better run that passes nobody is a record, but no climb.
+  view.handler(GAME_COMMAND.START);
+  finishRun(context, 22);
+  assert.equal(lastOf(view.presentations).status, 'Run over — 22 hits.');
+  assert.equal(lastOf(view.presentations).newBestRush, true);
+  assert.equal(lastOf(view.presentations).highScores.own.rank, 8);
+});
+
+test('the table is worked out again only when the record or the initials change', () => {
+  const { controller, view, preferences } = setup({ mode: 'rush', bestRush: 21 });
+  const table = controller.presentation().highScores;
+
+  assert.strictEqual(controller.presentation().highScores, table, 'the same object frame after frame');
+
+  preferences.set({ initials: 'MYK' });
+  const signed = controller.presentation().highScores;
+  assert.notStrictEqual(signed, table);
+  assert.equal(signed.own.initials, 'MYK');
+  assert.strictEqual(controller.presentation().highScores, signed);
+
+  preferences.set({ bestRush: 40 });
+  assert.equal(controller.presentation().highScores.own.rank, 4, 'another tab\'s record shows too');
+  assert.equal(view.presentations.length, 1, 'none of which draws anything by itself');
+});
+
+test('the refresh command shows the screen again as it is, whatever the phase', () => {
+  const context = setup({ mode: 'rush', bestRush: 5 });
+  const { controller, view, renderer, scheduler, preferences, feedback } = context;
+
+  view.handler(GAME_COMMAND.START);
+  finishRun(context, 21);
+  const before = { state: controller.state, drawn: view.presentations.length, frames: renderer.frames.length, events: feedback.received.length };
+
+  preferences.set({ initials: 'MYK' });
+  view.handler(GAME_COMMAND.REFRESH);
+
+  assert.strictEqual(controller.state, before.state, 'the match is as it was');
+  assert.equal(view.presentations.length, before.drawn + 1);
+  assert.equal(renderer.frames.length, before.frames + 1);
+  assert.equal(feedback.received.length, before.events, 'nothing is announced again');
+  assert.equal(lastOf(view.presentations).highScores.own.initials, 'MYK');
+  assert.deepEqual(lastOf(view.presentations).highScores.passed, ['Rookie Roma', 'Aunt Halyna', 'Twisty Taras'], 'the run\'s climb still shows');
+  assert.equal(scheduler.pending.size, 0, 'and the loop stays idle');
+
+  // During a match it neither pauses nor restarts anything.
+  view.handler(GAME_COMMAND.START);
+  const running = controller.state;
+  view.handler(GAME_COMMAND.REFRESH);
+  assert.strictEqual(controller.state, running);
+  assert.equal(scheduler.pending.size, 1);
 });
 
 test('during a Rush run the status line counts the lives actually left', () => {
@@ -763,7 +887,7 @@ test('the career menu names the rival and shows where the player stands on the l
     index: 1,
     count: 10,
     unlocked: 1,
-    rival: { name: 'Aunt Halyna', short: 'Halyna', story: RIVALS[1].story, boss: false },
+    rival: { name: 'Aunt Halyna', short: 'Halyna', story: RIVALS[1].story, emblem: RIVALS[1].emblem, says: RIVALS[1].says, boss: false },
     stars: 0,
     earned: 0,
     eased: true,

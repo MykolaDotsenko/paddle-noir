@@ -17,9 +17,9 @@ Paddle Noir is meant to feel like the last surviving arcade cabinet in town, not
 ### Modes
 
 - **Solo** — first to 7 against the computer.
-- **Rush** — three-life survival where the ball keeps getting faster.
+- **Rush** — three-life survival where the ball keeps getting faster, with an arcade high-score table to climb: the regulars' best runs under a record nobody signed, and yours once you put three initials to it.
 - **2P** — two people sharing one phone or keyboard.
-- **Career: The Last Arcade** — a ladder of nine opponents with different rules, ending with **The Landlord**, who wants to replace the arcade with a parking lot.
+- **Career: The Last Arcade** — a ladder of nine opponents with different rules, ending with **The Landlord**, who wants to replace the arcade with a parking lot. Each is announced on a versus card under a neon emblem of its own, and has something to say when the match is over.
 
 Career opponents change the same underlying simulation rather than loading separate game implementations. Boss attacks, difficulty and scoring differences are data/rules layered on top of the core match.
 
@@ -29,7 +29,7 @@ Returns charge a super meter. A full meter can fire **Fireball, Zigzag, Phantom 
 
 Optional power-ups add Wide, Shrink, Turbo, Ghost and Multiball. Curve shots come from paddle movement at impact rather than a separate button.
 
-The game also includes match-point drama, long-rally escalation, synthesized music/sound, vibration, small arcade jokes and over-the-top finishing animations. Those effects are driven by domain events rather than mixed into the physics loop.
+The game also includes match-point drama, long-rally escalation, synthesized music/sound, vibration, small arcade jokes — a coin drops and CREDIT 01 shows as a match starts — and over-the-top finishing animations. Those effects are driven by domain events rather than mixed into the physics loop.
 
 ## Engineering
 

@@ -310,3 +310,38 @@ test('an EVICTALITY rumbles after the crunch', () => {
 
   assert.equal(sounds(true), sounds(false) + 3, 'the crunch, and the building coming down');
 });
+
+test('with the fun extras on a match starts with a coin, and the fanfare waits for it to drop', () => {
+  const started = (jokes) => {
+    const { board, contexts } = setup({ jokes });
+    board.handle([{ type: 'match-start' }]);
+    return contexts[0].oscillators.map((oscillator) => ({
+      type: oscillator.type,
+      frequency: oscillator.frequency.events[0][1],
+      at: Number((oscillator.startedAt - contexts[0].currentTime).toFixed(3)),
+    }));
+  };
+
+  const plain = started(false);
+  assert.deepEqual(plain.map(({ type, at }) => [type, at]), [['triangle', 0], ['triangle', 0.07], ['triangle', 0.14], ['triangle', 0.21]]);
+
+  const coined = started(true);
+  const coin = coined.slice(0, -plain.length);
+  const fanfare = coined.slice(-plain.length);
+
+  assert.equal(coin.length, 4);
+  assert.ok(coin.slice(0, 3).every(({ type, frequency }) => type === 'sine' && frequency > 2000), 'two bright clinks, the first with a ring to it');
+  assert.ok(coin[3].frequency < 250, 'then the thud of the coin box');
+  assert.deepEqual(fanfare.map(({ frequency }) => frequency), plain.map(({ frequency }) => frequency), 'the same fanfare');
+  assert.ok(Math.max(...coin.map(({ at }) => at)) < fanfare[0].at, 'which starts once the coin has dropped');
+  assert.deepEqual(fanfare.map(({ at }) => Number((at - fanfare[0].at).toFixed(3))), [0, 0.07, 0.14, 0.21]);
+  assert.ok(fanfare[0].at <= 0.25, 'and soon');
+});
+
+test('the coin is for the start of a match only', () => {
+  const { board, contexts } = setup({ jokes: true });
+
+  board.handle([{ type: 'resumed' }, { type: 'serve', x: 0, y: 0 }, { type: 'countdown', value: 3 }]);
+
+  assert.ok(contexts[0].oscillators.every((oscillator) => oscillator.frequency.events[0][1] < 2000));
+});

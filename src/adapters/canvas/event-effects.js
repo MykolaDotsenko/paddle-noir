@@ -8,6 +8,7 @@ import { phaseStyle, PICKUP_STYLE, speedIntensity, SUPER_STYLE, THEME } from './
 
 /**
  * @import { GameConfig, GameEvent, GameState, Side } from '../../domain/types.js'
+ * @import { HighScore } from '../../application/ports.js'
  * @import { Effects } from '../effects.js'
  * @import { Finisher, FinisherKind } from '../finisher.js'
  *
@@ -16,12 +17,18 @@ import { phaseStyle, PICKUP_STYLE, speedIntensity, SUPER_STYLE, THEME } from './
  * @property {() => number} random places the victory fireworks
  * @property {boolean} [jokes] the fun extras preference, which the finisher needs
  * @property {GameState} [state] the state the events came with, for where the paddles are
+ * @property {readonly HighScore[]} [highScores] the Rush high-score table, whose rows a run passes
+ * @property {number} [bestRush] the player's best Rush run before this one
  */
 
 // A hit this far from the paddle's center, or with this much curve, earns a callout; these are
 // the returns that charge a super meter more. A fast enough one is a smash.
 export { CURVE_SPIN, EDGE_OFFSET };
 export const SMASH_SPEED_SHARE = 0.75;
+
+// What an arcade cabinet shows when a coin has dropped: with the fun extras on, every match
+// starts under it.
+export const CREDIT = 'CREDIT 01';
 
 // The landlord's taunts, one for each point it takes on its way to winning, and its last word.
 export const TAUNTS = Object.freeze(["RENT'S DUE!", 'PAY UP!', 'NO REFUNDS!', 'LEASE DENIED!', 'RENT HIKE!', 'LAST WARNING!']);
@@ -34,7 +41,7 @@ export const LAST_WORD = "YOU'RE EVICTED!";
  * @param {readonly GameEvent[]} events
  * @param {EventContext} context
  */
-export function playEvents(effects, events, { config, random, jokes = false, state }) {
+export function playEvents(effects, events, { config, random, jokes = false, state, highScores = [], bestRush = 0 }) {
   const { width, height, ball } = config;
   // The final boss taunts the player once the step's other callouts are up, so it joins them.
   let taunt = false;
@@ -45,6 +52,11 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
         effects.clear();
         effects.ring({ x: width / 2, y: height / 2, color: `rgba(${THEME.violet}, 0.9)`, radius: 20, growth: 560, life: 0.6, width: 5 });
         effects.flash(`rgb(${THEME.violet})`, 0.16);
+
+        if (jokes) {
+          // Below the waiting ball, clear of the countdown above it.
+          effects.label({ text: CREDIT, x: width / 2, y: height * 0.64, color: `rgb(${THEME.amber})`, life: 1.1, size: 24 });
+        }
         break;
       case 'countdown':
         effects.ring({ x: width / 2, y: height / 2, color: `rgba(${THEME.violet}, 0.7)`, radius: 40, growth: 260, life: 0.5, width: 3 });
@@ -61,6 +73,10 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
         break;
       case 'paddle-hit':
         celebrateHit(effects, event, config);
+
+        if (config.rules.kind === 'rush' && event.side === 'player' && !event.extra && state) {
+          announcePass(effects, passedRow(highScores, state.hits.player, bestRush), config);
+        }
         break;
       case 'super-ready':
         chargeUp(effects, event, config, state);
@@ -154,6 +170,44 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
     const text = TAUNTS[Math.min(TAUNTS.length, Math.max(1, state.score.opponent)) - 1];
     effects.label({ text, x: width / 2, y: height * 0.22, color: `rgb(${THEME.side.opponent.rgb})`, life: 0.9, size: 30, stack: true });
   }
+}
+
+/**
+ * The row of the high-score table that a Rush run goes past with this hit: the one it has just
+ * beaten by a hit, if the player had not beaten it before. A run passes each row once, and
+ * only while it is the player's best.
+ *
+ * @param {readonly HighScore[]} table
+ * @param {number} hits the run's hits so far
+ * @param {number} best the player's best run before this one
+ * @returns {{ row: HighScore, record: boolean } | null} the row, and whether it was the table's best
+ */
+export function passedRow(table, hits, best) {
+  const row = table.find((candidate) => candidate.hits === hits - 1 && candidate.hits >= best);
+
+  return row ? { row, record: table.every((other) => other.hits <= row.hits) } : null;
+}
+
+/**
+ * A Rush run goes past a row of the high-score table: the board says whose, in the moment,
+ * or that the record has fallen.
+ *
+ * @param {Effects} effects
+ * @param {ReturnType<typeof passedRow>} passed
+ * @param {GameConfig} config
+ */
+function announcePass(effects, passed, config) {
+  if (!passed) {
+    return;
+  }
+
+  // Up by the far paddle, where the ball has just been sent and the player need not read it.
+  const x = config.width / 2;
+  const y = config.height * 0.2;
+  const text = passed.record ? 'NEW RECORD!' : `PASSED ${passed.row.initials}!`;
+
+  effects.label({ text, x, y, color: `rgb(${THEME.amber})`, life: 1, size: passed.record ? 38 : 30, stack: true });
+  effects.ring({ x, y, color: `rgba(${THEME.amber}, 0.9)`, radius: 20, growth: 260, life: 0.5, width: 3 });
 }
 
 /**
