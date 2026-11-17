@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { calloutFor, CURVE_SPIN, EDGE_OFFSET, finish, LAST_WORD, playEvents, TAUNTS } from '../src/adapters/canvas/event-effects.js';
+import { calloutFor, CREDIT, CURVE_SPIN, EDGE_OFFSET, finish, LAST_WORD, passedRow, playEvents, TAUNTS } from '../src/adapters/canvas/event-effects.js';
 import { SUPER_STYLE, THEME } from '../src/adapters/canvas/theme.js';
 import { Effects } from '../src/adapters/effects.js';
 import { COMIC_TITLES, FINISHER_KINDS, FINISHER_SECONDS, finisherFor, SUPER_FINISHERS } from '../src/adapters/finisher.js';
-import { RIVALS } from '../src/catalog.js';
+import { HIGH_SCORES, RIVALS } from '../src/catalog.js';
 import { GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
 import { createInitialState, GAME_PHASE } from '../src/domain/game.js';
 
@@ -54,6 +54,75 @@ test('a new match wipes the old effects before its own opening ring', () => {
 
   assert.equal(effects.particles.length, 0);
   assert.equal(effects.rings.length, 1);
+});
+
+test('with the fun extras on a match starts under CREDIT 01, like a coin just dropped', () => {
+  const effects = new Effects({ random: () => 0.5 });
+  playEvents(effects, [{ type: 'match-start' }], { ...context, jokes: true });
+
+  assert.equal(CREDIT, 'CREDIT 01');
+  assert.deepEqual(effects.labels.map((label) => label.text), [CREDIT]);
+  const [credit] = effects.labels;
+  assert.equal(credit.color, `rgb(${THEME.amber})`, 'never the pure white kept for the ball');
+  assert.ok(credit.y > height / 2 + 60, 'below the waiting ball, clear of the countdown above it');
+  assert.ok(credit.life <= 1.2, 'gone long before the serve');
+
+  // The serve would clear it anyway, and without the fun extras there is none.
+  assert.deepEqual(play([{ type: 'match-start' }]).labels, []);
+  playEvents(effects, [{ type: 'match-start' }], { ...context, jokes: true });
+  assert.equal(effects.labels.length, 1, 'a restart shows it once, not twice');
+});
+
+// A Rush run passes the rows of the high-score table as it goes.
+
+const rushState = (hits) => ({ ...createInitialState(RUSH_CONFIG, 1), phase: GAME_PHASE.RUNNING, hits: { player: hits, opponent: hits } });
+const rushHit = (hits, { best = 0, event = hit(), config = RUSH_CONFIG, highScores = HIGH_SCORES } = {}) => {
+  const effects = new Effects({ random: () => 0.5 });
+  playEvents(effects, [event], { config, random: () => 0.5, state: rushState(hits), highScores, bestRush: best });
+  return effects.labels.map((label) => label.text);
+};
+
+test('a row of the table is passed by the hit that beats it, once, and only above the player\'s best', () => {
+  const rom = HIGH_SCORES.at(-1);
+  const top = HIGH_SCORES[0];
+
+  assert.deepEqual(passedRow(HIGH_SCORES, rom.hits + 1, 0), { row: rom, record: false });
+  assert.equal(passedRow(HIGH_SCORES, rom.hits, 0), null, 'level with a row is not past it');
+  assert.equal(passedRow(HIGH_SCORES, rom.hits + 2, 0), null, 'and a row is passed once');
+  assert.deepEqual(passedRow(HIGH_SCORES, rom.hits + 1, rom.hits), { row: rom, record: false }, 'a row the player was level with');
+  assert.equal(passedRow(HIGH_SCORES, rom.hits + 1, rom.hits + 1), null, 'a row beaten on an earlier run stays beaten');
+  assert.deepEqual(passedRow(HIGH_SCORES, top.hits + 1, 0), { row: top, record: true });
+  assert.equal(passedRow([], 5, 0), null);
+});
+
+test('during a Rush run the board says whose row the player has just passed', () => {
+  const rom = HIGH_SCORES.at(-1);
+  const jan = HIGH_SCORES.find((row) => row.initials === 'JAN');
+
+  assert.deepEqual(rushHit(rom.hits + 1), ['PASSED ROM!']);
+  assert.deepEqual(rushHit(jan.hits + 1, { best: 12 }), ['PASSED JAN!']);
+  assert.deepEqual(rushHit(HIGH_SCORES[0].hits + 1), ['NEW RECORD!']);
+  assert.deepEqual(rushHit(rom.hits), [], 'not yet');
+  assert.deepEqual(rushHit(rom.hits + 1, { best: 30 }), [], 'a row passed long ago is not news');
+
+  // It joins the hit's own callout rather than taking its place.
+  assert.deepEqual(rushHit(rom.hits + 1, { event: hit({ offset: 1 }) }), ['EDGE!', 'PASSED ROM!']);
+});
+
+test('only the player\'s own hits in a Rush run pass rows', () => {
+  const rom = HIGH_SCORES.at(-1);
+
+  assert.deepEqual(rushHit(rom.hits + 1, { event: hit({ side: 'opponent', y: 66 }) }), [], 'the computer\'s returns are not the player\'s');
+  assert.deepEqual(rushHit(rom.hits + 1, { event: hit({ extra: true }) }), []);
+  assert.deepEqual(rushHit(rom.hits + 1, { config: GAME_CONFIG }), [], 'a match has no table');
+  assert.deepEqual(rushHit(rom.hits + 1, { highScores: [] }), [], 'and no table, no rows');
+
+  // Nor is there anything to say without a table at all, or without the state the events
+  // came with, which holds the hits.
+  const effects = new Effects({ random: () => 0.5 });
+  playEvents(effects, [hit()], { config: RUSH_CONFIG, random: () => 0.5, state: rushState(rom.hits + 1) });
+  playEvents(effects, [hit()], { config: RUSH_CONFIG, random: () => 0.5, highScores: HIGH_SCORES });
+  assert.deepEqual(effects.labels, []);
 });
 
 test('a serve clears the last callout', () => {

@@ -24,6 +24,9 @@ const NOTE = Object.freeze({
 
 const MASTER_VOLUME = 0.28;
 
+/** How long the coin takes to drop; the fanfare that starts a match waits for it. */
+const COIN_SECONDS = 0.2;
+
 /**
  * @typedef {object} Tone
  * @property {number} frequency start frequency in Hz
@@ -70,7 +73,7 @@ export class SoundBoard {
     const final = config ? isFinalBoss(config) : false;
 
     for (const event of events) {
-      this.play(event);
+      this.play(event, jokes);
 
       if (final) {
         this.finalBoss(event, state, jokes);
@@ -203,11 +206,28 @@ export class SoundBoard {
     return true;
   }
 
-  /** @param {GameEvent} event */
-  play(event) {
+  /**
+   * A coin dropped into the cabinet: two bright clinks as it falls, then the thud of the coin box.
+   */
+  coin() {
+    this.tone({ frequency: 2960, endFrequency: 2800, duration: 0.05, type: 'sine', volume: 0.22 });
+    this.tone({ frequency: 4435, duration: 0.04, type: 'sine', volume: 0.1 });
+    this.tone({ frequency: 2350, endFrequency: 2250, duration: 0.05, type: 'sine', volume: 0.16, delay: 0.06 });
+    this.tone({ frequency: 190, endFrequency: 95, duration: 0.07, type: 'triangle', volume: 0.3, delay: 0.12 });
+  }
+
+  /**
+   * @param {GameEvent} event
+   * @param {boolean} [jokes] the fun extras: a match then starts with a coin, as at an arcade
+   */
+  play(event, jokes = false) {
     switch (event.type) {
       case 'match-start':
-        this.arpeggio([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], 0.07, 'triangle', 0.45);
+        if (jokes) {
+          this.coin();
+        }
+
+        this.arpeggio([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], 0.07, 'triangle', 0.45, 0, jokes ? COIN_SECONDS : 0);
         break;
       case 'countdown':
         // Three short ticks, then a longer one on "1" that leads into the serve.
@@ -321,10 +341,11 @@ export class SoundBoard {
    * @param {OscillatorType} type
    * @param {number} volume
    * @param {number} [tail] extra ring time per note
+   * @param {number} [delay] seconds before the first note
    */
-  arpeggio(notes, step, type, volume, tail = 0) {
+  arpeggio(notes, step, type, volume, tail = 0, delay = 0) {
     notes.forEach((frequency, index) => {
-      this.tone({ frequency, duration: step + tail, type, volume, delay: index * step });
+      this.tone({ frequency, duration: step + tail, type, volume, delay: delay + index * step });
     });
   }
 

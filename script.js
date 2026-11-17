@@ -37,7 +37,7 @@ const canvas = requireElement('[data-game-canvas]', HTMLCanvasElement);
 const preferences = new LocalPreferences(window);
 preferences.connect();
 const scheduler = new BrowserFrameScheduler(window);
-const renderer = new CanvasRenderer({ canvas, window, scheduler, config: GAME_CONFIG, preferences });
+const renderer = new CanvasRenderer({ canvas, window, scheduler, config: GAME_CONFIG, preferences, highScores: MATCH_CATALOG.highScores });
 const haptics = new Haptics({ navigator: window.navigator, preferences });
 const device = new BrowserDevice({ navigator: window.navigator, document, location: window.location });
 const audio = new AudioOutput(window);

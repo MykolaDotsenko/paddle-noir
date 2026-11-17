@@ -18,6 +18,8 @@ export const GAME_COMMAND = Object.freeze({
   RESET: 'reset',
   /** Space: start a new match when idle, otherwise toggle pause. */
   PRIMARY: 'primary',
+  /** Show the screen again as it is: a preference it draws on has changed, such as the player's initials. */
+  REFRESH: 'refresh',
 });
 
 /** @type {readonly Difficulty[]} */
@@ -59,6 +61,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {boolean} tutorialSeen
  * @property {number} bestRally longest rally ever played
  * @property {number} bestRush most hits in a Rush run
+ * @property {string} initials the three letters the player signs the high-score table with, or '' until they do
  * @property {MatchStats} stats
  * @property {number} rival the career rival the next career match is against, as a place on the ladder from 0
  * @property {readonly number[]} careerStars the best stars earned against each career rival, from 0 to 3
@@ -72,14 +75,22 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {string} name the full form, in sentences and on the result screen
  * @property {string} short the scoreboard label, nine characters at most
  * @property {string} story one line of who they are, shown before the match
+ * @property {string} emblem the neon emblem the interface draws for it, by name
+ * @property {{ winning: string, beaten: string }} says its line after a match it won, and after one it lost
  * @property {boolean} boss whether it attacks the player's end of the court
  * @property {GameConfig} config how it plays
+ *
+ * @typedef {object} HighScore A row of the Rush high-score table.
+ * @property {string} initials three letters
+ * @property {string} name who holds it
+ * @property {number} hits the run's hits
  *
  * @typedef {object} MatchCatalog The tunings a match can be built from.
  * @property {Readonly<Record<Difficulty, GameConfig>>} difficulties
  * @property {GameConfig} rush
  * @property {GameConfig} duo
  * @property {readonly Rival[]} career the career ladder, from the first rival to the last boss
+ * @property {readonly HighScore[]} highScores the Rush high-score table as the arcade left it, best first
  *
  * @typedef {object} OpponentName Who the player faces, as the interface names them.
  * @property {string} label the short form on the scoreboard: CPU, P2, a nickname or a rival's
@@ -98,6 +109,17 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {string | null} next who the next match is against, when a win has moved the ladder on
  * @property {number} totalStars the best stars earned against every rival, added up
  * @property {number} beaten rivals beaten at least once
+ *
+ * @typedef {HighScore & { rank: number, own: boolean }} HighScoreRow A row in its place.
+ *   `rank` counts from 1, and is 0 for a run that is not on the table; `own` marks the player's.
+ *
+ * @typedef {object} HighScoresView The Rush high-score table, with the player's best run in its place.
+ * @property {readonly HighScoreRow[]} rows the table, best first
+ * @property {HighScoreRow} own the player's row: one of `rows`, or off the table with rank 0
+ * @property {HighScoreRow | null} target the row to beat next: the one above the player's, or the
+ *   table's last row while the player is off it; null once the player holds the record
+ * @property {boolean} signed whether the player has entered initials
+ * @property {readonly string[]} passed whose rows the run just finished went past, lowest first
  *
  * @typedef {object} Presentation What the view shows around the board.
  * @property {GamePhase} phase
@@ -121,6 +143,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {MatchStats} stats
  * @property {Side | null} winner
  * @property {CareerView | null} career in the career mode
+ * @property {HighScoresView | null} highScores in Rush
  *
  * @typedef {object} InputPort
  * @property {(handler: CommandHandler) => void} onCommand

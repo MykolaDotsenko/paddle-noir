@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { setImmediate as nextTick } from 'node:timers/promises';
 
 import { DomGameView } from '../src/adapters/dom-game-view.js';
+import { highScores } from '../src/application/high-scores.js';
 import { GAME_COMMAND } from '../src/application/ports.js';
+import { HIGH_SCORES } from '../src/catalog.js';
 import { GAME_PHASE } from '../src/domain/game.js';
 
 // A small stand-in for the DOM: elements with attributes, found by [name] or [name="value"].
@@ -137,7 +139,31 @@ function createRoot({ modalDialogs = true } = {}) {
     ['rivalBoss', { 'data-rival-boss': '' }],
     ['rivalTired', { 'data-rival-tired': '' }],
     ['rivalStars', { 'data-rival-stars': '' }],
-    ['banner', { 'data-rival-banner': '' }],
+    ['rivalEmblem', { 'data-rival-emblem': '' }],
+    ['versus', { 'data-versus': '' }],
+    ['versusEmblem', { 'data-versus-emblem': '' }],
+    ['versusTag', { 'data-versus-tag': '' }],
+    ['versusName', { 'data-versus-name': '' }],
+    ['versusYou', { 'data-versus-you': '' }],
+    ['scoresCard', { 'data-rush-only': '', 'data-show-scores': '' }],
+    ['scoresPlace', { 'data-scores-place': '' }],
+    ['scoresNext', { 'data-scores-next': '' }],
+    ['scores', { 'data-overlay': 'scores' }],
+    ['scoresAbout', { 'data-scores-about': '' }],
+    ['scoresRows', { 'data-scores-rows': '' }],
+    ['scoresActions', { 'data-scores-actions': '' }],
+    ['signOpen', { 'data-sign-open': '' }],
+    ['dismissScores', { 'data-dismiss-scores': '' }],
+    ['sign', { 'data-sign': '' }],
+    ['signSlots', { 'data-sign-slots': '' }],
+    ['letterA', { 'data-letter': 'A' }],
+    ['letterK', { 'data-letter': 'K' }],
+    ['letterM', { 'data-letter': 'M' }],
+    ['letterY', { 'data-letter': 'Y' }],
+    ['letterDelete', { 'data-letter-delete': '' }],
+    ['signActions', { 'data-sign-actions': '' }],
+    ['signCancel', { 'data-sign-cancel': '' }],
+    ['signOk', { 'data-sign-ok': '' }],
     ['difficultyGroup', { 'data-solo-only': '' }],
     ['easy', { 'data-difficulty': 'easy' }],
     ['normal', { 'data-difficulty': 'normal' }],
@@ -159,6 +185,14 @@ function createRoot({ modalDialogs = true } = {}) {
     ['overTitle', { 'data-over-title': '' }],
     ['overScore', { 'data-over-score': '' }],
     ['overRally', { 'data-over-rally': '' }],
+    ['overMeta', { 'data-over-meta': '' }],
+    ['overQuote', { 'data-over-quote': '' }],
+    ['overQuoteText', { 'data-over-quote-text': '' }],
+    ['overQuoteEmblem', { 'data-over-quote-emblem': '' }],
+    ['overScores', { 'data-over-scores': '', 'data-show-scores': '' }],
+    ['standingRows', { 'data-standing-rows': '' }],
+    ['standingNote', { 'data-standing-note': '' }],
+    ['standingHint', { 'data-standing-hint': '' }],
     ['overDifficulty', { 'data-over-difficulty': '' }],
     ['overBest', { 'data-over-best': '' }],
     ['overBestRush', { 'data-over-best-rush': '' }],
@@ -167,7 +201,7 @@ function createRoot({ modalDialogs = true } = {}) {
     ['overStars', { 'data-over-stars': '' }],
   ].map(([name, attributes]) => [
     name,
-    (name === 'tutorial' || name === 'settings') && modalDialogs ? new FakeDialog(attributes) : new FakeElement(attributes),
+    ['tutorial', 'settings', 'scores'].includes(name) && modalDialogs ? new FakeDialog(attributes) : new FakeElement(attributes),
   ]);
   const byName = Object.fromEntries(elements);
   const all = elements.map(([, element]) => element);
@@ -208,6 +242,7 @@ function createPreferences(initial = {}) {
     tutorialSeen: true,
     bestRally: 0,
     bestRush: 0,
+    initials: '',
     stats: DEFAULT_STATS,
     ...initial,
   };
@@ -308,6 +343,7 @@ function presentation(overrides = {}) {
     stats: DEFAULT_STATS,
     winner: null,
     career: null,
+    highScores: null,
     ...overrides,
   };
 }
@@ -683,6 +719,9 @@ test('the menu states the rules and the record for the chosen mode, from the mat
   assert.equal(dom.menuMeta.textContent, '5 lives · Best run 27 hits');
   assert.equal(record().textContent, '27');
 
+  view.render(presentation({ mode: 'rush', bestRush: 1, rules: { kind: 'rush', lives: 5 } }));
+  assert.equal(dom.menuMeta.textContent, '5 lives · Best run 1 hit');
+
   view.render(presentation({ mode: 'duo', bestRally: 14 }));
   assert.equal(dom.menuMeta.textContent, 'First to 7 · Two players, one screen', 'a Solo record is not a two-player one');
 });
@@ -749,6 +788,10 @@ test('a Rush result reports the run and its record', () => {
   assert.equal(dom.overScore.textContent, '31 hits');
   assert.equal(dom.overDifficulty.textContent, 'Rush');
   assert.equal(dom.overBestRush.hidden, false);
+
+  view.render(presentation({ phase: GAME_PHASE.RUNNING, mode: 'rush' }));
+  view.render(presentation({ phase: GAME_PHASE.GAME_OVER, mode: 'rush', hits: { player: 1, opponent: 1 }, winner: 'opponent' }));
+  assert.equal(dom.overScore.textContent, '1 hit', 'one hit is one hit');
 });
 
 test('sharing sends a summary of the last result and reports what happened', async () => {
@@ -974,7 +1017,14 @@ test('leaving for the menu during the finisher drops the wait, so the result nev
 
 // The career: the rival picker, the ladder in the menu, and the result of a career match.
 
-const RIVAL_VIEW = { name: 'The Janitor', short: 'Janitor', story: 'Mops the floor with players.', boss: true };
+const RIVAL_VIEW = {
+  name: 'The Janitor',
+  short: 'Janitor',
+  story: 'Mops the floor with players.',
+  emblem: 'bucket',
+  says: { winning: 'Mind the wet floor.', beaten: 'Now I have to mop up my pride.' },
+  boss: true,
+};
 
 function careerView(overrides = {}) {
   return {
@@ -1017,6 +1067,7 @@ test('the rival card shows its place on the ladder, its name, a boss tag and its
 
   assert.equal(dom.rivalPlace.textContent, '4/9');
   assert.equal(dom.rivalName.textContent, 'The Janitor');
+  assert.equal(dom.rivalEmblem.getAttribute('href'), '#emblem-bucket');
   assert.equal(dom.rivalBoss.hidden, false);
   assert.equal(dom.rivalTired.hidden, true);
   assert.equal(dom.rivalStars.textContent, '★★☆2 of 3 stars');
@@ -1096,7 +1147,8 @@ test('the final boss is named as such, on the rival card and as the match starts
   assert.equal(dom.rivalBoss.hidden, false);
 
   view.render(inCareer({ phase: GAME_PHASE.RUNNING }, landlord));
-  assert.equal(dom.banner.textContent, 'Final bossThe Landlord');
+  assert.equal(dom.versusTag.textContent, 'Final boss');
+  assert.equal(dom.versusName.textContent, 'The Landlord');
 
   view.render(inCareer({ phase: GAME_PHASE.READY }));
   assert.equal(dom.rivalBoss.textContent, 'Boss', 'the other bosses are just bosses');
@@ -1114,34 +1166,106 @@ test('beating the final boss is shared as saving the last arcade', async () => {
   assert.equal(device.shared[0], 'I beat The Landlord 7:3 and saved the last arcade in Paddle Noir: 2 of 3 stars.');
 });
 
-test('a career match starts under the rival\'s name, which leaves before the serve', () => {
+test('a career match starts under a versus card: the rival\'s emblem and name over the player\'s', () => {
+  const { view, dom, timers } = setup({ preferences: createPreferences({ mode: 'career' }) });
+
+  view.render(inCareer({ phase: GAME_PHASE.READY }));
+  assert.equal(dom.versus.hidden, true, 'not in the menu');
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+
+  assert.equal(dom.versus.hidden, false);
+  assert.equal(dom.versusEmblem.getAttribute('href'), '#emblem-bucket');
+  assert.equal(dom.versusName.textContent, 'The Janitor');
+  assert.equal(dom.versusTag.textContent, 'Boss');
+  assert.ok(dom.versusTag.classes.has('versus__tag--boss'));
+  assert.equal(dom.versusYou.textContent, 'You');
+
+  // It rides the countdown, which waits for nothing, and is gone half-way through it.
+  assert.deepEqual([...timers.pending.values()].map(({ ms }) => ms), [1500]);
+  timers.fire();
+  assert.equal(dom.versus.hidden, true);
+  assert.equal(timers.pending.size, 0);
+});
+
+test('the versus card names an ordinary rival by its place on the ladder, and the player by their initials', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'career', initials: 'MYK' }) });
+  const roma = { index: 0, count: 10, rival: { ...RIVAL_VIEW, name: 'Rookie Roma', emblem: 'wrap', boss: false } };
+
+  view.render(inCareer({ phase: GAME_PHASE.READY }, roma));
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }, roma));
+
+  assert.equal(dom.versusEmblem.getAttribute('href'), '#emblem-wrap');
+  assert.equal(dom.versusName.textContent, 'Rookie Roma');
+  assert.equal(dom.versusTag.textContent, 'Rival 1/10');
+  assert.equal(dom.versusTag.classes.has('versus__tag--boss'), false);
+  assert.equal(dom.versusYou.textContent, 'MYK');
+});
+
+test('the versus card comes with a new match only: not on resuming, not outside the career, and pausing puts it away', () => {
   const { view, dom, timers } = setup({ preferences: createPreferences({ mode: 'career' }) });
 
   view.render(inCareer({ phase: GAME_PHASE.READY }));
   view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
-
-  assert.equal(dom.banner.hidden, false);
-  assert.equal(dom.banner.textContent, 'BossThe Janitor');
-  assert.ok([...timers.pending.values()].some(({ ms }) => ms <= 3000), 'gone before the first serve');
-  timers.fire();
-  assert.equal(dom.banner.hidden, true);
-
-  // A resumed match does not bring it back; pausing puts it away at once.
   view.render(inCareer({ phase: GAME_PHASE.PAUSED }));
-  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
-  assert.equal(dom.banner.hidden, true);
-
-  view.render(inCareer({ phase: GAME_PHASE.READY }, { rival: { ...RIVAL_VIEW, name: 'Rookie Roma', boss: false } }));
-  view.render(inCareer({ phase: GAME_PHASE.RUNNING }, { rival: { ...RIVAL_VIEW, name: 'Rookie Roma', boss: false } }));
-  assert.equal(dom.banner.textContent, 'vs Rookie Roma');
-  view.render(inCareer({ phase: GAME_PHASE.PAUSED }));
-  assert.equal(dom.banner.hidden, true);
+  assert.equal(dom.versus.hidden, true, 'pausing puts it away at once');
   assert.equal(timers.pending.size, 0);
 
-  // Outside the career there is no banner.
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  assert.equal(dom.versus.hidden, true, 'a resumed match does not bring it back');
+
+  // The next match does, straight from the result screen.
+  view.render(inCareer({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent' }));
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  assert.equal(dom.versus.hidden, false);
+
   view.render(presentation({ phase: GAME_PHASE.READY }));
+  assert.equal(dom.versus.hidden, true, 'the menu puts it away too');
   view.render(presentation({ phase: GAME_PHASE.RUNNING }));
-  assert.equal(dom.banner.hidden, true);
+  assert.equal(dom.versus.hidden, true, 'outside the career there is none');
+
+  view.render(inCareer({ phase: GAME_PHASE.READY }));
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  view.disconnect();
+  assert.equal(timers.pending.size, 0);
+  assert.equal(dom.versus.hidden, true);
+});
+
+test('after a career match the rival has a word to say, whichever way it went', () => {
+  const { view, dom, timers } = setup({ preferences: createPreferences({ mode: 'career' }) });
+
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  view.render(inCareer({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent' }));
+  assert.equal(dom.overQuote.hidden, false);
+  assert.equal(dom.overQuoteText.textContent, '“Mind the wet floor.”');
+  assert.equal(dom.overQuoteEmblem.getAttribute('href'), '#emblem-bucket');
+
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  view.render(inCareer({ phase: GAME_PHASE.GAME_OVER, winner: 'player' }));
+  timers.fire();
+  assert.equal(dom.overQuoteText.textContent, '“Now I have to mop up my pride.”');
+  assert.equal(dom.overMeta.hidden, false, 'the longest rally still shows');
+  assert.equal(dom.overScores.hidden, true, 'the high-score table is Rush\'s');
+});
+
+test('the rival\'s line is one of the fun extras, and belongs to the career', () => {
+  const quiet = setup({ preferences: createPreferences({ mode: 'career', jokes: false }) });
+  quiet.view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  quiet.view.render(inCareer({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent' }));
+  assert.equal(quiet.dom.overQuote.hidden, true);
+  assert.equal(quiet.dom.overQuoteText.textContent, '');
+
+  const solo = setup();
+  solo.view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  solo.view.render(presentation({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent' }));
+  assert.equal(solo.dom.overQuote.hidden, true);
+
+  // A career result gives way to a Solo one without leaving its line behind.
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'career' }) });
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  view.render(inCareer({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent' }));
+  view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  view.render(presentation({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent' }));
+  assert.equal(dom.overQuote.hidden, true);
 });
 
 test('a career result is shared with the rival\'s name and the stars', async () => {
@@ -1158,4 +1282,337 @@ test('a career result is shared with the rival\'s name and the stars', async () 
   click(dom.share);
   await nextTick();
   assert.equal(device.shared[1], 'The Janitor beat me 7:4 in Paddle Noir career mode. Rematch!');
+});
+
+// The Rush high-score table: the card in the menu, the standing on the result screen, the
+// whole table in its dialog and the letters to sign it with.
+
+const table = (best, initials = '', before = best) => highScores(HIGH_SCORES, best, initials, before);
+const inRush = (overrides = {}) => presentation({
+  mode: 'rush',
+  rules: { kind: 'rush', lives: 3 },
+  maxLives: 3,
+  highScores: table(0),
+  ...overrides,
+});
+const rowsOf = (element) => element.children.map((row) => row.children.map((cell) => cell.textContent));
+const ownRows = (element) => element.children.filter((row) => row.classes.has('score-row--own'));
+
+/** A key press as the high-score dialog sees it. */
+const typed = (key, overrides = {}) => Object.assign(new Event('keydown', { cancelable: true }), {
+  key, ctrlKey: false, metaKey: false, altKey: false, ...overrides,
+});
+
+test('Rush shows the high-score card where Solo has its difficulty and the career its rival', () => {
+  const { dom } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+
+  assert.equal(dom.scoresCard.hidden, false);
+  assert.equal(dom.difficultyGroup.hidden, true);
+  assert.equal(dom.rivalGroup.hidden, true);
+
+  click(dom.career);
+  assert.equal(dom.scoresCard.hidden, true);
+  click(dom.rush);
+  assert.equal(dom.scoresCard.hidden, false);
+});
+
+test('the card says where the player stands and which row to beat next', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+
+  view.render(inRush());
+  assert.equal(dom.scoresPlace.textContent, 'No run yet');
+  assert.equal(dom.scoresNext.textContent, 'Next: ROM · 8 hits');
+
+  view.render(inRush({ highScores: table(1) }));
+  assert.equal(dom.scoresPlace.textContent, 'YOU · 1 hit', 'a run short of the table has no place on it');
+  assert.equal(dom.scoresNext.textContent, 'Next: ROM · 8 hits');
+
+  view.render(inRush({ highScores: table(21, 'MYK') }));
+  assert.equal(dom.scoresPlace.textContent, '#8 · MYK · 21 hits');
+  assert.equal(dom.scoresNext.textContent, 'Next: JAN · 22 hits');
+
+  view.render(inRush({ highScores: table(99, 'MYK') }));
+  assert.equal(dom.scoresPlace.textContent, '#1 · MYK · 99 hits');
+  assert.equal(dom.scoresNext.textContent, 'The record is yours');
+});
+
+test('the table is drawn once for each change of it, not once a frame', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+  const same = table(21);
+
+  view.render(inRush({ highScores: same }));
+  const drawn = dom.scoresRows.children;
+  view.render(inRush({ phase: GAME_PHASE.RUNNING, highScores: same }));
+  assert.strictEqual(dom.scoresRows.children, drawn);
+
+  view.render(inRush({ phase: GAME_PHASE.RUNNING, highScores: table(22) }));
+  assert.notStrictEqual(dom.scoresRows.children, drawn);
+
+  // Out of Rush there is no table to draw, and the last one is left alone.
+  view.render(presentation());
+  assert.equal(dom.scoresRows.children.length, 10);
+});
+
+test('the result of a run shows the rows around the player\'s, and what the run did to them', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+  const finish = (highScores) => {
+    view.render(inRush({ phase: GAME_PHASE.RUNNING }));
+    view.render(inRush({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', highScores }));
+  };
+
+  finish(table(21, '', 5));
+  assert.equal(dom.overScores.hidden, false);
+  assert.equal(dom.overMeta.hidden, true, 'a run is told by its hits and its place, not its longest rally');
+  assert.deepEqual(rowsOf(dom.standingRows), [['7', 'JAN', '22'], ['8', 'YOU', '21'], ['9', 'TAR', '18']]);
+  assert.deepEqual(ownRows(dom.standingRows).map((row) => row.children[1].textContent), ['YOU']);
+  assert.equal(dom.standingNote.textContent, 'You passed 3 regulars!');
+  assert.equal(dom.standingHint.hidden, false, 'an unsigned row says how to sign it');
+  assert.equal(dom.overScores.getAttribute('aria-label'), 'High scores: number 8 with 21 hits. You passed 3 regulars! Sign your score.');
+
+  finish(table(23, 'MYK', 21));
+  assert.equal(dom.standingNote.textContent, 'You passed The Janitor!');
+  assert.equal(dom.standingHint.hidden, true, 'a signed one does not');
+
+  finish(table(23, 'MYK'));
+  assert.equal(dom.standingNote.textContent, '4 more to pass HRY', 'a run that changed nothing says how far the next row is');
+  assert.equal(dom.overScores.getAttribute('aria-label'), 'High scores: number 7 with 23 hits. 4 more to pass HRY. Show the table.');
+
+  finish(table(61, 'MYK', 23));
+  assert.deepEqual(rowsOf(dom.standingRows), [['1', 'MYK', '61'], ['2', 'AAA', '60'], ['3', 'LAG', '48']]);
+  assert.equal(dom.standingNote.textContent, 'The record is yours!');
+
+  finish(table(61, 'MYK'));
+  assert.equal(dom.standingNote.textContent, 'You hold the record');
+});
+
+test('a run short of the table stands under its last rows, with no place and nothing to sign', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+
+  view.render(inRush({ phase: GAME_PHASE.RUNNING }));
+  view.render(inRush({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', highScores: table(5, '', 0) }));
+
+  assert.deepEqual(rowsOf(dom.standingRows), [['9', 'HAL', '13'], ['10', 'ROM', '8'], ['–', 'YOU', '5']]);
+  assert.equal(dom.standingNote.textContent, '4 more to get on the table');
+  assert.equal(dom.standingHint.hidden, true);
+  assert.equal(dom.overScores.getAttribute('aria-label'), 'High scores: 5 hits, not on the table yet. 4 more to get on the table. Show the table.');
+
+  click(dom.overScores);
+  assert.ok(dom.scores.hasAttribute('open'));
+  assert.equal(dom.sign.hidden, true, 'it opens on the table');
+});
+
+test('the high-score dialog shows the whole table: rank, initials, whose they are and the hits', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+
+  view.render(inRush({ highScores: table(21, 'MYK') }));
+  click(dom.scoresCard);
+
+  assert.ok(dom.scores.hasAttribute('open'));
+  assert.equal(dom.scores.modal, true);
+  assert.equal(dom.scoresRows.hidden, false);
+  assert.equal(dom.sign.hidden, true);
+  assert.equal(dom.scoresActions.hidden, false);
+  assert.equal(dom.signActions.hidden, true);
+  assert.equal(dom.scoresAbout.textContent, 'Rush · most hits in one run');
+  assert.equal(dom.scoresRows.children.length, 10);
+  assert.deepEqual(rowsOf(dom.scoresRows)[0], ['1', 'AAA', 'Unknown', '60']);
+  assert.deepEqual(rowsOf(dom.scoresRows)[7], ['8', 'MYK', 'You', '21']);
+  assert.deepEqual(rowsOf(dom.scoresRows)[9], ['10', 'HAL', 'Aunt Halyna', '13']);
+  assert.deepEqual(ownRows(dom.scoresRows).length, 1);
+  assert.equal(dom.signOpen.textContent, 'Change initials');
+
+  click(dom.dismissScores);
+  assert.equal(dom.scores.hasAttribute('open'), false);
+
+  view.render(inRush({ highScores: table(21) }));
+  assert.equal(dom.signOpen.textContent, 'Enter initials');
+});
+
+test('a tap on an unsigned standing goes straight to the letters, three of which sign the table', () => {
+  const { view, dom, commands, preferences } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+
+  view.render(inRush({ phase: GAME_PHASE.RUNNING }));
+  view.render(inRush({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', highScores: table(21, '', 5) }));
+  click(dom.overScores);
+
+  assert.ok(dom.scores.hasAttribute('open'));
+  assert.equal(dom.sign.hidden, false);
+  assert.equal(dom.scoresRows.hidden, true);
+  assert.equal(dom.scoresActions.hidden, true);
+  assert.equal(dom.signActions.hidden, false);
+  assert.equal(dom.scoresAbout.textContent, 'Sign the table with three letters');
+  assert.equal(dom.signSlots.focusCalls.length, 1, 'focus goes to the slots, where typing lands');
+  assert.equal(dom.letterA.focusCalls.length, 0, 'not to a letter, which Enter would press');
+  assert.equal(dom.signSlots.textContent, '___');
+  assert.deepEqual(dom.signSlots.children.map((slot) => slot.className), ['sign__slot is-next', 'sign__slot', 'sign__slot']);
+  assert.ok(dom.signOk.hasAttribute('disabled'));
+
+  click(dom.letterM);
+  click(dom.letterY);
+  assert.equal(dom.signSlots.textContent, 'MY_');
+  assert.deepEqual(dom.signSlots.children.map((slot) => slot.className), ['sign__slot', 'sign__slot', 'sign__slot is-next']);
+  assert.ok(dom.signOk.hasAttribute('disabled'));
+
+  click(dom.signOk);
+  assert.equal(preferences.get().initials, '', 'two letters sign nothing');
+
+  click(dom.letterA);
+  click(dom.letterDelete);
+  click(dom.letterK);
+  click(dom.letterA);
+  assert.equal(dom.signSlots.textContent, 'MYK', 'a fourth letter has no slot');
+  assert.equal(dom.signOk.hasAttribute('disabled'), false);
+  assert.deepEqual(commands, []);
+
+  click(dom.signOk);
+  assert.equal(preferences.get().initials, 'MYK');
+  assert.deepEqual(commands.map(({ command }) => command), [GAME_COMMAND.REFRESH], 'the screen is drawn again with them');
+  assert.equal(dom.sign.hidden, true, 'and the table comes back');
+  assert.equal(dom.scoresRows.hidden, false);
+  assert.ok(dom.scores.hasAttribute('open'));
+  assert.equal(dom.dismissScores.focusCalls.length, 1);
+});
+
+test('a keyboard signs the table too: letters, Backspace and Enter', () => {
+  const { view, dom, preferences } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+  const press = (key, overrides) => {
+    const event = typed(key, overrides);
+    dom.scores.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  view.render(inRush({ highScores: table(21) }));
+  click(dom.scoresCard);
+  assert.equal(press('m'), false, 'while the table shows, keys keep their meaning');
+  click(dom.signOpen);
+
+  assert.equal(press('m'), true);
+  assert.equal(press('Y'), true);
+  assert.equal(press('x'), true);
+  assert.equal(press('Backspace'), true);
+  assert.equal(dom.signSlots.textContent, 'MY_');
+  assert.equal(press('Enter'), false, 'Enter on two letters is left to the button in focus');
+  assert.equal(press('k', { ctrlKey: true }), false, 'a shortcut is no letter');
+  assert.equal(press('k', { metaKey: true }), false);
+  assert.equal(press('k', { altKey: true }), false);
+  assert.equal(press('7'), false);
+  assert.equal(press('Tab'), false);
+  assert.equal(press(' '), false);
+  assert.equal(dom.signSlots.textContent, 'MY_');
+
+  assert.equal(press('k'), true);
+
+  // Enter on Back or OK presses that button, as on any button; anywhere else it confirms.
+  for (const button of [dom.signCancel, dom.signOk]) {
+    const onButton = typed('Enter');
+    Object.defineProperty(onButton, 'target', { value: button });
+    view.typeByKey(onButton);
+    assert.equal(onButton.defaultPrevented, false);
+    assert.equal(preferences.get().initials, '');
+  }
+
+  assert.equal(press('Enter'), true);
+  assert.equal(preferences.get().initials, 'MYK');
+  assert.equal(dom.sign.hidden, true);
+});
+
+test('changing initials starts from the ones the player has, and Back keeps them', () => {
+  const { view, dom, commands, preferences } = setup({ preferences: createPreferences({ mode: 'rush', initials: 'MYK' }) });
+
+  view.render(inRush({ highScores: table(21, 'MYK') }));
+  click(dom.scoresCard);
+  click(dom.signOpen);
+  assert.equal(dom.signSlots.textContent, 'MYK');
+  assert.equal(dom.signOk.hasAttribute('disabled'), false);
+
+  click(dom.letterDelete);
+  click(dom.letterDelete);
+  click(dom.signCancel);
+  assert.equal(preferences.get().initials, 'MYK');
+  assert.equal(dom.sign.hidden, true);
+  assert.equal(dom.scoresRows.hidden, false);
+  assert.deepEqual(commands, []);
+
+  // Closing the dialog from the letters, by Escape say, opens it on the table next time.
+  click(dom.signOpen);
+  dom.scores.close();
+  assert.equal(dom.sign.hidden, true);
+  click(dom.scoresCard);
+  assert.equal(dom.sign.hidden, true);
+  assert.equal(dom.scoresRows.hidden, false);
+});
+
+test('a signed standing opens the table, not the letters', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'rush', initials: 'MYK' }) });
+
+  view.render(inRush({ phase: GAME_PHASE.RUNNING }));
+  view.render(inRush({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', highScores: table(21, 'MYK', 5) }));
+  click(dom.overScores);
+
+  assert.ok(dom.scores.hasAttribute('open'));
+  assert.equal(dom.sign.hidden, true);
+
+  // Before any table has been drawn there is nothing to sign either.
+  const blank = setup();
+  click(blank.dom.overScores);
+  assert.equal(blank.dom.sign.hidden, true);
+});
+
+test('a Rush run is shared with its hits, and with the player\'s place on the table once they have one', async () => {
+  const { view, dom, device } = setup({ preferences: createPreferences({ mode: 'rush' }) });
+  const share = async (result) => {
+    view.render(inRush({ phase: GAME_PHASE.RUNNING }));
+    view.render(inRush({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', ...result }));
+    click(dom.share);
+    await nextTick();
+    return device.shared.at(-1);
+  };
+
+  assert.equal(await share({ hits: { player: 5, opponent: 5 }, highScores: table(5) }), 'I survived 5 hits in Rush mode of Paddle Noir. Beat that!');
+  assert.equal(
+    await share({ hits: { player: 21, opponent: 21 }, highScores: table(21, 'MYK', 5) }),
+    'I survived 21 hits in Rush mode of Paddle Noir. My best run is number 8 on its high-score table. Beat that!',
+  );
+  assert.equal(
+    await share({ hits: { player: 1, opponent: 0 }, highScores: table(21, 'MYK') }),
+    'I survived 1 hit in Rush mode of Paddle Noir. My best run is number 8 on its high-score table. Beat that!',
+  );
+});
+
+test('without modal dialog support the high scores still open and close', () => {
+  const { view, dom } = setup({ modalDialogs: false, preferences: createPreferences({ mode: 'rush' }) });
+
+  view.render(inRush({ highScores: table(21) }));
+  click(dom.scoresCard);
+  assert.ok(dom.scores.hasAttribute('open'));
+  click(dom.dismissScores);
+  assert.equal(dom.scores.hasAttribute('open'), false);
+});
+
+test('the scoreboard names the player by their initials once they have signed, in Solo and the career', () => {
+  const preferences = createPreferences({ initials: 'MYK' });
+  const { view, dom, commands } = setup({ preferences });
+
+  view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  assert.equal(dom.playerLabel.textContent, 'MYK');
+
+  view.render(inCareer({ phase: GAME_PHASE.RUNNING }));
+  assert.equal(dom.playerLabel.textContent, 'MYK');
+
+  view.render(inRush({ phase: GAME_PHASE.RUNNING }));
+  assert.equal(dom.playerLabel.textContent, 'Hits', 'Rush counts hits there');
+
+  view.render(presentation({ phase: GAME_PHASE.RUNNING, mode: 'duo', opponent: { label: 'P2', name: 'Player 2', proper: false } }));
+  assert.equal(dom.playerLabel.textContent, 'P1', 'and two people are P1 and P2');
+
+  // New initials show with the next frame, with nothing else changed.
+  view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  preferences.set({ initials: 'ZZZ' });
+  view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  assert.equal(dom.playerLabel.textContent, 'ZZZ');
+  assert.deepEqual(commands, []);
+
+  const unsigned = setup();
+  unsigned.view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  assert.equal(unsigned.dom.playerLabel.textContent, 'You');
 });

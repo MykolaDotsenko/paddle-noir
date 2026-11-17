@@ -1,3 +1,4 @@
+import { validInitials } from '../application/high-scores.js';
 import { DIFFICULTIES, MODES, TRACK_IDS } from '../application/ports.js';
 
 /** @import { MatchStats, Preferences, PreferencesPort } from '../application/ports.js' */
@@ -21,6 +22,7 @@ const DEFAULTS = Object.freeze({
   tutorialSeen: false,
   bestRally: 0,
   bestRush: 0,
+  initials: '',
   stats: NO_STATS,
   rival: 0,
   careerStars: Object.freeze([]),
@@ -85,6 +87,7 @@ function sanitize(stored) {
     tutorialSeen: bool(stored.tutorialSeen, DEFAULTS.tutorialSeen),
     bestRally: count(stored.bestRally),
     bestRush: count(stored.bestRush),
+    initials: validInitials(stored.initials),
     stats: sanitizeStats(stored.stats),
     rival: count(stored.rival),
     careerStars: counts(stored.careerStars, 3),

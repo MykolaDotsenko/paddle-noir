@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { URL } from 'node:url';
 
 import { EASE_AFTER, easedConfig, MAX_STARS, starsFor, unlockedRival } from '../src/application/career.js';
-import { MATCH_CATALOG, RIVALS } from '../src/catalog.js';
+import { HIGH_SCORES, MATCH_CATALOG, RIVALS } from '../src/catalog.js';
 import { DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
 import { advanceGame, createInitialState, startGame } from '../src/domain/game.js';
 
@@ -58,6 +60,24 @@ test('ten rivals, four of them bosses, the last the final boss, each with a stor
   assert.equal(new Set(RIVALS.map((rival) => rival.name)).size, RIVALS.length);
 });
 
+test('each rival has an emblem of its own, which the page draws, and a line for either result', async () => {
+  const page = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+
+  for (const rival of RIVALS) {
+    assert.ok(page.includes(`<symbol id="emblem-${rival.emblem}"`), `${rival.name}: the page draws "${rival.emblem}"`);
+
+    for (const line of [rival.says.winning, rival.says.beaten]) {
+      assert.ok(line.length >= 8 && line.length <= 48, `${rival.name}: "${line}" fits the result screen`);
+    }
+
+    assert.notEqual(rival.says.winning, rival.says.beaten);
+  }
+
+  assert.equal(new Set(RIVALS.map((rival) => rival.emblem)).size, RIVALS.length);
+  assert.ok(page.includes('<symbol id="emblem-paddle"'), 'and the player\'s own');
+  assert.ok(!RIVALS.some((rival) => rival.emblem === 'paddle'), 'which no rival wears');
+});
+
 test('the final boss borrows the other bosses\' attacks in turn, then all of them at once', () => {
   const bosses = RIVALS.filter((rival) => rival.boss);
   const final = /** @type {NonNullable<GameConfig['boss']>} */ (bosses.at(-1)?.config.boss);
@@ -93,6 +113,7 @@ test('the catalog hands the application every choosable match, the classic ones 
   assert.strictEqual(MATCH_CATALOG.rush, RUSH_CONFIG);
   assert.strictEqual(MATCH_CATALOG.duo, TWO_PLAYER_CONFIG);
   assert.strictEqual(MATCH_CATALOG.career, RIVALS);
+  assert.strictEqual(MATCH_CATALOG.highScores, HIGH_SCORES);
   assert.equal(GAME_CONFIG.boss, null);
   assert.deepEqual([GAME_CONFIG.opponent.curve, GAME_CONFIG.opponent.widthScale], [0, 1]);
 });

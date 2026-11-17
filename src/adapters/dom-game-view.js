@@ -1,4 +1,5 @@
 import { MAX_STARS } from '../application/career.js';
+import { hitsToPass, INITIALS_LENGTH, standing, validInitials } from '../application/high-scores.js';
 import { DIFFICULTIES, GAME_COMMAND, MODES } from '../application/ports.js';
 import { GAME_PHASE } from '../domain/game.js';
 import { finisherApplies, FINISHER_SECONDS } from './finisher.js';
@@ -10,6 +11,8 @@ import { finisherApplies, FINISHER_SECONDS } from './finisher.js';
  *   CommandHandler,
  *   Difficulty,
  *   GameCommand,
+ *   HighScoreRow,
+ *   HighScoresView,
  *   Mode,
  *   Presentation,
  *   PreferencesPort,
@@ -22,11 +25,16 @@ import { finisherApplies, FINISHER_SECONDS } from './finisher.js';
 const COMMANDS = Object.values(GAME_COMMAND);
 const DIFFICULTY_LABELS = Object.freeze({ easy: 'Easy', normal: 'Normal', hard: 'Hard' });
 const PLAYER_LABELS = Object.freeze({ solo: 'You', rush: 'Hits', duo: 'P1', career: 'You' });
+/** The modes in which the scoreboard names the player, by their initials once they have signed. */
+const NAMES_PLAYER = Object.freeze({ solo: true, rush: false, duo: false, career: true });
 const TOGGLE_SETTINGS = /** @type {const} */ (['sound', 'music', 'vibration', 'powerUps', 'supers', 'jokes']);
 /** Where the arcade's "Continue?" countdown starts, a second a step, after a loss. */
 const CONTINUE_FROM = 9;
-/** How long a career rival's name stays up at the start of a match, over the countdown. */
-const BANNER_SECONDS = 2.2;
+/**
+ * How long the versus card stays up as a career match starts. It rides the countdown, which
+ * waits for nothing, and is gone half-way through it, so the court is clear well before the serve.
+ */
+const VERSUS_SECONDS = 1.5;
 
 /**
  * @typedef {typeof TOGGLE_SETTINGS[number]} ToggleSetting
@@ -38,11 +46,11 @@ const BANNER_SECONDS = 2.2;
  */
 
 /**
- * The HTML around the board: the HUD, the menu with its modes, the tutorial and settings
- * dialogs, and the pause and result overlays. Controls declare what they do with data
- * attributes: data-command sends a game command, data-mode and data-difficulty pick the next
- * match, data-setting toggles a preference such as sound, and data-track picks the next
- * music track.
+ * The HTML around the board: the HUD, the menu with its modes, the tutorial, settings and
+ * high-score dialogs, the versus card, and the pause and result overlays. Controls declare
+ * what they do with data attributes: data-command sends a game command, data-mode and
+ * data-difficulty pick the next match, data-setting toggles a preference such as sound, and
+ * data-track picks the next music track.
  *
  * @implements {ViewPort}
  */
@@ -74,14 +82,19 @@ export class DomGameView {
     this.resultDelay = null;
     /** @type {ReturnType<typeof setTimeout> | null} the next step of the "Continue?" countdown */
     this.continueTimer = null;
-    /** @type {ReturnType<typeof setTimeout> | null} when the career rival's banner goes */
-    this.bannerTimer = null;
+    /** @type {ReturnType<typeof setTimeout> | null} when the versus card goes */
+    this.versusTimer = null;
+    /** The letters typed so far while signing the high-score table. */
+    this.typed = '';
+    /** The initials the scoreboard was last drawn with. */
+    this.shownInitials = '';
     this.status = this.find('[data-game-status]');
     this.scores = { player: this.find('[data-score="player"]'), opponent: this.find('[data-score="opponent"]') };
     this.overlays = {
       menu: this.find('[data-overlay="menu"]'),
       tutorial: this.find('[data-overlay="tutorial"]'),
       settings: this.find('[data-overlay="settings"]'),
+      scores: this.find('[data-overlay="scores"]'),
       pause: this.find('[data-overlay="pause"]'),
       over: this.find('[data-overlay="over"]'),
     };
@@ -89,7 +102,7 @@ export class DomGameView {
     this.lives = this.find('[data-lives]');
     this.matchPoint = this.find('[data-match-point]');
     this.continueLine = this.find('[data-continue]');
-    this.banner = this.find('[data-rival-banner]');
+    this.versus = this.find('[data-versus]');
     /** @type {Presentation | null} */
     this.rendered = null;
     /**
@@ -217,6 +230,40 @@ export class DomGameView {
       this.listen(button, () => this.showSettingsDialog(false));
     }
 
+    // The high-score table opens from its card in the menu and from the standing on the result
+    // screen, where a player who has not signed it yet goes straight to the letters.
+    for (const button of this.findAll('[data-show-scores]')) {
+      this.listen(button, () => this.showScores(true, button.hasAttribute('data-over-scores') && this.canSign()));
+    }
+
+    for (const button of this.findAll('[data-dismiss-scores]')) {
+      this.listen(button, () => this.showScores(false));
+    }
+
+    for (const button of this.findAll('[data-sign-open]')) {
+      this.listen(button, () => this.showSigning(true));
+    }
+
+    for (const button of this.findAll('[data-sign-cancel]')) {
+      this.listen(button, () => this.showSigning(false));
+    }
+
+    for (const button of this.findAll('[data-sign-ok]')) {
+      this.listen(button, () => this.sign());
+    }
+
+    for (const button of this.findAll('[data-letter]')) {
+      this.listen(button, () => this.type(this.typed + (button.dataset.letter ?? '')));
+    }
+
+    for (const button of this.findAll('[data-letter-delete]')) {
+      this.listen(button, () => this.type(this.typed.slice(0, -1)));
+    }
+
+    this.listen(this.overlays.scores, (event) => this.typeByKey(/** @type {KeyboardEvent} */ (event)), 'keydown');
+    // However the dialog closes, it opens on the table next time.
+    this.listen(this.overlays.scores, () => this.showSigning(false), 'close');
+
     for (const button of this.findAll('[data-share]')) {
       button.hidden = !this.device.canShare;
       this.listen(button, () => this.shareResult());
@@ -248,7 +295,7 @@ export class DomGameView {
     this.listeners = [];
     this.cancelResultDelay();
     this.stopContinue();
-    this.hideBanner();
+    this.hideVersus();
   }
 
   /**
@@ -300,6 +347,10 @@ export class DomGameView {
 
     for (const element of this.findAll('[data-career-only]')) {
       element.hidden = mode !== 'career';
+    }
+
+    for (const element of this.findAll('[data-rush-only]')) {
+      element.hidden = mode !== 'rush';
     }
 
     this.root.dataset.mode = mode;
@@ -366,6 +417,110 @@ export class DomGameView {
     showDialog(this.overlays.settings, visible);
   }
 
+  /**
+   * Opens the high-score table, on the letters when the player is about to sign it, or closes it.
+   *
+   * @param {boolean} visible
+   * @param {boolean} [signing]
+   */
+  showScores(visible, signing = false) {
+    showDialog(this.overlays.scores, visible);
+
+    if (visible) {
+      this.showSigning(signing);
+    }
+  }
+
+  /** @returns {boolean} whether the player's run is on the table, still unsigned */
+  canSign() {
+    const table = this.rendered?.highScores;
+    return Boolean(table && !table.signed && table.own.rank > 0);
+  }
+
+  /**
+   * Swaps the table for the letters to sign it with, or back. The letters start from the
+   * initials the player already has, so changing one letter is two taps.
+   *
+   * @param {boolean} signing
+   */
+  showSigning(signing) {
+    this.find('[data-scores-rows]').hidden = signing;
+    this.find('[data-scores-about]').textContent = signing ? 'Sign the table with three letters' : 'Rush · most hits in one run';
+    this.find('[data-sign]').hidden = !signing;
+    this.find('[data-scores-actions]').hidden = signing;
+    this.find('[data-sign-actions]').hidden = !signing;
+    this.type(signing ? validInitials(this.preferences.get().initials) : '');
+
+    if (signing) {
+      // Focus goes to the slots, not to a letter: a typed Enter then never presses a key by mistake.
+      this.find('[data-sign-slots]').focus({ preventScroll: true });
+    }
+  }
+
+  /**
+   * Shows the letters typed so far in their three slots, the next one to fill marked, and
+   * offers OK once all three are in.
+   *
+   * @param {string} letters
+   */
+  type(letters) {
+    this.typed = letters.slice(0, INITIALS_LENGTH);
+
+    const slots = this.find('[data-sign-slots]');
+    const document = slots.ownerDocument;
+
+    slots.replaceChildren(...Array.from({ length: INITIALS_LENGTH }, (_, index) => {
+      const slot = document.createElement('span');
+      slot.className = index === this.typed.length ? 'sign__slot is-next' : 'sign__slot';
+      slot.textContent = this.typed[index] ?? '_';
+      return slot;
+    }));
+    this.find('[data-sign-ok]').toggleAttribute('disabled', this.typed.length < INITIALS_LENGTH);
+  }
+
+  /**
+   * A keyboard signs the table too: letters fill the slots, Backspace takes one back, and
+   * Enter confirms three. Anything else keeps its usual meaning, as does every key while the
+   * table itself is showing, and Enter on Back or OK, which presses that button.
+   *
+   * @param {KeyboardEvent} event
+   */
+  typeByKey(event) {
+    if (this.find('[data-sign]').hidden || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    const letter = event.key.length === 1 ? event.key.toUpperCase() : '';
+    const target = /** @type {Partial<HTMLElement> | null} */ (event.target);
+    const onAction = Boolean(target?.hasAttribute?.('data-sign-cancel') || target?.hasAttribute?.('data-sign-ok'));
+
+    if (letter >= 'A' && letter <= 'Z') {
+      this.type(this.typed + letter);
+    } else if (event.key === 'Backspace') {
+      this.type(this.typed.slice(0, -1));
+    } else if (event.key === 'Enter' && this.typed.length === INITIALS_LENGTH && !onAction) {
+      this.sign();
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+  }
+
+  /** Signs the table with the three letters typed, and shows them on it. */
+  sign() {
+    const initials = validInitials(this.typed);
+
+    if (!initials) {
+      return;
+    }
+
+    this.preferences.set({ initials });
+    this.showSigning(false);
+    this.find('[data-dismiss-scores]').focus({ preventScroll: true });
+    this.commandHandler(GAME_COMMAND.REFRESH);
+  }
+
   markTutorialSeen() {
     if (!this.preferences.get().tutorialSeen) {
       this.preferences.set({ tutorialSeen: true });
@@ -409,7 +564,10 @@ export class DomGameView {
     let text = `I ${won ? 'won' : 'lost'} ${score} on ${DIFFICULTY_LABELS[result.difficulty]} in Paddle Noir. Longest rally: ${result.longestRally}.`;
 
     if (result.mode === 'rush') {
-      text = `I survived ${result.hits.player} hits in Rush mode of Paddle Noir. Beat that!`;
+      const place = result.highScores && result.highScores.own.rank > 0
+        ? ` My best run is number ${result.highScores.own.rank} on its high-score table.`
+        : '';
+      text = `I survived ${countHits(result.hits.player)} in Rush mode of Paddle Noir.${place} Beat that!`;
     } else if (career && won && isFinalRival(career)) {
       text = `I beat ${career.rival.name} ${score} and saved the last arcade in Paddle Noir: ${career.earned} of ${MAX_STARS} stars.`;
     } else if (career) {
@@ -437,7 +595,11 @@ export class DomGameView {
       this.status.textContent = presentation.status;
     }
 
-    if (presentation.opponent.label !== previous?.opponent.label || presentation.mode !== previous?.mode) {
+    if (
+      presentation.opponent.label !== previous?.opponent.label
+      || presentation.mode !== previous?.mode
+      || this.initials() !== this.shownInitials
+    ) {
       this.showLabels(presentation);
     }
 
@@ -485,6 +647,10 @@ export class DomGameView {
 
     if (careerChanged) {
       this.showRival(presentation);
+    }
+
+    if (presentation.highScores !== previous?.highScores) {
+      this.showHighScores(presentation.highScores);
     }
 
     if (presentation.phase === GAME_PHASE.GAME_OVER && previous?.phase !== GAME_PHASE.GAME_OVER) {
@@ -575,9 +741,9 @@ export class DomGameView {
     const previousPhase = this.rendered?.phase;
 
     if (phase === GAME_PHASE.RUNNING && (previousPhase === GAME_PHASE.READY || previousPhase === GAME_PHASE.GAME_OVER)) {
-      this.showBanner(/** @type {Presentation} */ (this.pending));
+      this.showVersus(/** @type {Presentation} */ (this.pending));
     } else if (phase !== GAME_PHASE.RUNNING) {
-      this.hideBanner();
+      this.hideVersus();
     }
 
     if (finishing) {
@@ -593,19 +759,26 @@ export class DomGameView {
     }
   }
 
+  /** @returns {string} the player's initials, or '' until they have signed the high-score table */
+  initials() {
+    return validInitials(this.preferences.get().initials);
+  }
+
   /**
    * The scoreboard's side labels. A nickname is set in its own case and letter-spacing, and
-   * clipped with an ellipsis rather than pushing the scoreboard into the buttons.
+   * clipped with an ellipsis rather than pushing the scoreboard into the buttons. Where the
+   * scoreboard names the player, it is by their initials once they have signed the table.
    *
    * @param {Presentation} presentation
    */
   showLabels({ mode, opponent }) {
     const label = this.find('[data-label="opponent"]');
 
+    this.shownInitials = this.initials();
     label.textContent = opponent.label;
     label.classList.toggle('scoreboard__label--nick', opponent.proper);
     this.find('[data-scoreboard]').classList.toggle('scoreboard--nick', opponent.proper);
-    this.find('[data-label="player"]').textContent = PLAYER_LABELS[mode];
+    this.find('[data-label="player"]').textContent = (NAMES_PLAYER[mode] && this.shownInitials) || PLAYER_LABELS[mode];
   }
 
   /**
@@ -650,7 +823,7 @@ export class DomGameView {
       const record = element.ownerDocument.createElement('strong');
       record.textContent = String(mode === 'rush' ? bestRush : bestRally);
       element.replaceChildren(...(mode === 'rush'
-        ? [`${goal} · Best run `, record, ' hits']
+        ? [`${goal} · Best run `, record, bestRush === 1 ? ' hit' : ' hits']
         : [`${goal} · Best rally `, record]));
     }
   }
@@ -690,7 +863,7 @@ export class DomGameView {
 
   /** @param {Presentation} presentation */
   showResult(presentation) {
-    const { winner, score, hits, longestRally, newBest, newBestRush, mode, difficulty, opponent, career } = presentation;
+    const { winner, score, hits, longestRally, newBest, newBestRush, mode, difficulty, opponent, career, highScores } = presentation;
     const title = this.find('[data-over-title]');
     const rush = mode === 'rush';
     const setting = career ? `Career ${career.index + 1}/${career.count}`
@@ -702,12 +875,16 @@ export class DomGameView {
     this.lastResult = presentation;
     title.textContent = rush ? 'Run over' : champion ? 'Champion' : winner === 'player' ? 'Victory' : 'Defeat';
     title.dataset.winner = rush ? 'opponent' : (winner ?? '');
-    this.find('[data-over-score]').textContent = rush ? `${hits.player} hits` : `${score.player} : ${score.opponent}`;
+    this.find('[data-over-score]').textContent = rush ? countHits(hits.player) : `${score.player} : ${score.opponent}`;
     this.find('[data-over-rally]').textContent = String(longestRally);
     this.find('[data-over-difficulty]').textContent = opponent.proper ? `${setting} · vs ${opponent.name}` : setting;
     this.find('[data-over-best]').hidden = !newBest;
     this.find('[data-over-best-rush]').hidden = !newBestRush;
     this.find('[data-over-champion]').hidden = !champion;
+    this.find('[data-over-scores]').hidden = !highScores;
+    // A run is told by its hits and its place on the table; the longest rally belongs to a match.
+    this.find('[data-over-meta]').hidden = Boolean(highScores);
+    this.showQuote(presentation);
     stars.hidden = !career || career.earned === 0;
     showStars(stars, career?.earned ?? 0);
     // After a career win, the same button takes on the next rival.
@@ -729,6 +906,7 @@ export class DomGameView {
 
     this.find('[data-rival-place]').textContent = `${career.index + 1}/${career.count}`;
     this.find('[data-rival-name]').textContent = career.rival.name;
+    showEmblem(this.find('[data-rival-emblem]'), career.rival.emblem);
     this.find('[data-rival-boss]').hidden = !career.rival.boss;
     this.find('[data-rival-boss]').textContent = bossLabel(career);
     this.find('[data-rival-tired]').hidden = !career.eased;
@@ -741,30 +919,94 @@ export class DomGameView {
   }
 
   /**
-   * Shows a career rival's name over the court as a match against it starts, for a moment.
-   * It is decoration: the status line names the rival for screen readers.
+   * After a career match the rival has a word to say, whichever way it went. It is one of the
+   * fun extras, so the Fun switch decides whether the result screen shows it.
    *
    * @param {Presentation} presentation
    */
-  showBanner({ career }) {
-    this.hideBanner();
+  showQuote({ career, winner }) {
+    const quote = this.find('[data-over-quote]');
+    const line = career && winner && this.preferences.get().jokes === true
+      ? career.rival.says[winner === 'player' ? 'beaten' : 'winning']
+      : '';
+
+    quote.hidden = line === '';
+    this.find('[data-over-quote-text]').textContent = line && `“${line}”`;
+
+    if (career) {
+      showEmblem(this.find('[data-over-quote-emblem]'), career.rival.emblem);
+    }
+  }
+
+  /**
+   * The Rush high-score table, wherever it shows: the card in the menu with the player's place
+   * and the row to beat next, the standing on the result screen with the rows around the
+   * player's, and the whole table in its dialog.
+   *
+   * @param {HighScoresView | null} table
+   */
+  showHighScores(table) {
+    if (!table) {
+      return;
+    }
+
+    const { own, target } = table;
+    const place = own.rank > 0 ? `#${own.rank} · ${own.initials} · ${countHits(own.hits)}` : `${own.initials} · ${countHits(own.hits)}`;
+
+    const around = this.find('[data-standing-rows]');
+    const whole = this.find('[data-scores-rows]');
+
+    this.find('[data-scores-place]').textContent = own.hits > 0 ? place : 'No run yet';
+    this.find('[data-scores-next]').textContent = target ? `Next: ${target.initials} · ${countHits(target.hits)}` : 'The record is yours';
+    around.replaceChildren(...standing(table).map((row) => scoreRow(around, row, false)));
+    whole.replaceChildren(...table.rows.map((row) => scoreRow(whole, row, true)));
+    const note = standingNote(table);
+    const unsigned = !table.signed && own.rank > 0;
+
+    this.find('[data-standing-note]').textContent = note;
+    // A run on the table that nobody has signed yet says how to sign it.
+    this.find('[data-standing-hint]').hidden = !unsigned;
+    // Read out, the standing is a sentence rather than three rows of cells.
+    this.find('[data-over-scores]').setAttribute('aria-label', [
+      `High scores: ${own.rank > 0 ? `number ${own.rank} with ${countHits(own.hits)}` : `${countHits(own.hits)}, not on the table yet`}.`,
+      note.endsWith('!') ? note : `${note}.`,
+      unsigned ? 'Sign your score.' : 'Show the table.',
+    ].join(' '));
+    this.find('[data-sign-open]').textContent = table.signed ? 'Change initials' : 'Enter initials';
+  }
+
+  /**
+   * The versus card, as a career match starts: the rival's emblem and name over the player's,
+   * in the manner of a fighting game. It is decoration, up for the first half of the countdown
+   * and no longer; the status line names the rival for screen readers.
+   *
+   * @param {Presentation} presentation
+   */
+  showVersus({ career }) {
+    this.hideVersus();
 
     if (!career) {
       return;
     }
 
-    this.banner.replaceChildren(...(career.rival.boss ? [bossTag(this.banner, bossLabel(career)), career.rival.name] : [`vs ${career.rival.name}`]));
-    this.banner.hidden = false;
-    this.bannerTimer = this.timers.setTimeout(() => this.hideBanner(), BANNER_SECONDS * 1000);
+    const tag = this.find('[data-versus-tag]');
+
+    showEmblem(this.find('[data-versus-emblem]'), career.rival.emblem);
+    tag.textContent = career.rival.boss ? bossLabel(career) : `Rival ${career.index + 1}/${career.count}`;
+    tag.classList.toggle('versus__tag--boss', career.rival.boss);
+    this.find('[data-versus-name]').textContent = career.rival.name;
+    this.find('[data-versus-you]').textContent = this.initials() || 'You';
+    this.versus.hidden = false;
+    this.versusTimer = this.timers.setTimeout(() => this.hideVersus(), VERSUS_SECONDS * 1000);
   }
 
-  hideBanner() {
-    if (this.bannerTimer !== null) {
-      this.timers.clearTimeout(this.bannerTimer);
-      this.bannerTimer = null;
+  hideVersus() {
+    if (this.versusTimer !== null) {
+      this.timers.clearTimeout(this.versusTimer);
+      this.versusTimer = null;
     }
 
-    this.banner.hidden = true;
+    this.versus.hidden = true;
   }
 
   /**
@@ -860,13 +1102,75 @@ function bossLabel(career) {
 }
 
 /**
- * @param {HTMLElement} element
- * @param {string} label
+ * Points an emblem's drawing at the one with that name.
+ *
+ * @param {HTMLElement} use the `<use>` inside the emblem
+ * @param {string} emblem
  */
-function bossTag(element, label) {
-  const tag = element.ownerDocument.createElement('small');
-  tag.textContent = label;
-  return tag;
+function showEmblem(use, emblem) {
+  use.setAttribute('href', `#emblem-${emblem}`);
+}
+
+/** @param {number} hits */
+function countHits(hits) {
+  return hits === 1 ? '1 hit' : `${hits} hits`;
+}
+
+/**
+ * A row of the high-score table: its rank, the initials, in the whole table whose they are, and
+ * the hits. A run that is not on the table has a dash for a rank.
+ *
+ * @param {HTMLElement} list the element the row goes in
+ * @param {HighScoreRow} row
+ * @param {boolean} named whether to say whose row it is
+ * @returns {HTMLElement}
+ */
+function scoreRow(list, row, named) {
+  const document = list.ownerDocument;
+  const element = document.createElement(named ? 'li' : 'span');
+  /** @param {string} name @param {string} text */
+  const cell = (name, text) => {
+    const part = document.createElement('span');
+    part.className = `score-row__${name}`;
+    part.textContent = text;
+    return part;
+  };
+
+  element.className = row.own ? 'score-row score-row--own' : 'score-row';
+  element.replaceChildren(
+    cell('rank', row.rank > 0 ? String(row.rank) : '–'),
+    cell('initials', row.initials),
+    ...(named ? [cell('name', row.name)] : []),
+    cell('hits', String(row.hits)),
+  );
+  return element;
+}
+
+/**
+ * The line under the standing on the result screen: whom the run went past, or how far the
+ * player's best is from the next row.
+ *
+ * @param {HighScoresView} table
+ * @returns {string}
+ */
+function standingNote(table) {
+  const { own, passed, target } = table;
+
+  if (passed.length > 0 && own.rank === 1) {
+    return 'The record is yours!';
+  }
+
+  if (passed.length > 0 && own.rank > 0) {
+    return `You passed ${passed.length === 1 ? passed[0] : `${passed.length} regulars`}!`;
+  }
+
+  if (!target) {
+    return 'You hold the record';
+  }
+
+  return own.rank > 0
+    ? `${hitsToPass(table)} more to pass ${target.initials}`
+    : `${hitsToPass(table)} more to get on the table`;
 }
 
 /**

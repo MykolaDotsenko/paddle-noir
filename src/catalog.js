@@ -1,7 +1,7 @@
 import { DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, tuned } from './config.js';
 
 /**
- * @import { MatchCatalog, Rival } from './application/ports.js'
+ * @import { HighScore, MatchCatalog, Rival } from './application/ports.js'
  */
 
 // The matches a player can choose, handed to the application: the three difficulties of a
@@ -11,8 +11,9 @@ import { DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, tuned 
 // tuning and one line of story, from a first-timer to the router in the back room, and at the
 // top the landlord who wants the place gone. The fourth, the seventh and the ninth are bosses,
 // which attack the player's end of the court; the landlord is the final boss, who borrows all
-// three of their attacks, one after another as the player closes in on winning. Every name is
-// made up and names nobody.
+// three of their attacks, one after another as the player closes in on winning. Each has a neon
+// emblem, and a line for the result screen whichever way the match went. Every name is made up
+// and names nobody.
 
 const NO_POWER_UPS = Object.freeze({ enabled: false });
 
@@ -22,6 +23,8 @@ export const RIVALS = Object.freeze([
     name: 'Rookie Roma',
     short: 'Roma',
     story: 'First night at the arcade. Holds the paddle like a shawarma.',
+    emblem: 'wrap',
+    says: { winning: 'I won? Do not tell my mom I was here.', beaten: 'Wait, we were keeping score?' },
     boss: false,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 380, maxSpeed: 820, speedIncrease: 1.035 },
@@ -33,6 +36,8 @@ export const RIVALS = Object.freeze([
     name: 'Aunt Halyna',
     short: 'Halyna',
     story: 'Runs the cloakroom. Wide paddle, slow hands, zero mercy.',
+    emblem: 'hanger',
+    says: { winning: 'No ticket, no coat, no rematch.', beaten: 'Fine. But you are not getting your coat back.' },
     boss: false,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 400, maxSpeed: 900, speedIncrease: 1.04 },
@@ -44,6 +49,8 @@ export const RIVALS = Object.freeze([
     name: 'Twisty Taras',
     short: 'Taras',
     story: 'Everything he hits comes back bent. Rules included.',
+    emblem: 'spiral',
+    says: { winning: 'Never trust a straight line.', beaten: 'That last one was out. Probably.' },
     boss: false,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 420, maxSpeed: 980, speedIncrease: 1.045 },
@@ -55,6 +62,8 @@ export const RIVALS = Object.freeze([
     name: 'The Janitor',
     short: 'Janitor',
     story: 'Mops the floor with players. His bucket leaks on purpose.',
+    emblem: 'bucket',
+    says: { winning: 'Mind the wet floor on your way out.', beaten: 'Great. Now I have to mop up my pride.' },
     boss: true,
     config: tuned(GAME_CONFIG, {
       opponent: { maxSpeed: 280, reach: 0.6, predictionWeight: 0.65, error: 72, aim: 0.25 },
@@ -66,6 +75,8 @@ export const RIVALS = Object.freeze([
     name: 'Hoarder Hryts',
     short: 'Hryts',
     story: 'Never met a power-up he did not pocket.',
+    emblem: 'sack',
+    says: { winning: 'Finders keepers.', beaten: 'Keep the win. I am keeping the power-ups.' },
     boss: false,
     config: tuned(GAME_CONFIG, {
       powerUps: { enabled: true, spawnDelay: [2.5, 4.5] },
@@ -75,6 +86,8 @@ export const RIVALS = Object.freeze([
     name: 'Sniper Sanya',
     short: 'Sanya',
     story: 'Aims for the corners. Blames the lag when he misses.',
+    emblem: 'crosshair',
+    says: { winning: 'Called it. Top corner.', beaten: 'Lag. It was definitely lag.' },
     boss: false,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 450, maxSpeed: 1100, speedIncrease: 1.055 },
@@ -86,6 +99,8 @@ export const RIVALS = Object.freeze([
     name: 'DJ Wobble',
     short: 'DJ Wobble',
     story: 'Drops the bass, then a beam right where you stand.',
+    emblem: 'headphones',
+    says: { winning: 'And that is how you drop the beat.', beaten: 'You just scratched my best record.' },
     boss: true,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 450, maxSpeed: 1100, speedIncrease: 1.05 },
@@ -98,6 +113,8 @@ export const RIVALS = Object.freeze([
     name: 'Grandmaster Zina',
     short: 'Zina',
     story: 'Unbeaten since the arcade opened. Knits between points.',
+    emblem: 'yarn',
+    says: { winning: 'I knitted a whole scarf during that one.', beaten: 'Hm. I dropped a stitch. Well played, dear.' },
     boss: false,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 480, maxSpeed: 1200, speedIncrease: 1.06 },
@@ -109,6 +126,8 @@ export const RIVALS = Object.freeze([
     name: 'LAG',
     short: 'LAG',
     story: 'The router in the back room. Buffering since 1998.',
+    emblem: 'router',
+    says: { winning: 'Your skills are still buffering. 12%...', beaten: 'Connection lost. Reconnecting... never.' },
     boss: true,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 480, maxSpeed: 1200, speedIncrease: 1.06 },
@@ -121,6 +140,8 @@ export const RIVALS = Object.freeze([
     name: 'The Landlord',
     short: 'Landlord',
     story: 'Owns the building. Wants a parking lot where the arcade stands.',
+    emblem: 'key',
+    says: { winning: 'The parking lot opens Monday.', beaten: 'Fine. Keep your arcade. The roof still leaks.' },
     boss: true,
     config: tuned(GAME_CONFIG, {
       ball: { initialSpeed: 480, maxSpeed: 1200, speedIncrease: 1.06 },
@@ -139,10 +160,25 @@ export const RIVALS = Object.freeze([
   },
 ]);
 
+// The Rush cabinet's high-score table as the arcade left it: the nine regulars' best runs, in
+// the order of the ladder, under a record nobody ever signed. The runs were set by simulating
+// Rush with human-like bots of three skill levels: a first run lands a casual player on the
+// table, steady play takes them to the middle of it, and the record at the top is a skilled
+// player's run of a lifetime, about one in fifty.
+/** @type {readonly (readonly [string, number])[]} */
+const REGULARS_RUNS = [['ROM', 8], ['HAL', 13], ['TAR', 18], ['JAN', 22], ['HRY', 26], ['SAN', 31], ['WOB', 35], ['ZIN', 41], ['LAG', 48]];
+
+/** @type {readonly HighScore[]} */
+export const HIGH_SCORES = Object.freeze([
+  Object.freeze({ initials: 'AAA', name: 'Unknown', hits: 60 }),
+  ...REGULARS_RUNS.map(([initials, hits], index) => Object.freeze({ initials, name: RIVALS[index].name, hits })).reverse(),
+]);
+
 /** @type {MatchCatalog} */
 export const MATCH_CATALOG = Object.freeze({
   difficulties: DIFFICULTY_CONFIGS,
   rush: RUSH_CONFIG,
   duo: TWO_PLAYER_CONFIG,
   career: RIVALS,
+  highScores: HIGH_SCORES,
 });

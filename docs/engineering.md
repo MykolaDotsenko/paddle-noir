@@ -25,6 +25,7 @@ script.js (composition root: the only place that touches browser globals)
             +-- interpolateState ---- smooth rendering between steps
             |
             +-- career -------------- stars, the open part of the ladder, tired rivals
+            +-- high-scores --------- the Rush high-score table and the player's place on it
             |
             +-- domain/game --------- state machine, rules, scoring, events
                     |
@@ -45,7 +46,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 
 ```text
 .
-├── .github/workflows/quality.yml   checks on every push and PR; deploys main to GitHub Pages
+├── .github/workflows/quality.yml   checks on every push and PR
 ├── docs/preview.png
 ├── e2e/game.spec.js
 ├── icons/                      app icons, rendered from icon.svg
@@ -82,6 +83,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── career.js
 │   │   ├── game-controller.js
 │   │   ├── game-loop.js
+│   │   ├── high-scores.js
 │   │   ├── interpolation.js
 │   │   ├── nicknames.js
 │   │   └── ports.js
@@ -94,7 +96,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── random.js
 │   │   ├── supers.js
 │   │   └── types.js
-│   ├── catalog.js              the matches a player can choose, the career ladder included
+│   ├── catalog.js              the matches a player can choose, the career ladder and the high-score table included
 │   └── config.js
 ├── tests                       unit tests per module, reference matches, collision and module-load checks, support/ fakes
 ├── ARCHITECTURE.md
@@ -137,8 +139,9 @@ The dependency-free unit suite covers:
 - the opponent's reach, wall-folded prediction, aim, speed-dependent misjudgement, and the ordering of the difficulty presets
 - the fixed-step loop with its time scale and hit-stop hold, and render interpolation
 - the controller: loop lifecycle, commands, the match built from mode and difficulty, slow motion and hit-stop, event dispatch to feedback adapters, the best-rally, best-Rush and win-streak records, forfeits, and the career: its stars, the ladder moving on after a win, tired rivals after two losses, and records kept apart from Solo
-- the career ladder: ten rivals, four bosses, the last the final boss who borrows the other bosses' attacks, a story and a short name each, and every rival playing a real match
-- the adapters: input (layouts, shortcuts, device switching, the thumb rail, focus loss, dialogs), the view (overlays, the modal tutorial and settings, focus, rules from config, quiet live-region updates, the rival picker, the finisher's wait and the countdown), the canvas renderer and its modules on a recording 2D context, effects, sound and music on one audio context, vibration, the wake lock, sharing and full screen, and preferences across tabs
+- the career ladder: ten rivals, four bosses, the last the final boss who borrows the other bosses' attacks, a story and a short name each, an emblem the page draws and a line for either result, and every rival playing a real match
+- the Rush high-score table: the ten rows the arcade left, a run's place among them, ties that leave the earlier row above, the rows a run passes, the few rows shown around the player's, and initials that are three capital letters or nothing; in the controller, the table worked out again only when the record or the initials change, and the refresh command, which redraws the screen and changes nothing else
+- the adapters: input (layouts, shortcuts, device switching, the thumb rail, focus loss, dialogs), the view (overlays, the modal tutorial and settings, focus, rules from config, quiet live-region updates, the rival picker, the finisher's wait and the countdown, the versus card and the rival's line, the high-score card, standing and dialog, and signing by touch and by keyboard), the canvas renderer and its modules on a recording 2D context, effects, sound and music on one audio context, vibration, the wake lock, sharing and full screen, and preferences across tabs
 - the architecture rules themselves, and that every module loads without a browser
 
 ### Browser tests
@@ -147,15 +150,16 @@ Playwright runs the real application in desktop and mobile Chromium. It reads th
 
 - the application boots without page errors, and Play, `Space`, `Esc` and the menus drive the state machine
 - the paddle follows the mouse, the keyboard takes over while the mouse rests on the board, and `A`/`D` work on a Cyrillic layout
-- on a phone, the court fills the screen, stays in view when a match starts, and the thumb rail steers the paddle; on a 320px-wide phone the heads-up display fits without sideways scrolling and every control of the menu and pause screen is fingertip-sized; held sideways, the HUD stands beside a full-height court and the menu sheet fits
+- on a phone, the court fills the screen, stays in view when a match starts, and the thumb rail steers the paddle; on a 320px-wide phone the heads-up display fits without sideways scrolling and every control of the menu, in every mode, and of the pause screen is fingertip-sized; held sideways, the HUD stands beside a full-height court and the menu sheet fits in every mode
 - the first serve counts down from three before the ball moves
 - the first visit opens the tutorial once as a modal dialog; `Space` closes it without starting a match, `Esc` closes it too, and either is remembered; the settings open the same way, and closing them starts nothing
 - the title screen keeps the score, the pause button and the thumb rail back until a match starts, and the court does not move when they appear
 - Rush shows lives as hearts and ends when they run out; two players get their own halves of the board
+- Rush shows the high-score table the arcade left; three letters sign it, by touch or by keyboard, and are remembered; a run short of the best shows the standing and how far the next row is; and a real run, played by following the ball, beats the table's last row, is named for it during the run and on the result screen, and takes its place on the table
 - mode, difficulty, power-up, super and sound choices survive a reload; the Supers switch says where it applies, and the super meter shows in the corner of the court only while supers are on
 - a lost match ends on the result screen, with full effects and no page errors, and Play again starts a new one
 - the computer's nickname follows the Fun switch; a won match ends with a Pongality before the result screen, which a tap or a key brings at once without starting the next match
-- the career opens as far as the rivals beaten, names the rival as a match starts, the first boss's drip shrinks a paddle that stands still, the landlord waits at the top as the final boss, and a lost match counts down to game over
+- the career opens as far as the rivals beaten and starts a match under a versus card, which leaves the paddle steerable and is gone before the serve; the first boss's drip shrinks a paddle that stands still, the landlord waits at the top as the final boss, and a lost match counts down to game over under the winner's line
 - losing window focus pauses the match, and idle screens request no animation frames
 - the canvas matches device pixels up to twice the CSS size, and the app is installable
 
