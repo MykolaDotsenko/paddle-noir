@@ -1,14 +1,15 @@
 import { GAME_PHASE } from '../../domain/game.js';
 import { isLoaded } from '../../domain/supers.js';
+import { CAMEO_WORD } from '../cameo.js';
 import { FEVER_RALLY, FONT, roundedRect, SUPER_STYLE, THEME } from './theme.js';
 
 /**
  * What the canvas shows on top of the play: the serve countdown, the rally counter, the
- * super meters and the callouts. Each function draws onto a context already scaled to board
- * coordinates.
+ * super meters, the callouts and the cameo. Each function draws onto a context already scaled
+ * to board coordinates.
  *
  * @import { GameConfig, GameState, Side, SuperMeter } from '../../domain/types.js'
- * @import { Label } from '../effects.js'
+ * @import { Cameo, Label } from '../effects.js'
  */
 
 // A super meter: a slim bar in a corner at each end of the court, clear of the paddles.
@@ -220,4 +221,100 @@ export function drawLabels(ctx, labels) {
     ctx.fillText(label.text, 0, 0);
     ctx.restore();
   }
+}
+
+// The cameo: a head in headphones, a little above the paddle's end of the court, clear of the
+// rally counter, the meters and the paddles' rows.
+const CAMEO_HEIGHT = 0.7;
+/** The head is drawn 24 units in radius, then enlarged to be seen from across a room. */
+const CAMEO_HEAD = 24;
+const CAMEO_SCALE = 1.5;
+/** How far outside the wall he waits, in board units, before he leans in. */
+const CAMEO_REACH = 130;
+const CAMEO_IN = 0.14;
+const CAMEO_OUT = 0.18;
+
+/**
+ * The arcade's sound man leans in from the wall and whoops: a line drawing of a head in
+ * headphones, eyes shut with delight, and his word beside him. He comes in at the end of the
+ * court whose player fired the super; for a second player he is turned to face them across the
+ * table. With reduced motion he does not slide: he is there, then he is not. Nothing here is
+ * the pure white kept for the ball.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Cameo | null} cameo
+ * @param {GameConfig} config
+ * @param {boolean} [reducedMotion]
+ */
+export function drawCameo(ctx, cameo, config, reducedMotion = false) {
+  if (!cameo) {
+    return;
+  }
+
+  const { width, height } = config;
+  const age = cameo.maxLife - cameo.life;
+  // 0 out of sight, 1 leaning all the way in.
+  const shown = Math.min(1, age / CAMEO_IN, cameo.life / CAMEO_OUT);
+  const eased = 1 - (1 - shown) ** 3;
+  const violet = `rgb(${THEME.violet})`;
+
+  ctx.save();
+
+  if (cameo.side === 'opponent') {
+    // The same picture, seen from the other end of the table.
+    ctx.translate(width, height);
+    ctx.rotate(Math.PI);
+  }
+
+  ctx.globalAlpha = reducedMotion ? shown : 1;
+  ctx.translate(width - (CAMEO_HEAD + 10) * CAMEO_SCALE + (reducedMotion ? 0 : (1 - eased) * CAMEO_REACH), height * CAMEO_HEIGHT);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // His word, beside him on the court side.
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.font = `900 30px ${FONT}`;
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = 'rgba(5, 6, 15, 0.85)';
+  ctx.strokeText(CAMEO_WORD, -(CAMEO_HEAD + 14) * CAMEO_SCALE, -44);
+  ctx.fillStyle = `rgb(${THEME.amber})`;
+  ctx.fillText(CAMEO_WORD, -(CAMEO_HEAD + 14) * CAMEO_SCALE, -44);
+
+  ctx.scale(CAMEO_SCALE, CAMEO_SCALE);
+
+  // The head, filled so the court's lines do not show through it.
+  ctx.fillStyle = THEME.background;
+  ctx.strokeStyle = violet;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, CAMEO_HEAD, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Eyes shut with delight, and a mouth wide open.
+  for (const x of [-9, 9]) {
+    ctx.beginPath();
+    ctx.arc(x, -3, 4.5, Math.PI, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(0, 11, 5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // The headphones: a band over the head and a cup on each ear.
+  ctx.strokeStyle = `rgb(${THEME.side.opponent.rgb})`;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(0, 0, CAMEO_HEAD + 5, Math.PI * 1.12, Math.PI * 1.88);
+  ctx.stroke();
+
+  for (const x of [-CAMEO_HEAD - 9, CAMEO_HEAD + 1]) {
+    roundedRect(ctx, x, -9, 8, 20, 4);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }

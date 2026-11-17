@@ -283,3 +283,41 @@ test('a boss\'s attacks are drawn on the court', () => {
 
   assert.equal(callsNamed(canvas.contexts[0], 'ellipse')[0].args[0], 120, 'the drip\'s shadow');
 });
+
+test('with the fun extras on, the first super a person fires brings the sound man in, once a match', () => {
+  const { renderer, canvas } = setup({ jokes: true });
+  const fired = (side = 'player') => ({ type: 'paddle-hit', side, x: 250, y: 734, speed: 900, spin: 0, offset: 0, rally: 3, super: 'fireball' });
+  const state = running();
+  const words = () => callsNamed(canvas.contexts[0], 'fillText').filter((call) => call.args[0] === 'WHOOPEE!').length;
+
+  renderer.render(state, GAME_CONFIG);
+  renderer.handle([fired('opponent')], state);
+  assert.equal(renderer.effects.cameo, null, 'not for the computer');
+
+  renderer.handle([fired()], state);
+  assert.deepEqual(renderer.effects.cameo, { side: 'player', life: 1.1, maxLife: 1.1 });
+
+  clearCalls(canvas);
+  renderer.render(state, GAME_CONFIG);
+  assert.equal(words(), 1, 'he is drawn with his word');
+
+  renderer.effects.update(2);
+  renderer.handle([fired()], state);
+  assert.equal(renderer.effects.cameo, null, 'the second super of the match is only a super');
+
+  renderer.handle([{ type: 'match-start' }], state);
+  renderer.handle([fired()], state);
+  assert.equal(renderer.effects.cameo?.side, 'player', 'a new match, a new cameo');
+});
+
+test('with the fun extras off nobody leans in', () => {
+  const { renderer, canvas } = setup();
+  const state = running();
+
+  renderer.render(state, GAME_CONFIG);
+  renderer.handle([{ type: 'paddle-hit', side: 'player', x: 250, y: 734, speed: 900, spin: 0, offset: 0, rally: 3, super: 'fireball' }], state);
+  renderer.render(state, GAME_CONFIG);
+
+  assert.equal(renderer.effects.cameo, null);
+  assert.equal(callsNamed(canvas.contexts[0], 'fillText').filter((call) => call.args[0] === 'WHOOPEE!').length, 0);
+});

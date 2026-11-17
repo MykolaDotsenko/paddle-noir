@@ -68,6 +68,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── audio-output.js
 │   │   ├── browser-device.js
 │   │   ├── browser-frame-scheduler.js
+│   │   ├── cameo.js
 │   │   ├── canvas-renderer.js
 │   │   ├── dom-game-view.js
 │   │   ├── effects.js

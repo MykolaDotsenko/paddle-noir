@@ -159,6 +159,97 @@ export const MUSIC_TRACKS = Object.freeze([
     },
     drums: { kick: 'x.x...x.x.x...x.', snare: '....x.......x...', hat: 'x...x...x...x...' },
   },
+  {
+    // Nineties eurodance in A minor at 132 bpm (Am, F, C, G): the kick on every beat with the
+    // bass answering off it, a house piano stabbing across the bar and a hook to hum.
+    id: 'eurodance',
+    label: 'Eurodance',
+    bpm: 132,
+    root: 110,
+    bars: [0, -4, 3, -2],
+    bass: { wave: 'sawtooth', volume: 0.14, length: 1.1, notes: [_, _, 0, 0, _, _, 0, 0, _, _, 0, 0, _, _, 0, 12] },
+    chord: {
+      wave: 'triangle',
+      volume: 0.05,
+      length: 1.4,
+      hits: 'x..x..x..x..x.x.',
+      chords: [[12, 15, 19], [12, 16, 19], [12, 16, 19], [12, 16, 19]],
+    },
+    lead: {
+      wave: 'square',
+      volume: 0.05,
+      length: 1.6,
+      every: 2,
+      notes: [
+        31, 31, 29, 31, _, 27, 24, _,
+        27, 27, 24, 27, _, 29, 27, _,
+        31, 31, 34, 31, _, 29, 27, _,
+        29, 29, 26, 29, _, 31, 34, _,
+      ],
+    },
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...xx' },
+  },
+  {
+    // A warehouse rave in D minor at 150 bpm (Dm, F, C, B flat): a rolling sixteenth-note
+    // bass, piano stabs off the beat, a shuffling hi-hat and a siren of a lead up high.
+    id: 'rave',
+    label: 'Rave',
+    bpm: 150,
+    root: 73.42,
+    bars: [0, 3, -2, -4],
+    bass: { wave: 'sawtooth', volume: 0.13, length: 0.8, notes: [0, 0, 12, 0, 0, 12, 0, 0, 12, 0, 0, 12, 0, 12, 0, 12] },
+    chord: {
+      wave: 'triangle',
+      volume: 0.05,
+      length: 1.2,
+      hits: '..x..x..x.x..x.x',
+      chords: [[12, 15, 19, 24], [12, 16, 19, 24], [12, 16, 19, 24], [12, 16, 19, 24]],
+    },
+    lead: {
+      wave: 'sawtooth',
+      volume: 0.035,
+      length: 1.5,
+      every: 2,
+      notes: [
+        36, _, 36, 39, _, 36, 43, 41,
+        39, _, 39, 43, _, 39, 46, 43,
+        38, _, 38, 41, _, 38, 46, 43,
+        36, _, 36, 39, _, 41, 39, 36,
+      ],
+    },
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x.x.', hat: 'x.xxx.xxx.xxx.xx' },
+  },
+  {
+    // Late-nineties trance in F sharp minor at 138 bpm (F sharp minor twice, D, C sharp minor):
+    // a bass that ducks under every kick, one long pad a bar and a plucked arpeggio climbing
+    // the chord in threes against the four of the beat.
+    id: 'trance',
+    label: 'Trance',
+    bpm: 138,
+    root: 92.5,
+    bars: [0, 0, -4, -5],
+    bass: { wave: 'sawtooth', volume: 0.13, length: 0.8, notes: [_, 0, 0, 0, _, 0, 0, 0, _, 0, 0, 0, _, 0, 0, 0] },
+    chord: {
+      wave: 'sawtooth',
+      volume: 0.02,
+      length: 15,
+      hits: 'x...............',
+      chords: [[12, 15, 19, 24], [12, 15, 19, 24], [12, 16, 19, 24], [12, 15, 19, 24]],
+    },
+    lead: {
+      wave: 'square',
+      volume: 0.04,
+      length: 0.9,
+      every: 1,
+      notes: [
+        24, 27, 31, 24, 27, 31, 24, 27, 31, 36, 31, 27, 36, 31, 27, 31,
+        24, 27, 31, 24, 27, 31, 24, 27, 31, 38, 36, 31, 38, 36, 31, 27,
+        20, 24, 27, 20, 24, 27, 20, 24, 27, 32, 27, 24, 32, 27, 24, 27,
+        19, 22, 26, 19, 22, 26, 19, 22, 26, 31, 26, 22, 31, 29, 26, 22,
+      ],
+    },
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+  },
 ]);
 
 /**

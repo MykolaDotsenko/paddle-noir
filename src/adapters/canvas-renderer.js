@@ -2,9 +2,10 @@ import { GAME_PHASE } from '../domain/game.js';
 import { BallTrail } from './canvas/ball-trail.js';
 import { GlowSprites, paintCourt, paintGrid } from './canvas/court.js';
 import { playEvents } from './canvas/event-effects.js';
-import { drawLabels, drawMeters, drawRally, drawServeCountdown } from './canvas/hud.js';
+import { drawCameo, drawLabels, drawMeters, drawRally, drawServeCountdown } from './canvas/hud.js';
 import { drawBall, drawExtraBalls, drawGhostFog, drawHazards, drawPaddle, drawPickups, drawTrail } from './canvas/scene.js';
 import { THEME } from './canvas/theme.js';
+import { CAMEO_SECONDS, CameoCue } from './cameo.js';
 import { Effects } from './effects.js';
 
 /**
@@ -58,6 +59,7 @@ export class CanvasRenderer {
     this.reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     this.effects = new Effects({ random, reducedMotion: this.reducedMotionQuery.matches });
     this.trail = new BallTrail();
+    this.cameoCue = new CameoCue();
     this.glows = new GlowSprites(() => this.createLayer());
     this.scale = 1;
     /** @type {GameState | null} */
@@ -197,6 +199,16 @@ export class CanvasRenderer {
       // The record is saved when a run ends, so during one this is the best before it.
       bestRush,
     });
+
+    // The first super a person fires in a match brings the sound man in from the wall.
+    for (const event of events) {
+      const side = this.cameoCue.take(event, this.config, jokes === true);
+
+      if (side) {
+        this.effects.leanIn(side, CAMEO_SECONDS);
+      }
+    }
+
     this.ensureEffectsLoop();
   }
 
@@ -300,6 +312,7 @@ export class CanvasRenderer {
 
     drawServeCountdown(ctx, state, config);
     drawMeters(ctx, state, config, now);
+    drawCameo(ctx, effects.cameo, config, effects.reducedMotion);
     drawLabels(ctx, effects.labels);
 
     if (effects.flashAlpha > 0) {

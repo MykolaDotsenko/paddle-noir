@@ -80,6 +80,11 @@
  * @property {number} maxLife
  * @property {number} size font size in board units
  *
+ * @typedef {object} Cameo Somebody leaning in from the side of the court for a moment.
+ * @property {Side} side whose end of the court they lean in at
+ * @property {number} life seconds left
+ * @property {number} maxLife
+ *
  * @typedef {Pick<CanvasRenderingContext2D,
  *   'save' | 'restore' | 'beginPath' | 'moveTo' | 'lineTo' | 'arc' | 'stroke' | 'translate' | 'rotate' | 'fillRect'
  * > & { globalCompositeOperation: string, globalAlpha: number, strokeStyle: unknown, fillStyle: unknown, lineWidth: number, lineCap: string }} EffectsContext
@@ -118,6 +123,8 @@ export class Effects {
     /** A paddle the renderer must not draw, because its pieces are flying about instead. */
     /** @type {Side | null} */
     this.hiddenPaddle = null;
+    /** @type {Cameo | null} */
+    this.cameo = null;
     /** @type {Array<{ delay: number, action: () => void }>} */
     this.scheduled = [];
     this.flashColor = '#ffffff';
@@ -135,6 +142,7 @@ export class Effects {
       || this.shards.length > 0
       || this.bolts.length > 0
       || this.labels.length > 0
+      || this.cameo !== null
       || this.scheduled.length > 0
       || this.flashAlpha > SETTLED
       || this.shakeAmount > SETTLED
@@ -317,6 +325,16 @@ export class Effects {
   }
 
   /**
+   * Somebody leans in from the side of the court, at that side's end of it, and is gone again.
+   *
+   * @param {Side} side
+   * @param {number} life seconds
+   */
+  leanIn(side, life) {
+    this.cameo = { side, life, maxLife: life };
+  }
+
+  /**
    * @param {string} color
    * @param {number} strength peak opacity
    */
@@ -361,6 +379,7 @@ export class Effects {
     this.bolts = [];
     this.hiddenPaddle = null;
     this.labels = [];
+    this.cameo = null;
     this.scheduled = [];
     this.flashAlpha = 0;
     this.shakeAmount = 0;
@@ -407,6 +426,10 @@ export class Effects {
 
     for (const bolt of this.bolts) {
       bolt.life -= deltaSeconds;
+    }
+
+    if (this.cameo && (this.cameo.life -= deltaSeconds) <= 0) {
+      this.cameo = null;
     }
 
     this.particles = this.particles.filter((particle) => particle.life > 0);
