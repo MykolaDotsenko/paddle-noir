@@ -27,6 +27,7 @@ import { GAME_COMMAND } from './ports.js';
  *   HighScoresView,
  *   InputPort,
  *   MatchCatalog,
+ *   NovaView,
  *   Mode,
  *   OpponentName,
  *   PreferencesPort,
@@ -48,7 +49,7 @@ const DRAMA_MIN_SPEED_SHARE = 0.55;
 /**
  * Builds the tuning for the next match from the player's choices. A career rival plays as it
  * always does, power-ups included, unless it has beaten the player twice in a row. Supers are
- * the player's choice in every match and in Bricks, but never in a Rush run.
+ * the player's choice in every match, in Bricks and in Nova, but never in a Rush run.
  *
  * @param {MatchCatalog} catalog
  * @param {{ mode: Mode, difficulty: string, powerUps: boolean, supers?: boolean, rival?: number, losses?: number }} choices
@@ -61,6 +62,10 @@ export function buildMatchConfig(catalog, choices) {
 
   if (choices.mode === 'bricks') {
     return withSupers(catalog.bricks, choices.supers);
+  }
+
+  if (choices.mode === 'nova') {
+    return withSupers(catalog.nova, choices.supers);
   }
 
   if (choices.mode === 'career') {
@@ -119,6 +124,7 @@ export class GameController {
     this.newBest = false;
     this.newBestRush = false;
     this.newBestBricks = false;
+    this.newBestNova = false;
     /** Stars the career match just finished earned. */
     this.careerEarned = 0;
     /** @type {number | null} the best Rush run before the one just finished, which tells whose rows it passed */
@@ -244,6 +250,7 @@ export class GameController {
     this.newBest = false;
     this.newBestRush = false;
     this.newBestBricks = false;
+    this.newBestNova = false;
     this.careerEarned = 0;
     this.rushBefore = null;
     this.recorded = false;
@@ -306,15 +313,18 @@ export class GameController {
   /**
    * Hit-stop on hard hits, and slow motion while a match-point ball flies at a paddle. In
    * Bricks, where returns come thick and fast, the picture stops only for a super fired, a bomb
-   * going off and a super landing.
+   * going off and a super landing; in Nova, for the ship hit, a super fired, and a gunship or
+   * the boss going down.
    *
    * @param {GameState} state
    */
   dramatize(state) {
     for (const event of state.events) {
-      const hard = state.bricks
-        ? (event.type === 'paddle-hit' && event.super !== undefined) || event.type === 'blast' || event.type === 'strike'
-        : event.type === 'paddle-hit' && this.speedShare(event.speed) > DRAMA_MIN_SPEED_SHARE;
+      const hard = state.nova
+        ? event.type === 'ship-hit' || event.type === 'super-fire' || (event.type === 'enemy-down' && (event.kind === 'boss' || event.kind === 'gunship'))
+        : state.bricks
+          ? (event.type === 'paddle-hit' && event.super !== undefined) || event.type === 'blast' || event.type === 'strike'
+          : event.type === 'paddle-hit' && this.speedShare(event.speed) > DRAMA_MIN_SPEED_SHARE;
 
       if (hard) {
         this.loop.hold(HIT_STOP_SECONDS);
@@ -369,7 +379,7 @@ export class GameController {
   }
 
   /**
-   * Saves the outcome of a finished match: the Rush or Bricks record, or the Solo win statistics.
+   * Saves the outcome of a finished match: the Rush, Bricks or Nova record, or the Solo win statistics.
    *
    * @param {GameState} state
    */
@@ -395,6 +405,14 @@ export class GameController {
       if (state.bricks.points > this.preferences.get().bestBricks) {
         this.newBestBricks = true;
         this.preferences.set({ bestBricks: state.bricks.points });
+      }
+      return;
+    }
+
+    if (state.nova) {
+      if (state.nova.points > this.preferences.get().bestNova) {
+        this.newBestNova = true;
+        this.preferences.set({ bestNova: state.nova.points });
       }
       return;
     }
@@ -477,6 +495,10 @@ export class GameController {
       return { label: 'Wall', name: 'The wall', proper: false };
     }
 
+    if (this.mode === 'nova') {
+      return { label: 'Sector', name: 'The fleet', proper: false };
+    }
+
     if (this.mode === 'career') {
       const { short, name } = this.catalog.career[this.rival];
       return { label: short, name, proper: true };
@@ -520,6 +542,26 @@ export class GameController {
       career: this.careerView(),
       highScores: this.highScoresView(),
       bricks: this.bricksView(),
+      nova: this.novaView(),
+    };
+  }
+
+  /** @returns {NovaView | null} */
+  novaView() {
+    const space = this.state.nova;
+    const rules = this.config.nova;
+
+    if (!space || !rules) {
+      return null;
+    }
+
+    return {
+      sector: space.sector + 1,
+      sectors: rules.sectors.length,
+      name: rules.sectors[space.sector].name,
+      points: space.points,
+      best: this.preferences.get().bestNova,
+      newBest: this.newBestNova,
     };
   }
 
@@ -595,9 +637,14 @@ export class GameController {
     const { phase, score, hits } = this.state;
     const { rules } = this.config;
     const bricks = this.bricksView();
+    const nova = this.novaView();
 
     if (rules.kind === 'bricks' && bricks) {
       return this.bricksStatus(bricks);
+    }
+
+    if (rules.kind === 'nova' && nova) {
+      return this.novaStatus(nova);
     }
 
     const rush = rules.kind === 'rush';
@@ -657,5 +704,28 @@ export class GameController {
     }
 
     return `Wall ${level}, ${name}: ${points} points, ${lives} ${lives === 1 ? 'ball' : 'balls'} left`;
+  }
+
+  /**
+   * @param {NovaView} nova
+   */
+  novaStatus({ sector, sectors, name, points }) {
+    const { phase, lives } = this.state;
+
+    if (phase === GAME_PHASE.READY) {
+      return `Nova: fly through all ${sectors} sectors.`;
+    }
+
+    if (phase === GAME_PHASE.PAUSED) {
+      return 'Game paused.';
+    }
+
+    if (phase === GAME_PHASE.GAME_OVER) {
+      return getWinner(this.state) === 'player'
+        ? `The galaxy is saved — ${points} points.`
+        : `Ship lost in sector ${sector} of ${sectors} — ${points} points.`;
+    }
+
+    return `Sector ${sector}, ${name}: ${points} points, ${lives} ${lives === 1 ? 'ship' : 'ships'} left`;
   }
 }

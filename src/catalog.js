@@ -1,4 +1,4 @@
-import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, tuned } from './config.js';
+import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, tuned } from './config.js';
 
 /**
  * @import { HighScore, MatchCatalog, Rival } from './application/ports.js'
@@ -180,6 +180,7 @@ export const MATCH_CATALOG = Object.freeze({
   rush: RUSH_CONFIG,
   duo: TWO_PLAYER_CONFIG,
   bricks: BRICKS_CONFIG,
+  nova: NOVA_CONFIG,
   career: RIVALS,
   highScores: HIGH_SCORES,
 });

@@ -79,3 +79,25 @@ test('in Bricks only what stands out is felt: a blast, a super landing, a bonus,
 
   assert.deepEqual(calls, [40, [20, 30, 40], 15, 30, [30, 50, 30]], 'a brick breaking, several times a second, is not');
 });
+
+test('in Nova only what stands out is felt: the ship hit, a gunship or the boss down, a bonus, a super, the boss coming', () => {
+  const { haptics, calls } = setup();
+  const down = (kind) => ({ type: 'enemy-down', kind, x: 0, y: 0, rx: 10, by: 'bolt', points: 10, multiplier: 1 });
+
+  haptics.handle([
+    { type: 'ship-fire', x: 0, y: 0 },
+    { type: 'enemy-hit', kind: 'boss', x: 0, y: 0, hp: 3 },
+    down('pebble'),
+    down('drone'),
+    { type: 'enemy-fire', kind: 'drone', x: 0, y: 0, count: 1 },
+    { type: 'ship-hit', x: 0, y: 0 },
+    down('gunship'),
+    down('boss'),
+    { type: 'loot', kind: 'rapid', x: 0, y: 0 },
+    { type: 'super-fire', kind: 'zigzag', x: 0, y: 0 },
+    { type: 'enemy-arrive', kind: 'boss', x: 0, y: 0 },
+    { type: 'sector-clear', sector: 0, bonus: 300, last: false },
+  ]);
+
+  assert.deepEqual(calls, [70, 20, [40, 40, 80, 40, 120], 15, [25, 30, 45], [20, 60, 20, 60, 20], [30, 50, 30]]);
+});

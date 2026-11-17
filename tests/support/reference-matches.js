@@ -5,7 +5,7 @@
 // re-records them when a change to classic play is intended.
 import { createHash } from 'node:crypto';
 
-import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../../src/config.js';
+import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../../src/config.js';
 import { advanceGame, createInitialState, GAME_PHASE, startGame } from '../../src/domain/game.js';
 import { nextBetween, nextRandom } from '../../src/domain/random.js';
 
@@ -84,6 +84,9 @@ export const SCENARIOS = Object.freeze([
   // The Bricks game, supers on, with lives enough for this bot to bring walls down: bonuses
   // fall, bombs go off and supers land.
   { name: 'bricks', config: () => withSupers({ ...BRICKS_CONFIG, rules: { kind: 'bricks', lives: 15 } }), seed: 8086, seconds: 240, device: 'pointer' },
+  // The Nova game, supers on, with ships enough for this bot to fly into the later sectors:
+  // waves come in, enemies fire, bonuses fall and supers go off.
+  { name: 'nova', config: () => withSupers({ ...NOVA_CONFIG, rules: { kind: 'nova', lives: 40 } }), seed: 6502, seconds: 200, device: 'pointer' },
 ]);
 
 /**
@@ -133,6 +136,10 @@ export function playReference(scenario) {
       ...(state.bricks
         ? [state.bricks.level, state.bricks.bricks.length, state.bricks.points, state.bricks.combo, state.bricks.drops.length, state.bricks.bolts.length, state.bricks.drift.toFixed(6)]
         : []),
+      // Space, in the Nova game only.
+      ...(state.nova
+        ? [state.nova.sector, state.nova.points, state.nova.chain, ...state.nova.enemies.map((enemy) => `${enemy.kind}:${enemy.x.toFixed(6)}/${enemy.y.toFixed(6)}`), state.nova.shots.length, state.nova.fire.length]
+        : []),
     ].join(',') + '\n');
   }
 
@@ -146,6 +153,7 @@ export function playReference(scenario) {
       phase: state.phase,
       events: Object.fromEntries(Object.entries(counts).sort()),
       ...(state.bricks ? { level: state.bricks.level, points: state.bricks.points, lives: state.lives } : {}),
+      ...(state.nova ? { sector: state.nova.sector, points: state.nova.points, lives: state.lives } : {}),
     },
   };
 }

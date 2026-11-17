@@ -26,6 +26,14 @@ for (const scenario of SCENARIOS) {
 test('the reference matches cover real play: points, hits and long rallies', () => {
   for (const scenario of SCENARIOS) {
     const { summary } = fixtures[scenario.name];
+
+    if (scenario.name === 'nova') {
+      // Nobody scores points in space: it is real play if enemies go down and a sector is cleared.
+      assert.ok(summary.events['enemy-down'] >= 100 && summary.events['sector-clear'] >= 1, 'enemies go down and a sector is cleared');
+      assert.ok(summary.events['enemy-fire'] >= 10 && summary.events['super-fire'] >= 1, 'enemies fire and supers go off');
+      continue;
+    }
+
     assert.ok(summary.hits.player + summary.hits.opponent >= 15, `${scenario.name} has hits`);
     assert.ok(summary.longestRally >= 4, `${scenario.name} has rallies`);
 

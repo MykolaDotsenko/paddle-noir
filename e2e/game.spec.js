@@ -2,7 +2,7 @@ import { expect, test as base } from '@playwright/test';
 
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { HIGH_SCORES } from '../src/catalog.js';
-import { BRICKS_CONFIG, GAME_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG, NOVA_CONFIG } from '../src/config.js';
 
 // A first visit opens the tutorial over the menu. Most tests model a returning player, so
 // they store that choice before the page loads; the tutorial has a test of its own.
@@ -290,7 +290,7 @@ test.describe('on the smallest phone held upright', () => {
     expect(await touchProblems(page)).toEqual(noTouchProblems);
 
     // Rush has its high-score card there, the career its rival, and Bricks a card of its own.
-    for (const mode of [/Rush/, /Career/, /Bricks/]) {
+    for (const mode of [/Rush/, /Career/, /Bricks/, /Nova/]) {
       await page.getByRole('button', { name: mode }).tap();
       expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
     }
@@ -314,7 +314,7 @@ test.describe('on a phone held sideways', () => {
     const menuFits = () => page.locator('[data-overlay="menu"]').evaluate((sheet) => sheet.scrollHeight <= sheet.clientHeight);
     expect(await menuFits()).toBe(true);
 
-    for (const mode of [/Rush/, /Career/, /Bricks/, /Solo/]) {
+    for (const mode of [/Rush/, /Career/, /Bricks/, /Nova/, /Solo/]) {
       await page.getByRole('button', { name: mode }).tap();
       expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
       expect(await menuFits(), String(mode)).toBe(true);
@@ -1354,6 +1354,85 @@ test.describe('with a Bricks record to beat', () => {
     await page.getByRole('button', { name: /Solo/ }).click();
     await page.getByRole('button', { name: 'How to play' }).click();
     await expect(help.getByText('Grab power-ups')).toBeVisible();
+    await expect(help.getByText('Break every wall.')).toBeHidden();
+  });
+});
+
+// Nova: the paddle as a starship.
+
+test.describe('in Nova', () => {
+  test.use({ stored: { mode: 'nova', bestNova: 10, jokes: false } });
+
+  test('the ship flies where the player steers, fires by itself, downs what comes, and keeps a record', async ({ page, hasTouch }) => {
+    test.setTimeout(120_000);
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.addInitScript(() => {
+      Math.random = () => 0.5;
+    });
+    await freezeTime(page);
+    const sectors = NOVA_CONFIG.nova.sectors;
+
+    await expect(page.getByRole('button', { name: /Nova/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(status(page)).toHaveText(`Nova: fly through all ${sectors.length} sectors.`);
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${sectors.length} sectors · Best 10 points`);
+    await (hasTouch ? playButton(page).tap() : playButton(page).click());
+    await expect(page.locator('.lives__heart')).toHaveCount(3);
+    await expect(page.locator('[data-label="player"]')).toHaveText('Score');
+    await expect(page.locator('[data-label="opponent"]')).toHaveText('Sector');
+
+    // The ship is where a paddle would be, and there is no ball and no paddle across the court.
+    await page.clock.runFor(3500);
+    const surface = hasTouch ? page.locator('.rail') : board(page);
+    const box = await surface.boundingBox();
+    const steer = (x) => {
+      const at = [box.x + box.width * Math.min(0.98, Math.max(0.02, x / GAME_CONFIG.width)), box.y + box.height / 2];
+      return hasTouch ? page.touchscreen.tap(...at) : page.mouse.move(...at);
+    };
+    await steer(150);
+    await page.clock.runFor(400);
+    expect(Math.abs(await readPlayerX(page) - 150)).toBeLessThan(15);
+    expect(await readOpponentX(page)).toBeNull();
+    expect(await readBall(page)).toBeNull();
+
+    // Sweep slowly across the court: the ship's fire downs what comes.
+    const points = page.locator('[data-score="player"]');
+
+    for (let elapsed = 0; elapsed < 40_000 && Number(await points.textContent()) < 100; elapsed += 250) {
+      await steer(250 + 200 * Math.sin(elapsed / 2500));
+      await page.clock.runFor(250);
+    }
+
+    expect(Number(await points.textContent())).toBeGreaterThanOrEqual(100);
+    await expect(status(page)).toHaveText(new RegExp(`^Sector \\d, [A-Za-z ]+: \\d+ points, \\d ships? left$`));
+
+    // Stop steering and wait: the ship goes down in the end.
+    const lost = page.getByRole('heading', { name: 'Ship lost' });
+    const won = page.getByRole('heading', { name: 'Galaxy saved' });
+
+    for (let elapsed = 0; elapsed < 400_000 && !(await lost.isVisible()) && !(await won.isVisible()); elapsed += 2000) {
+      await page.clock.runFor(2000);
+    }
+
+    await expect(lost).toBeVisible();
+    const final = Number(await page.locator('[data-over-score]').textContent());
+    expect(final).toBeGreaterThanOrEqual(100);
+    await expect(page.locator('[data-over-wall]')).toHaveText(new RegExp(`^points · sector \\d of ${sectors.length} · `));
+    await expect(page.locator('[data-over-best-nova]')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.reload();
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${sectors.length} sectors · Best ${final} points`);
+    expect(errors).toEqual([]);
+  });
+
+  test('How to play tells of the ship', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'How to play' }).click();
+    const help = page.getByRole('dialog', { name: 'How to play' });
+
+    await expect(help.getByText('Your paddle is a starship.')).toBeVisible();
+    await expect(help.getByText('Grab power-ups')).toBeHidden();
     await expect(help.getByText('Break every wall.')).toBeHidden();
   });
 });

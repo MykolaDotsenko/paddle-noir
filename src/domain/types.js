@@ -103,6 +103,82 @@
  *
  * @typedef {'ball' | 'bolt' | 'blast' | 'super'} BreakCause
  *
+ * @typedef {'rock' | 'pebble' | 'drone' | 'gunship' | 'boss'} EnemyKind
+ *
+ * @typedef {object} Enemy Something the ship of the Nova game shoots at.
+ * @property {number} id
+ * @property {EnemyKind} kind a rock splits in two pebbles; a drone weaves down and fires at the
+ *   ship; a gunship comes to a stop near the top and strafes; the boss is the last sector's
+ * @property {number} x center
+ * @property {number} y
+ * @property {number} vx
+ * @property {number} vy
+ * @property {number} rx half its width, as it is hit
+ * @property {number} ry half its height
+ * @property {number} hp
+ * @property {number} maxHp
+ * @property {number} age seconds since it appeared
+ * @property {number} home a drone's line it weaves about, a gunship's stop
+ * @property {number} sway how far a drone weaves to each side
+ * @property {number} phase where in its weave a drone started
+ * @property {number} angle a rock's turn, in radians
+ * @property {number} spin a rock's turning, in radians a second
+ * @property {number} fireIn seconds until it fires
+ * @property {number} altIn seconds until the boss fires its second pattern
+ *
+ * @typedef {'bolt' | 'spread' | 'fireball'} ShotKind
+ *
+ * @typedef {object} Shot A shot the ship fired, flying up.
+ * @property {number} id
+ * @property {ShotKind} kind
+ * @property {number} x
+ * @property {number} y
+ * @property {number} vx
+ * @property {number} vy
+ * @property {number} power damage it does
+ * @property {number} radius
+ * @property {readonly number[]} hits enemies a fireball has gone through; it hits each once
+ *
+ * @typedef {object} EnemyShot A shot an enemy fired at the ship.
+ * @property {number} id
+ * @property {number} x
+ * @property {number} y
+ * @property {number} vx
+ * @property {number} vy
+ *
+ * @typedef {'rapid' | 'triple' | 'shield' | 'life'} LootKind
+ *
+ * @typedef {object} Loot A bonus falling from a downed enemy, for the ship to catch.
+ * @property {number} id
+ * @property {LootKind} kind
+ * @property {number} x
+ * @property {number} y
+ *
+ * @typedef {object} NovaState Space and everything in it in the Nova game.
+ * @property {number} sector the sector being played, from 0
+ * @property {number} time seconds played in this sector
+ * @property {number} wave the wave of the sector being sent in, from 0
+ * @property {number} spawned enemies of that wave sent in so far
+ * @property {number} spawnIn seconds until the next one is
+ * @property {number} sinceSpawn seconds since the last one was
+ * @property {boolean} bossSent whether the sector's boss has come
+ * @property {readonly Enemy[]} enemies
+ * @property {readonly Shot[]} shots the ship's
+ * @property {readonly EnemyShot[]} fire the enemies'
+ * @property {readonly Loot[]} loot
+ * @property {number} fireIn seconds until the ship fires again
+ * @property {number} rapid seconds of rapid fire left
+ * @property {number} triple seconds of the triple shot left
+ * @property {number} shield hits the ship's shield still takes
+ * @property {number} cloak seconds the ship is a phantom: nothing can hit it
+ * @property {number} invulnerable seconds the ship is safe after it was hit
+ * @property {number} calm seconds before the sector's first wave comes in
+ * @property {number} chain enemies downed since the ship was last hit
+ * @property {number} points
+ * @property {number} nextId
+ *
+ * @typedef {'bolt' | 'super' | 'ram'} DownCause
+ *
  * @typedef {{ type: 'match-start' }
  *   | { type: 'menu' }
  *   | { type: 'paused' }
@@ -131,6 +207,18 @@
  *   | { type: 'bolt-fire', x: number, y: number }
  *   | { type: 'shield-save', x: number, y: number }
  *   | { type: 'level-clear', level: number, bonus: number, last: boolean }
+ *   | { type: 'ship-fire', x: number, y: number }
+ *   | { type: 'enemy-arrive', kind: EnemyKind, x: number, y: number }
+ *   | { type: 'enemy-hit', kind: EnemyKind, x: number, y: number, hp: number }
+ *   | { type: 'enemy-down', kind: EnemyKind, x: number, y: number, rx: number, by: DownCause, points: number, multiplier: number }
+ *   | { type: 'enemy-fire', kind: EnemyKind, x: number, y: number, count: number }
+ *   | { type: 'ship-hit', x: number, y: number }
+ *   | { type: 'loot-spawn', kind: LootKind, x: number, y: number }
+ *   | { type: 'loot', kind: LootKind, x: number, y: number }
+ *   | { type: 'super-fire', kind: SuperKind, x: number, y: number }
+ *   | { type: 'chain', x: number, y: number, targets: readonly { x: number, y: number }[] }
+ *   | { type: 'boss-rage', phase: number, x: number, y: number }
+ *   | { type: 'sector-clear', sector: number, bonus: number, last: boolean }
  *   | { type: 'game-over', winner: Side, super?: SuperKind }} GameEvent
  *   A paddle-hit's `super` is the super that return fired and `saved` the one it answered; a
  *   point's and a game-over's `super` is the super that scored it. A boss-phase is a final boss
@@ -138,7 +226,9 @@
  *   Bricks game, a brick-hit is a brick that took a hit and stands, at its center; a brick-break
  *   one that went, with what broke it, the velocity of what struck it, and the combo and points
  *   it made; a strike is thunder taking a column or a zigzag a row; a level-clear's bonus is in
- *   points, and its `last` says the game is won.
+ *   points, and its `last` says the game is won. In the Nova game a shield that takes a hit is a
+ *   shield-save, an enemy-arrive is the boss coming in, a chain is thunder jumping from the ship
+ *   to the enemies it strikes, and a boss-rage the boss moving on to its next pattern of fire.
  *
  * @typedef {object} GameState
  * @property {GamePhase} phase
@@ -163,6 +253,7 @@
  * @property {Record<Side, SuperMeter>} meters The super meters; they stay empty with supers off.
  * @property {SuperShot | null} superShot The super in flight, if any.
  * @property {BricksState | null} bricks The Bricks game's wall; null in every other mode.
+ * @property {NovaState | null} nova The Nova game's space; null in every other mode.
  * @property {number} seed State of the deterministic random source.
  * @property {readonly GameEvent[]} events What happened in the transition that produced this state.
  *
@@ -172,7 +263,51 @@
  * @property {number} opponentAxis The same for a second human on the top paddle.
  * @property {number | null} opponentPointerX
  *
- * @typedef {{ kind: 'match', winningScore: number } | { kind: 'rush', lives: number } | { kind: 'bricks', lives: number }} Rules
+ * @typedef {{ kind: 'match', winningScore: number } | { kind: 'rush', lives: number } | { kind: 'bricks', lives: number } | { kind: 'nova', lives: number }} Rules
+ *
+ * @typedef {'line' | 'snake' | 'left' | 'right' | 'scatter'} Formation
+ *
+ * @typedef {object} Wave A wave of a Nova sector: enemies of one kind, sent in one after another.
+ * @property {'rock' | 'pebble' | 'drone' | 'gunship'} kind
+ * @property {number} count
+ * @property {number} every seconds between one and the next
+ * @property {Formation} formation how drones come in: abreast, in a snake down the middle, down
+ *   one side, or anywhere; rocks and gunships come in anywhere
+ *
+ * @typedef {object} SectorLayout A sector of the Nova game.
+ * @property {string} name
+ * @property {readonly Wave[]} waves
+ * @property {boolean} boss whether the boss comes once its waves are down
+ *
+ * @typedef {object} NovaConfig How the Nova game plays.
+ * @property {readonly SectorLayout[]} sectors
+ * @property {number} shipRadius the ship as it is hit, smaller than it is drawn, as in an arcade
+ * @property {number} fireEvery seconds between the ship's shots
+ * @property {number} rapidEvery the same, with rapid fire
+ * @property {number} shotSpeed
+ * @property {number} tripleSpread radians between the triple shot's bolts
+ * @property {number} enemyShotSpeed
+ * @property {number} enemyShotRadius
+ * @property {number} speedPerSector share by which each sector's enemies are faster than the last's
+ * @property {number} waveGap seconds after a wave is all in before the next comes, even if some of it is still about
+ * @property {number} calmSeconds the pause before a sector's first wave
+ * @property {number} invulnerableSeconds how long the ship is safe after it was hit
+ * @property {number} lootChance chance that a downed enemy lets a bonus fall
+ * @property {number} lootSpeed
+ * @property {number} lootRadius
+ * @property {number} powerSeconds how long rapid fire and the triple shot last
+ * @property {number} maxLives
+ * @property {Readonly<Record<EnemyKind, number>>} worth points a downed enemy scores, before the multiplier
+ * @property {number} chainStep enemies downed without a hit that raise the multiplier by one
+ * @property {number} maxMultiplier
+ * @property {number} sectorBonus points for clearing a sector, times the sector's number
+ * @property {number} chargePerKill charge a downed enemy adds to the super meter
+ * @property {number} bossHp
+ * @property {number} fireballPower
+ * @property {number} spreadCount bolts in a zigzag's fan
+ * @property {number} chainTargets enemies thunder strikes
+ * @property {number} chainPower
+ * @property {number} cloakSeconds how long a phantom keeps the ship out of harm's way
  *
  * @typedef {object} LevelLayout A level of the Bricks game, as it is drawn.
  * @property {string} name
@@ -297,6 +432,7 @@
  * @property {SuperConfig} supers
  * @property {BossConfig | null} boss A career boss's attacks, or null for an opponent that only plays.
  * @property {BricksConfig | null} bricks The Bricks game's wall and rules; null in every other mode.
+ * @property {NovaConfig | null} nova The Nova game's sectors and rules; null in every other mode.
  */
 
 export {};

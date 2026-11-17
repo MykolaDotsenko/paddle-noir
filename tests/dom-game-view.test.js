@@ -132,6 +132,8 @@ function createRoot({ modalDialogs = true } = {}) {
     ['duo', { 'data-mode': 'duo' }],
     ['career', { 'data-mode': 'career' }],
     ['bricks', { 'data-mode': 'bricks' }],
+    ['nova', { 'data-mode': 'nova' }],
+    ['tutorialNova', { 'data-nova-only': '' }],
     ['tutorialBricks', { 'data-bricks-only': '' }],
     ['tutorialMatch', { 'data-match-only': '' }],
     ['rivalGroup', { 'data-career-only': '' }],
@@ -200,6 +202,7 @@ function createRoot({ modalDialogs = true } = {}) {
     ['overBest', { 'data-over-best': '' }],
     ['overBestRush', { 'data-over-best-rush': '' }],
     ['overBestBricks', { 'data-over-best-bricks': '' }],
+    ['overBestNova', { 'data-over-best-nova': '' }],
     ['overWall', { 'data-over-wall': '' }],
     ['overChampion', { 'data-over-champion': '' }],
     ['continueLine', { 'data-continue': '', 'aria-hidden': 'true' }],
@@ -350,6 +353,7 @@ function presentation(overrides = {}) {
     career: null,
     highScores: null,
     bricks: null,
+    nova: null,
     ...overrides,
   };
 }
@@ -1757,4 +1761,93 @@ test('choosing Bricks in the menu hides what belongs to the other modes', () => 
 
   click(dom.solo);
   assert.deepEqual([dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [true, false], 'and of power-ups again in a match');
+});
+
+// Nova: the paddle as a starship.
+
+const flight = (overrides = {}) => ({ sector: 1, sectors: 5, name: 'Rock Garden', points: 0, best: 0, newBest: false, ...overrides });
+const novaGame = (overrides = {}) => presentation({
+  mode: 'nova',
+  rules: { kind: 'nova', lives: 3 },
+  opponent: { label: 'Sector', name: 'The fleet', proper: false },
+  lives: 3,
+  maxLives: 3,
+  nova: flight(),
+  ...overrides,
+});
+
+test('in Nova the scoreboard shows the points and the sector, and points tick up without a pop', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'nova', initials: 'MYK' }) });
+
+  view.render(novaGame({ phase: GAME_PHASE.RUNNING, nova: flight({ points: 40 }) }));
+  view.render(novaGame({ phase: GAME_PHASE.RUNNING, nova: flight({ points: 3120, sector: 2 }) }));
+
+  assert.deepEqual([dom.playerLabel.textContent, dom.opponentLabel.textContent], ['Score', 'Sector']);
+  assert.deepEqual([dom.playerScore.textContent, dom.opponentScore.textContent], ['3120', '2']);
+  assert.equal(dom.playerScore.classes.has('is-popping'), false);
+  assert.ok(dom.opponentScore.classes.has('is-popping'), 'a new sector pops');
+});
+
+test('the menu says how many sectors there are and the best score', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'nova' }) });
+
+  view.render(novaGame({ nova: flight({ best: 31200 }) }));
+  assert.equal(dom.menuMeta.textContent, '5 sectors · Best 31200 points');
+
+  view.render(novaGame({ nova: flight({ best: 1 }) }));
+  assert.equal(dom.menuMeta.textContent, '5 sectors · Best 1 point');
+});
+
+test('a lost Nova game is told by its points and the sector it reached, at once, and asks to continue', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'nova' }) });
+
+  view.render(novaGame({ phase: GAME_PHASE.RUNNING }));
+  view.render(novaGame({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', lives: 0, nova: flight({ points: 7400, sector: 3, name: 'Gunship Alley', best: 7400, newBest: true }) }));
+
+  assert.equal(dom.over.hidden, false);
+  assert.equal(dom.overTitle.textContent, 'Ship lost');
+  assert.equal(dom.overScore.textContent, '7400');
+  assert.equal(dom.overWall.textContent, 'points · sector 3 of 5 · Gunship Alley');
+  assert.equal(dom.overMeta.hidden, true);
+  assert.equal(dom.overDifficulty.textContent, 'Nova');
+  assert.equal(dom.overBestNova.hidden, false);
+  assert.equal(dom.overBestBricks.hidden, true);
+  assert.equal(dom.continueLine.hidden, false);
+});
+
+test('a won Nova game saves the galaxy, at once', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'nova' }) });
+
+  view.render(novaGame({ phase: GAME_PHASE.RUNNING }));
+  view.render(novaGame({ phase: GAME_PHASE.GAME_OVER, winner: 'player', nova: flight({ points: 30420, sector: 5, name: 'The Dreadnought', best: 40000 }) }));
+
+  assert.equal(dom.over.hidden, false);
+  assert.equal(dom.overTitle.textContent, 'Galaxy saved');
+  assert.equal(dom.overWall.textContent, 'points · all 5 sectors flown');
+  assert.equal(dom.overBestNova.hidden, true);
+  assert.equal(dom.continueLine.hidden, true);
+});
+
+test('a Nova game is shared with its points, and how far it got', async () => {
+  const { view, dom, device } = setup({ preferences: createPreferences({ mode: 'nova' }) });
+  const shared = async (result) => {
+    view.render(novaGame({ phase: GAME_PHASE.RUNNING }));
+    view.render(novaGame({ phase: GAME_PHASE.GAME_OVER, ...result }));
+    click(dom.share);
+    await nextTick();
+    return device.shared.at(-1);
+  };
+
+  assert.equal(await shared({ winner: 'opponent', nova: flight({ points: 7400, sector: 3 }) }), 'I made 7400 points in Nova mode of Paddle Noir, up to sector 3 of 5. Beat that!');
+  assert.equal(await shared({ winner: 'player', nova: flight({ points: 30420, sector: 5 }) }), 'I flew all 5 sectors of Nova in Paddle Noir and downed the Dreadnought: 30420 points. Beat that!');
+});
+
+test('How to play tells of the ship in Nova', () => {
+  const { dom } = setup();
+
+  click(dom.nova);
+  assert.deepEqual([dom.tutorialNova.hidden, dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [false, true, true]);
+
+  click(dom.solo);
+  assert.deepEqual([dom.tutorialNova.hidden, dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [true, true, false]);
 });

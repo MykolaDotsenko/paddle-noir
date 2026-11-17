@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { THEME } from '../src/adapters/canvas/theme.js';
 import { CanvasRenderer } from '../src/adapters/canvas-renderer.js';
 import { HIGH_SCORES } from '../src/catalog.js';
-import { BRICKS_CONFIG, GAME_CONFIG, RUSH_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG } from '../src/config.js';
 import { createInitialState, GAME_PHASE, startGame } from '../src/domain/game.js';
 import { callsNamed, createFrameScheduler, createRendererWindow, FakeCanvas } from './support/fake-canvas.js';
 
@@ -390,4 +390,64 @@ test('the wall\'s events reach the board: a brick breaks into pieces', () => {
   renderer.handle([{ type: 'brick-break', kind: 'plain', row: 0, x: 200, y: 150, w: 44, h: 20, by: 'ball', vx: 0, vy: -470, combo: 1, points: 10 }], state, config);
 
   assert.equal(renderer.effects.shards.length, 6);
+});
+
+// Nova: space on the board.
+
+function novaSetup() {
+  const config = { ...NOVA_CONFIG, supers: { ...NOVA_CONFIG.supers, enabled: true } };
+  const canvas = new FakeCanvas({ clientWidth: 400 });
+  const renderer = new CanvasRenderer({ canvas, window: createRendererWindow(), scheduler: createFrameScheduler(), config, preferences: { get: () => ({ jokes: false }) }, random: () => 0.5 });
+  const started = startGame(createInitialState(config), config);
+  const state = { ...started, serveCountdown: 0, player: { x: 300, vx: 0 } };
+  return { canvas, renderer, config, state };
+}
+
+test('a Nova frame draws the ship where the paddle would be, and neither paddle nor ball', () => {
+  const { canvas, renderer, config, state } = novaSetup();
+  const drone = { id: 1, kind: 'drone', x: 120, y: 200, vx: 0, vy: 80, rx: 16, ry: 13, hp: 2, maxHp: 2, age: 0, home: 120, sway: 0, phase: 0, angle: 0, spin: 0, fireIn: 2, altIn: 2 };
+
+  renderer.render({ ...state, nova: { ...state.nova, enemies: [drone], chain: 20 } }, config);
+
+  const ctx = canvas.contexts[0];
+  const fills = callsNamed(ctx, 'fill').map((call) => call.brush.fillStyle);
+  assert.ok(fills.includes(THEME.side.player.core), 'the ship\'s cockpit');
+  assert.ok(!fills.includes(THEME.side.opponent.core), 'no paddle at the far end');
+  assert.ok(!fills.includes(THEME.ballCore), 'no ball');
+  assert.ok(callsNamed(ctx, 'translate').some((call) => call.args[0] === 120 && call.args[1] === 200), 'the drone where it is');
+  const texts = callsNamed(ctx, 'fillText').map((call) => call.args[0]);
+  assert.ok(texts.includes('×3') && !texts.includes('RALLY'), 'the multiplier, where a match shows its rally');
+  assert.ok(texts.includes('SUPER'), 'the player\'s meter, and none for the enemies');
+});
+
+test('the boss\'s health shows while it is in space', () => {
+  const { canvas, renderer, config, state } = novaSetup();
+  const boss = { id: 9, kind: 'boss', x: 250, y: 130, vx: 0, vy: 60, rx: 86, ry: 30, hp: 80, maxHp: 160, age: 0, home: 0, sway: 0, phase: 0, angle: 0, spin: 0, fireIn: 2, altIn: 2 };
+
+  renderer.render({ ...state, nova: { ...state.nova, enemies: [boss] } }, config);
+
+  assert.ok(callsNamed(canvas.contexts[0], 'fillText').some((call) => call.args[0] === 'DREADNOUGHT'));
+});
+
+test('a finisher-hidden ship is not drawn, and a flash covers the board', () => {
+  const { canvas, renderer, config, state } = novaSetup();
+
+  renderer.render(state, config);
+  renderer.effects.hidePaddle('player');
+  renderer.effects.flash('#123456', 0.5);
+  canvas.calls.length = 0;
+  renderer.render(state, config);
+
+  const ctx = canvas.contexts[0];
+  assert.ok(!callsNamed(ctx, 'fill').some((call) => call.brush.fillStyle === THEME.side.player.core));
+  assert.ok(callsNamed(ctx, 'fillRect').some((call) => call.brush.fillStyle === '#123456'));
+});
+
+test('Nova\'s events reach the board: an enemy goes down in pieces', () => {
+  const { renderer, config, state } = novaSetup();
+
+  renderer.render(state, config);
+  renderer.handle([{ type: 'enemy-down', kind: 'rock', x: 200, y: 150, rx: 24, by: 'bolt', points: 20, multiplier: 1 }], state, config);
+
+  assert.equal(renderer.effects.shards.length, 5);
 });

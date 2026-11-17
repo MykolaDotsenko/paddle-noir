@@ -5,7 +5,7 @@ import { buildMatchConfig, GameController } from '../src/application/game-contro
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { GAME_COMMAND } from '../src/application/ports.js';
 import { HIGH_SCORES, MATCH_CATALOG, RIVALS } from '../src/catalog.js';
-import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
 import { GAME_PHASE } from '../src/domain/game.js';
 
 function createFrameScheduler() {
@@ -62,6 +62,7 @@ function createPreferences(initial = {}) {
     bestRally: 0,
     bestRush: 0,
     bestBricks: 0,
+    bestNova: 0,
     stats: DEFAULT_STATS,
     rival: 0,
     careerStars: [],
@@ -190,6 +191,7 @@ test('connecting draws the ready screen, sets up one player, and leaves the loop
     career: null,
     highScores: null,
     bricks: null,
+    nova: null,
   });
   assert.equal(scheduler.pending.size, 0);
 });
@@ -1153,4 +1155,118 @@ test('leaving a Bricks game is no Solo forfeit', () => {
 
   assert.ok(!preferences.writes.some((write) => 'stats' in write || 'bestBricks' in write));
   assert.equal(lastOf(view.presentations).bricks.points, 0);
+});
+
+// Nova: the paddle as a starship.
+
+const NOVA = NOVA_CONFIG.nova;
+const shotAtShip = (x) => ({ id: 1, x, y: NOVA_CONFIG.height - NOVA_CONFIG.paddle.inset - NOVA_CONFIG.paddle.height / 2 - 10, vx: 0, vy: 250 });
+
+test('Nova flies on its own tuning, with supers as the player chose', () => {
+  const choose = (choices) => buildMatchConfig(MATCH_CATALOG, { mode: 'nova', difficulty: 'easy', powerUps: true, ...choices });
+
+  assert.strictEqual(choose({ supers: false }), NOVA_CONFIG);
+  assert.equal(choose({ supers: true }).supers.enabled, true);
+  assert.equal(MATCH_CATALOG.nova.rules.kind, 'nova');
+});
+
+test('in the menu Nova tells what there is to do', () => {
+  const { view, controller } = setup({ mode: 'nova', bestNova: 8800 });
+  const presentation = lastOf(view.presentations);
+
+  assert.equal(presentation.status, `Nova: fly through all ${NOVA.sectors.length} sectors.`);
+  assert.deepEqual(presentation.nova, { sector: 1, sectors: NOVA.sectors.length, name: NOVA.sectors[0].name, points: 0, best: 8800, newBest: false });
+  assert.deepEqual(presentation.opponent, { label: 'Sector', name: 'The fleet', proper: false });
+  assert.equal(presentation.maxLives, NOVA_CONFIG.rules.lives);
+  assert.equal(presentation.bricks, null);
+  assert.ok(controller.state.nova);
+});
+
+test('the other modes have nothing of Nova to show', () => {
+  for (const mode of ['solo', 'rush', 'duo', 'career', 'bricks']) {
+    assert.equal(lastOf(setup({ mode }).view.presentations).nova, null, mode);
+  }
+});
+
+test('while Nova runs the status line tells the sector, the points and the ships left', () => {
+  const { controller, scheduler, view } = setup({ mode: 'nova' });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { nova: { ...controller.state.nova, points: 420, calm: 99 } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+  assert.equal(lastOf(view.presentations).status, `Sector 1, ${NOVA.sectors[0].name}: 420 points, 3 ships left`);
+
+  inPlay(controller, { lives: 1 });
+  scheduler.flush(1040);
+  assert.match(lastOf(view.presentations).status, /1 ship left$/);
+
+  view.handler(GAME_COMMAND.TOGGLE_PAUSE);
+  assert.equal(lastOf(view.presentations).status, 'Game paused.');
+});
+
+test('Nova lost on its last ship records the points, and a record is celebrated', () => {
+  const { controller, scheduler, view, preferences } = setup({ mode: 'nova', bestNova: 100 });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { lives: 1, player: { x: 250, vx: 0 }, nova: { ...controller.state.nova, sector: 2, points: 2400, calm: 99, fire: [shotAtShip(250)] } });
+  scheduler.flush(1000);
+  scheduler.flush(1100);
+
+  const presentation = lastOf(view.presentations);
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.equal(presentation.winner, 'opponent');
+  assert.equal(presentation.status, `Ship lost in sector 3 of ${NOVA.sectors.length} — 2400 points.`);
+  assert.deepEqual({ best: presentation.nova.best, newBest: presentation.nova.newBest }, { best: 2400, newBest: true });
+  assert.deepEqual(lastOf(preferences.writes), { bestNova: 2400 });
+});
+
+test('Nova short of the record changes nothing, and the badge does not carry over', () => {
+  const { controller, scheduler, view, preferences } = setup({ mode: 'nova', bestNova: 9000 });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { lives: 1, player: { x: 250, vx: 0 }, nova: { ...controller.state.nova, points: 50, calm: 99, fire: [shotAtShip(250)] } });
+  scheduler.flush(1000);
+  scheduler.flush(1100);
+
+  assert.equal(lastOf(view.presentations).nova.newBest, false);
+  assert.ok(!preferences.writes.some((write) => 'bestNova' in write));
+
+  view.handler(GAME_COMMAND.START);
+  assert.equal(lastOf(view.presentations).nova.points, 0);
+});
+
+test('downing the boss saves the galaxy', () => {
+  const { controller, scheduler, view } = setup({ mode: 'nova' });
+  const last = NOVA.sectors.length - 1;
+  const boss = { id: 9, kind: 'boss', x: 250, y: 130, vx: 0, vy: 60, rx: 86, ry: 30, hp: 1, maxHp: 160, age: 0, home: 0, sway: 0, phase: 0, angle: 0, spin: 0, fireIn: 9, altIn: 9 };
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, {
+    player: { x: 250, vx: 0 },
+    nova: { ...controller.state.nova, sector: last, wave: 99, bossSent: true, points: 9000, enemies: [boss], shots: [{ id: 1, kind: 'bolt', x: 250, y: 170, vx: 0, vy: -900, power: 1, radius: 3, hits: [] }] },
+  });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  const presentation = lastOf(view.presentations);
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.equal(presentation.winner, 'player');
+  assert.equal(presentation.status, `The galaxy is saved — ${presentation.nova.points} points.`);
+  assert.ok(presentation.nova.points > 9000 + NOVA.worth.boss, 'with the boss and the last sector\'s bonus');
+});
+
+test('in Nova the picture stops for the ship hit, not for every shot', () => {
+  const { controller, scheduler, view } = setup({ mode: 'nova' });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { player: { x: 250, vx: 0 }, nova: { ...controller.state.nova, calm: 99, fireIn: 0 } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+  assert.equal(controller.loop.holdSeconds, 0, 'the ship firing does not stop it');
+
+  inPlay(controller, { nova: { ...controller.state.nova, fire: [shotAtShip(250)] } });
+  scheduler.flush(1040);
+  scheduler.flush(1140);
+  assert.ok(controller.state.lives < NOVA_CONFIG.rules.lives);
 });
