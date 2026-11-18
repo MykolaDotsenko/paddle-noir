@@ -1,4 +1,5 @@
 import { BRICK_LEVELS } from './levels.js';
+import { NOVA_SECTORS } from './sectors.js';
 
 /**
  * @import { GameConfig } from './domain/types.js'
@@ -73,6 +74,7 @@ export const GAME_CONFIG = Object.freeze({
   }),
   boss: null,
   bricks: null,
+  nova: null,
 });
 
 /**
@@ -84,6 +86,7 @@ export const GAME_CONFIG = Object.freeze({
  * @property {Partial<GameConfig['supers']>} [supers]
  * @property {GameConfig['boss']} [boss]
  * @property {GameConfig['bricks']} [bricks]
+ * @property {GameConfig['nova']} [nova]
  */
 
 /**
@@ -101,6 +104,7 @@ export function tuned(base, tuning) {
     supers: Object.freeze({ ...base.supers, ...tuning.supers }),
     boss: tuning.boss === undefined ? base.boss : tuning.boss && Object.freeze({ ...tuning.boss }),
     bricks: tuning.bricks === undefined ? base.bricks : tuning.bricks && Object.freeze({ ...tuning.bricks }),
+    nova: tuning.nova === undefined ? base.nova : tuning.nova && Object.freeze({ ...tuning.nova }),
   });
 }
 
@@ -185,4 +189,50 @@ export const BRICKS_CONFIG = tuned(GAME_CONFIG, {
     helpAfter: 7,
     mercyAfter: 22,
   },
+});
+
+/** Ships a Nova game gives the player. */
+export const NOVA_LIVES = 3;
+
+// Nova: the paddle is a starship. It fires by itself, so the player only steers, as in every
+// other mode: out of the way of rocks and enemy fire, and under what is to be shot down. Its
+// track is the paddle's, and it is hit as a small circle, smaller than it is drawn. Tuned by
+// flying every sector with human-like bots.
+export const NOVA_CONFIG = Object.freeze({
+  ...tuned(GAME_CONFIG, {
+    rules: Object.freeze({ kind: 'nova', lives: NOVA_LIVES }),
+    powerUps: { enabled: false },
+    nova: {
+      sectors: NOVA_SECTORS,
+      shipRadius: 8,
+      fireEvery: 0.2,
+      rapidEvery: 0.1,
+      shotSpeed: 900,
+      tripleSpread: 0.16,
+      enemyShotSpeed: 250,
+      enemyShotRadius: 5,
+      speedPerSector: 0.07,
+      waveGap: 7,
+      calmSeconds: 2.5,
+      invulnerableSeconds: 2,
+      lootChance: 0.06,
+      lootSpeed: 120,
+      lootRadius: 14,
+      powerSeconds: 10,
+      maxLives: 5,
+      worth: Object.freeze({ rock: 20, pebble: 10, drone: 30, gunship: 80, boss: 2500 }),
+      chainStep: 8,
+      maxMultiplier: 5,
+      sectorBonus: 300,
+      chargePerKill: 0.07,
+      bossHp: 160,
+      fireballPower: 10,
+      spreadCount: 9,
+      chainTargets: 6,
+      chainPower: 8,
+      cloakSeconds: 4,
+    },
+  }),
+  // The ship is narrower than a paddle, so it reaches nearer the walls.
+  paddle: Object.freeze({ ...GAME_CONFIG.paddle, width: 44 }),
 });

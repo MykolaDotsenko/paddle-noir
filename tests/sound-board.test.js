@@ -469,3 +469,61 @@ test('a laser volley sounds once, though it is two bolts', () => {
 
   assert.equal(contexts[0].oscillators.length, 1);
 });
+
+test('Nova\'s events each have their sound, and the ship\'s own fire is the softest of them', () => {
+  const { board, contexts } = setup();
+  const sounds = (event) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle([event]);
+    return contexts[0].oscillators.slice(before);
+  };
+  const describe = (oscillators) => oscillators.map((oscillator) => `${oscillator.type}@${Math.round(oscillator.frequency.events[0][1])}`).join(' ');
+  const events = [
+    { type: 'ship-fire', x: 0, y: 0 },
+    { type: 'enemy-hit', kind: 'drone', x: 0, y: 0, hp: 1 },
+    { type: 'enemy-fire', kind: 'drone', x: 0, y: 0, count: 1 },
+    ...['pebble', 'rock', 'drone', 'gunship', 'boss'].map((kind) => ({ type: 'enemy-down', kind, x: 0, y: 0, rx: 10, by: 'bolt', points: 10, multiplier: 1 })),
+    { type: 'enemy-arrive', kind: 'boss', x: 0, y: 0 },
+    { type: 'boss-rage', phase: 1, x: 0, y: 0 },
+    { type: 'ship-hit', x: 0, y: 0 },
+    { type: 'loot', kind: 'rapid', x: 0, y: 0 },
+    { type: 'chain', x: 0, y: 0, targets: [] },
+    { type: 'sector-clear', sector: 0, bonus: 300, last: false },
+  ];
+  const heard = events.map((event) => describe(sounds(event)));
+
+  assert.ok(heard.every((sound) => sound.length > 0));
+  assert.equal(new Set(heard).size, heard.length, 'each its own');
+  assert.equal(describe(sounds({ type: 'loot-spawn', kind: 'rapid', x: 0, y: 0 })), '', 'a bonus leaving its enemy is silent');
+
+  const peak = (oscillators) => Math.max(...contexts[0].gains.slice(-oscillators.length).map((gain) => Math.max(...gain.gain.events.filter((entry) => entry[0] === 'ramp').map((entry) => entry[1]))));
+  const fire = sounds({ type: 'ship-fire', x: 0, y: 0 });
+  assert.ok(peak(fire) <= 0.05, 'five times a second for minutes: felt more than heard');
+});
+
+test('a super fired in Nova sounds as the same super does in a match', () => {
+  const { board, contexts } = setup();
+  const count = (events) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle(events);
+    return contexts[0].oscillators.slice(before).map((oscillator) => `${oscillator.type}@${oscillator.frequency.events[0][1]}`).join(' ');
+  };
+  const plain = count([{ ...hit(1) }]);
+  const match = count([{ ...hit(1), super: 'thunder' }]);
+
+  assert.equal(count([{ type: 'super-fire', kind: 'thunder', x: 0, y: 0 }]), match.slice(plain.length + 1));
+});
+
+test('however much goes down, is hit or fires in one step, only a little of it sounds', () => {
+  const { board, contexts } = setup();
+  const count = (events) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle(events);
+    return contexts[0].oscillators.length - before;
+  };
+  const pebble = { type: 'enemy-down', kind: 'pebble', x: 0, y: 0, rx: 13, by: 'bolt', points: 10, multiplier: 1 };
+  const one = count([pebble]);
+
+  assert.equal(count(Array.from({ length: 6 }, () => pebble)), 2 * one);
+  assert.equal(count([{ type: 'enemy-hit', kind: 'boss', x: 0, y: 0, hp: 9 }, { type: 'enemy-hit', kind: 'boss', x: 0, y: 0, hp: 8 }, { type: 'enemy-fire', kind: 'boss', x: 0, y: 0, count: 12 }]), 1);
+});

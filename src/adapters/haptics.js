@@ -34,7 +34,19 @@ function patternFor(event) {
     case 'shield-save':
       return 30;
     case 'level-clear':
+    case 'sector-clear':
       return [30, 50, 30];
+    // In Nova the ship fires and enemies go down several times a second: only the big ones are felt.
+    case 'ship-hit':
+      return 70;
+    case 'enemy-down':
+      return event.kind === 'boss' ? [40, 40, 80, 40, 120] : event.kind === 'gunship' ? 20 : null;
+    case 'loot':
+      return 15;
+    case 'super-fire':
+      return [25, 30, 45];
+    case 'enemy-arrive':
+      return [20, 60, 20, 60, 20];
     case 'game-over':
       return event.winner === 'player' ? [30, 60, 30, 60, 120] : [160];
     default:

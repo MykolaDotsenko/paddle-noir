@@ -6,6 +6,7 @@ import { COMIC_TITLES, finisherAt, FINISHER_SECONDS } from '../finisher.js';
 import { meterBox } from './hud.js';
 import { phaseStyle, PICKUP_STYLE, speedIntensity, SUPER_STYLE, THEME } from './theme.js';
 import { playBrickEvent } from './brick-effects.js';
+import { playNovaEvent } from './nova-effects.js';
 
 /**
  * @import { GameConfig, GameEvent, GameState, Side } from '../../domain/types.js'
@@ -163,7 +164,9 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
         break;
       }
       default:
-        playBrickEvent(effects, event, { config, state, random });
+        if (!playBrickEvent(effects, event, { config, state, random })) {
+          playNovaEvent(effects, event, { config, random });
+        }
         break;
     }
   }

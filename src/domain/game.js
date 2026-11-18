@@ -25,12 +25,13 @@ import {
   withBalls,
 } from './bricks.js';
 import { bossPhase, initialHazardState, NO_HAZARDS, tickHazards } from './hazards.js';
+import { advanceNova, initialNovaState } from './nova.js';
 import { moveOpponent } from './opponent.js';
 import { collectPowerUps, initialPowerUpState, NO_EXTRA_BALLS, otherSide, paddleWidth, tickEffects, tickPowerUps } from './power-ups.js';
 import { chargeMeter, initialSuperState, returnCharge, scoringSuper, steerSuper, strikeBack } from './supers.js';
 
 /**
- * @import { Ball, BricksConfig, BricksState, ExtraBall, GameConfig, GameEvent, GameState, InputSnapshot, Side, SuperKind } from './types.js'
+ * @import { Ball, BricksConfig, BricksState, ExtraBall, GameConfig, GameEvent, GameState, InputSnapshot, NovaState, Side, SuperKind } from './types.js'
  * @import { PaddleContact } from './physics.js'
  *
  * @typedef {object} Collision what a ball met during one step
@@ -82,7 +83,8 @@ export function createInitialState(config, seed = 1) {
     phase: GAME_PHASE.READY,
     player: { x: config.width / 2, vx: 0 },
     opponent: { x: config.width / 2, vx: 0 },
-    ball: config.bricks ? brickServeBall(config, 0, 0) : createServeBall(config, 1, 1),
+    // In Nova there is no ball: it waits, still, at the center, where the countdown is drawn.
+    ball: config.bricks ? brickServeBall(config, 0, 0) : config.nova ? { x: config.width / 2, y: config.height / 2, vx: 0, vy: 0, spin: 0 } : createServeBall(config, 1, 1),
     score: { player: 0, opponent: 0 },
     hits: { player: 0, opponent: 0 },
     lives: config.rules.kind === 'match' ? 0 : config.rules.lives,
@@ -95,6 +97,7 @@ export function createInitialState(config, seed = 1) {
     ...initialHazardState(powerUps.seed, config),
     ...initialSuperState(),
     bricks: initialBricksState(config),
+    nova: initialNovaState(config),
     events: NO_EVENTS,
   };
 }
@@ -169,8 +172,9 @@ export function getWinner(state) {
     return null;
   }
 
-  // A Bricks game is not won on points: the player wins by clearing the last wall.
-  if (state.bricks) {
+  // A Bricks or a Nova game is not won on points: the player wins by clearing the last wall,
+  // or the last sector.
+  if (state.bricks || state.nova) {
     return state.lastPoint;
   }
 
@@ -788,6 +792,37 @@ function advanceBricks(state, before, deltaSeconds, config, events) {
 }
 
 /**
+ * One step of a Nova game. The countdown runs as before a match; then space runs its business,
+ * and the game ends when the last ship is lost, or the last sector is clear.
+ *
+ * @param {GameState} state the state, with the ship already moved
+ * @param {number} deltaSeconds
+ * @param {GameConfig} config
+ * @param {GameEvent[]} events
+ * @returns {GameState}
+ */
+function advanceNovaGame(state, deltaSeconds, config, events) {
+  const next = tickEffects(state, deltaSeconds);
+
+  if (next.serveCountdown > 0) {
+    return waitForServe(next, deltaSeconds, config, events);
+  }
+
+  const flown = advanceNova(next, deltaSeconds, config, events);
+  const space = /** @type {NovaState} */ (flown.nova);
+
+  if (flown.lives === 0) {
+    return endMatch({ ...flown, nova: { ...space, shots: [], fire: [], loot: [] } }, 'opponent', events, null);
+  }
+
+  if (events.some((event) => event.type === 'sector-clear' && event.last)) {
+    return endMatch(flown, 'player', events, null);
+  }
+
+  return withEvents(flown, events);
+}
+
+/**
  * Advances the simulation by one fixed step. Does nothing unless the match is running.
  * The returned state lists the events of this step, such as hits, bounces and points.
  *
@@ -805,6 +840,10 @@ export function advanceGame(state, deltaSeconds, input, config) {
   /** @type {GameEvent[]} */
   const events = [];
   let nextState = steerPaddle(state, 'player', input.pointerX, input.horizontalAxis, deltaSeconds, config);
+
+  if (nextState.nova) {
+    return advanceNovaGame(nextState, deltaSeconds, config, events);
+  }
 
   if (nextState.bricks) {
     return advanceBricks(nextState, state, deltaSeconds, config, events);

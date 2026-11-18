@@ -235,5 +235,41 @@
       "points": 7070,
       "lives": 6
     }
+  },
+  "nova": {
+    "digest": "22de6e5a3fa5ca20f8986bce43ae8431cdc7376b336cab1067df8e8bfca08cfb",
+    "summary": {
+      "steps": 24000,
+      "score": {
+        "player": 0,
+        "opponent": 0
+      },
+      "hits": {
+        "player": 0,
+        "opponent": 0
+      },
+      "longestRally": 0,
+      "phase": "running",
+      "events": {
+        "chain": 2,
+        "countdown": 3,
+        "enemy-down": 104,
+        "enemy-fire": 80,
+        "enemy-hit": 100,
+        "life-lost": 28,
+        "loot": 6,
+        "loot-spawn": 10,
+        "sector-clear": 3,
+        "serve": 1,
+        "shield-save": 1,
+        "ship-fire": 1057,
+        "ship-hit": 28,
+        "super-fire": 6,
+        "super-ready": 6
+      },
+      "sector": 3,
+      "points": 4870,
+      "lives": 12
+    }
   }
 }

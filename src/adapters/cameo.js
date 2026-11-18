@@ -22,6 +22,11 @@ export const CAMEO_WORD = 'WHOOPEE!';
  * @returns {Side | null} whose super brings the cameo, if this event is one fired by a person
  */
 export function cameoSide(event, config, jokes) {
+  // In Nova the ship fires its super on its own, with no paddle-hit to carry it.
+  if (jokes && event.type === 'super-fire') {
+    return 'player';
+  }
+
   if (!jokes || event.type !== 'paddle-hit' || !event.super) {
     return null;
   }

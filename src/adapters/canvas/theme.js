@@ -2,7 +2,7 @@
  * The neon look shared by every part of the canvas renderer: colors, fonts and the few
  * drawing helpers they all use.
  *
- * @import { DropKind, GameConfig, HazardKind, PowerUpKind, SuperKind } from '../../domain/types.js'
+ * @import { DropKind, EnemyKind, GameConfig, HazardKind, LootKind, PowerUpKind, SuperKind } from '../../domain/types.js'
  */
 
 // Pure white (#ffffff) is reserved for the ball core, and each paddle has a unique core
@@ -66,6 +66,28 @@ export const DROP_STYLE = Object.freeze({
   shield: Object.freeze({ rgb: '167, 139, 250', glyph: '▂', label: 'SHIELD' }),
   slow: Object.freeze({ rgb: '96, 165, 250', glyph: '◔', label: 'SLOW' }),
   life: Object.freeze({ rgb: '244, 114, 182', glyph: '♥', label: '+1 BALL' }),
+});
+
+// The Nova game's enemies: rocks in the cold gray-violet of the court's lines, drones in the
+// top side's pink, gunships in amber and the boss in red.
+/** @type {Readonly<Record<EnemyKind, string>>} */
+export const ENEMY_RGB = Object.freeze({
+  rock: '165, 180, 252',
+  pebble: '165, 180, 252',
+  drone: '244, 114, 182',
+  gunship: '251, 191, 36',
+  boss: '239, 68, 68',
+});
+
+/** The enemies' fire: pale rose, so the ship's own cyan bolts are never mistaken for it. */
+export const ENEMY_FIRE_RGB = '253, 164, 175';
+
+/** @type {Readonly<Record<LootKind, { rgb: string, glyph: string, label: string }>>} */
+export const LOOT_STYLE = Object.freeze({
+  rapid: Object.freeze({ rgb: '251, 191, 36', glyph: '»', label: 'RAPID FIRE' }),
+  triple: Object.freeze({ rgb: '163, 230, 53', glyph: '⋔', label: 'TRIPLE SHOT' }),
+  shield: Object.freeze({ rgb: '167, 139, 250', glyph: '◯', label: 'SHIELD' }),
+  life: Object.freeze({ rgb: '244, 114, 182', glyph: '♥', label: '+1 SHIP' }),
 });
 
 // Each super has a color of its own, which its ball, its trail, its callout and a full meter

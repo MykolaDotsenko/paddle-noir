@@ -13,7 +13,7 @@ import {
   SUPER_FINISHERS,
 } from '../src/adapters/finisher.js';
 import { RIVALS } from '../src/catalog.js';
-import { BRICKS_CONFIG, GAME_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
 import { createInitialState } from '../src/domain/game.js';
 
 const solo = { twoPlayers: false, rush: false, jokes: true };
@@ -116,4 +116,11 @@ test('a Bricks game ends without a finisher, won or lost: a wall has no paddle t
   assert.equal(finisherAt({ type: 'game-over', winner: 'player' }, over, BRICKS_CONFIG, true), null);
   assert.equal(finisherAt({ type: 'game-over', winner: 'opponent' }, over, BRICKS_CONFIG, true), null);
   assert.equal(finisherAt({ type: 'game-over', winner: 'opponent' }, over, RUSH_CONFIG, true), null, 'nor does a Rush run');
+});
+
+test('a Nova game ends without a finisher: there is no paddle across the court to break', () => {
+  const over = { ...createInitialState(NOVA_CONFIG, 3), score: { player: 0, opponent: 0 } };
+
+  assert.equal(finisherAt({ type: 'game-over', winner: 'player' }, over, NOVA_CONFIG, true), null);
+  assert.equal(finisherAt({ type: 'game-over', winner: 'opponent' }, over, NOVA_CONFIG, true), null);
 });

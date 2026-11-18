@@ -109,3 +109,13 @@ test('nothing in the cameo is the pure white kept for the ball, or blended to ad
     assert.equal(brush.globalCompositeOperation, 'source-over');
   }
 });
+
+test('in Nova the ship fires its super with no paddle-hit, and the sound man comes for it, once a match', () => {
+  const cue = new CameoCue();
+  const fired = { type: 'super-fire', kind: 'zigzag', x: 250, y: 734 };
+
+  assert.equal(cameoSide(fired, GAME_CONFIG, true), 'player');
+  assert.equal(cameoSide(fired, GAME_CONFIG, false), null, 'not with the fun extras off');
+  assert.equal(cue.take(fired, GAME_CONFIG, true), 'player');
+  assert.equal(cue.take(fired, GAME_CONFIG, true), null);
+});

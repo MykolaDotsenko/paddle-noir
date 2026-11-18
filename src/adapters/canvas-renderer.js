@@ -3,6 +3,7 @@ import { BallTrail } from './canvas/ball-trail.js';
 import { GlowSprites, paintCourt, paintGrid } from './canvas/court.js';
 import { playEvents } from './canvas/event-effects.js';
 import { drawBricks, drawCombo, drawDrops, drawLaser, drawNet } from './canvas/bricks.js';
+import { drawBossBar, drawEnemies, drawLoot, drawMultiplier, drawShip, drawShots, drawSpace } from './canvas/nova.js';
 import { drawCameo, drawLabels, drawMeters, drawRally, drawServeCountdown } from './canvas/hud.js';
 import { drawBall, drawExtraBalls, drawGhostFog, drawHazards, drawPaddle, drawPickups, drawTrail } from './canvas/scene.js';
 import { THEME } from './canvas/theme.js';
@@ -10,7 +11,7 @@ import { CAMEO_SECONDS, CameoCue } from './cameo.js';
 import { Effects } from './effects.js';
 
 /**
- * @import { GameConfig, GameEvent, GameState } from '../domain/types.js'
+ * @import { GameConfig, GameEvent, GameState, NovaState } from '../domain/types.js'
  * @import { FeedbackPort, FrameScheduler, HighScore, RendererPort } from '../application/ports.js'
  */
 
@@ -287,6 +288,11 @@ export class CanvasRenderer {
       ctx.globalCompositeOperation = 'source-over';
     }
 
+    if (state.nova) {
+      this.drawNova(state, now);
+      return;
+    }
+
     drawGhostFog(ctx, state, config);
 
     if (state.bricks) {
@@ -329,11 +335,47 @@ export class CanvasRenderer {
     drawCameo(ctx, effects.cameo, config, effects.reducedMotion);
     drawLabels(ctx, effects.labels);
 
+    this.drawFlash();
+  }
+
+  /**
+   * A frame of the Nova game: deep space over the court, then what is in it, the ship where the
+   * paddle would be, and on top the effects, the meter and the callouts.
+   *
+   * @param {GameState} state
+   * @param {number} now
+   */
+  drawNova(state, now) {
+    const { context: ctx, config, effects, glows } = this;
+    const space = /** @type {NovaState} */ (state.nova);
+
+    drawSpace(ctx, state, config);
+    drawMultiplier(ctx, space, config, effects.popAmount);
+    drawLoot(ctx, state, now, glows);
+    drawEnemies(ctx, state, now, glows);
+    drawShots(ctx, state, glows);
+    effects.draw(ctx);
+
+    if (effects.hiddenPaddle !== 'player') {
+      drawShip(ctx, state, config, now, glows, effects.reducedMotion);
+    }
+
+    drawBossBar(ctx, space, config);
+    drawServeCountdown(ctx, state, config);
+    drawMeters(ctx, state, config, now);
+    drawCameo(ctx, effects.cameo, config, effects.reducedMotion);
+    drawLabels(ctx, effects.labels);
+    this.drawFlash();
+  }
+
+  drawFlash() {
+    const { context: ctx, config, effects } = this;
+
     if (effects.flashAlpha > 0) {
       ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
       ctx.globalAlpha = effects.flashAlpha;
       ctx.fillStyle = effects.flashColor;
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, config.width, config.height);
       ctx.globalAlpha = 1;
     }
   }

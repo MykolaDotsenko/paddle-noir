@@ -65,6 +65,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   │   ├── court.js
 │   │   │   ├── event-effects.js
 │   │   │   ├── hud.js
+│   │   │   ├── nova-effects.js
+│   │   │   ├── nova.js
 │   │   │   ├── scene.js
 │   │   │   └── theme.js
 │   │   ├── audio-output.js
@@ -94,6 +96,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── bricks.js
 │   │   ├── game.js
 │   │   ├── hazards.js
+│   │   ├── nova.js
 │   │   ├── opponent.js
 │   │   ├── physics.js
 │   │   ├── power-ups.js
@@ -102,7 +105,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   └── types.js
 │   ├── catalog.js              the matches a player can choose, the career ladder and the high-score table included
 │   ├── config.js
-│   └── levels.js               the walls of the Bricks game, drawn a character a brick
+│   ├── levels.js               the walls of the Bricks game, drawn a character a brick
+│   └── sectors.js              the sectors of the Nova game, wave by wave
 ├── tests                       unit tests per module, reference matches, collision and module-load checks, support/ fakes
 ├── ARCHITECTURE.md
 ├── LICENSE

@@ -4,7 +4,7 @@ import { CameoCue } from './cameo.js';
 import { finisherAt } from './finisher.js';
 
 /**
- * @import { GameConfig, GameEvent, GameState, SuperKind } from '../domain/types.js'
+ * @import { EnemyKind, GameConfig, GameEvent, GameState, SuperKind } from '../domain/types.js'
  * @import { FeedbackPort, PreferencesPort } from '../application/ports.js'
  * @import { AudioOutput } from './audio-output.js'
  * @import { Finisher } from './finisher.js'
@@ -95,9 +95,16 @@ export class SoundBoard {
     // What one step may sound at most, however much breaks or fires in it.
     let breaks = 0;
     let volleys = 0;
+    let downs = 0;
+    let knocks = 0;
 
     for (const event of events) {
-      if ((event.type === 'brick-break' && (breaks += 1) > BREAKS_PER_STEP) || (event.type === 'bolt-fire' && (volleys += 1) > 1)) {
+      if (
+        (event.type === 'brick-break' && (breaks += 1) > BREAKS_PER_STEP)
+        || (event.type === 'bolt-fire' && (volleys += 1) > 1)
+        || (event.type === 'enemy-down' && (downs += 1) > BREAKS_PER_STEP)
+        || ((event.type === 'enemy-hit' || event.type === 'enemy-fire') && (knocks += 1) > 1)
+      ) {
         continue;
       }
 
@@ -192,6 +199,35 @@ export class SoundBoard {
     this.tone({ frequency: 620, endFrequency: 990, duration: 0.16, type: 'sine', volume: 0.26, delay: 0.12 });
     this.tone({ frequency: 1180, endFrequency: 1570, duration: 0.22, type: 'sine', volume: 0.26, delay: 0.29 });
     this.tone({ frequency: 2360, endFrequency: 3140, duration: 0.18, type: 'triangle', volume: 0.06, delay: 0.29 });
+  }
+
+  /**
+   * An enemy going down: a rock cracks, a drone pops, a gunship booms and the boss goes in a
+   * long roar.
+   *
+   * @param {EnemyKind} kind
+   */
+  enemyDown(kind) {
+    switch (kind) {
+      case 'pebble':
+        this.tone({ frequency: 420, endFrequency: 90, duration: 0.13, type: 'sawtooth', volume: 0.14 });
+        break;
+      case 'rock':
+        this.tone({ frequency: 220, endFrequency: 50, duration: 0.24, type: 'sawtooth', volume: 0.22 });
+        break;
+      case 'drone':
+        this.tone({ frequency: 760, endFrequency: 120, duration: 0.16, type: 'square', volume: 0.18 });
+        break;
+      case 'gunship':
+        this.tone({ frequency: 160, endFrequency: 35, duration: 0.42, type: 'sawtooth', volume: 0.32 });
+        this.tone({ frequency: 900, endFrequency: 150, duration: 0.2, type: 'square', volume: 0.14, delay: 0.02 });
+        break;
+      case 'boss':
+      default:
+        this.tone({ frequency: 140, endFrequency: 25, duration: 1.6, type: 'sawtooth', volume: 0.42 });
+        this.tone({ frequency: 70, endFrequency: 30, duration: 1.4, type: 'square', volume: 0.24, delay: 0.3 });
+        this.arpeggio([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6], 0.1, 'triangle', 0.4, 0.3, 1.2);
+    }
   }
 
   /** The finisher landing: a low crack and a falling whine. */
@@ -403,6 +439,43 @@ export class SoundBoard {
         this.tone({ frequency: NOTE.G6, duration: 0.12, type: 'triangle', volume: 0.14, delay: 0.08 });
         break;
       case 'level-clear':
+        this.arpeggio([NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6], 0.08, 'triangle', 0.4, 0.2);
+        break;
+      case 'ship-fire':
+        // Five times a second for minutes on end: soft and short, felt more than heard.
+        this.tone({ frequency: 1500, endFrequency: 900, duration: 0.045, type: 'triangle', volume: 0.05 });
+        break;
+      case 'enemy-hit':
+        this.tone({ frequency: 880, endFrequency: 700, duration: 0.03, type: 'square', volume: 0.06 });
+        break;
+      case 'enemy-fire':
+        this.tone({ frequency: 520, endFrequency: 340, duration: 0.07, type: 'sine', volume: 0.08 });
+        break;
+      case 'enemy-down':
+        this.enemyDown(event.kind);
+        break;
+      case 'enemy-arrive':
+        // An alarm, four times.
+        this.arpeggio([880, 660, 880, 660], 0.16, 'square', 0.16);
+        break;
+      case 'boss-rage':
+        this.tone({ frequency: 90, endFrequency: 45, duration: 0.6, type: 'sawtooth', volume: 0.3 });
+        break;
+      case 'ship-hit':
+        this.tone({ frequency: 180, endFrequency: 40, duration: 0.5, type: 'sawtooth', volume: 0.4 });
+        this.tone({ frequency: 1200, endFrequency: 200, duration: 0.25, type: 'square', volume: 0.18, delay: 0.02 });
+        break;
+      case 'loot':
+        this.arpeggio([NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6], 0.045, 'triangle', 0.36);
+        break;
+      case 'super-fire':
+        this.superShot(event.kind);
+        break;
+      case 'chain':
+        this.tone({ frequency: 1900, endFrequency: 50, duration: 0.32, type: 'sawtooth', volume: 0.3 });
+        this.tone({ frequency: 60, endFrequency: 38, duration: 0.5, type: 'square', volume: 0.22, delay: 0.05 });
+        break;
+      case 'sector-clear':
         this.arpeggio([NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6], 0.08, 'triangle', 0.4, 0.2);
         break;
       case 'paused':
