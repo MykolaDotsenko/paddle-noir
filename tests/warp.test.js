@@ -173,7 +173,7 @@ test('a hazard flown into spins the craft and costs it speed, its chain and a mo
   const [crash] = named(events, 'crash');
 
   assert.equal(crash.kind, 'mine');
-  assert.ok(hit.warp.speed < RULES.topSpeed * 0.6);
+  assert.ok(hit.warp.speed < RULES.topSpeed * 0.8, 'a crash is noticeable but no longer stalls the craft');
   assert.equal(hit.warp.chain, 0);
   assert.ok(hit.warp.spin > 0 && hit.warp.safe > 0);
 
