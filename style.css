@@ -439,6 +439,124 @@ canvas:focus-visible {
   .board .warp-control { transition: none; }
 }
 
+/* Flight controls are intentionally independent from combat consoles. Large thumb
+   targets sit in the lower third; the steering-mode switch remains reachable below
+   the vehicle without covering the racing line. */
+.board .warp-steering-switch {
+  position: absolute;
+  z-index: 5;
+  bottom: 1.8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  min-width: 134px;
+  min-height: 42px;
+  padding: 6px 13px;
+  border: 1px solid rgba(125, 211, 252, 0.55);
+  border-radius: 14px;
+  background: linear-gradient(130deg, rgba(8, 15, 35, 0.93), rgba(35, 21, 58, 0.88));
+  color: #d5f4ff;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.13);
+  font: 850 clamp(9px, 2.4cqw, 12px) system-ui, sans-serif;
+  letter-spacing: 0.065em;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.board .warp-steering-switch__cycle {
+  margin-left: 5px;
+  color: #d8b4fe;
+}
+.board .warp-steering-switch:active { filter: brightness(1.22); }
+
+.board .warp-turn {
+  position: absolute;
+  z-index: 4;
+  bottom: 10.5%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: clamp(55px, 16cqw, 78px);
+  min-height: clamp(82px, 22cqw, 110px);
+  padding: 7px 4px;
+  border: 2px solid rgba(125, 211, 252, 0.68);
+  background: linear-gradient(145deg, rgba(11, 28, 51, 0.86), rgba(16, 19, 46, 0.90));
+  color: #b5f3ff;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.18), inset 0 1px rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.board .warp-turn--left {
+  left: 1.6%;
+  border-radius: 22px 8px 8px 22px;
+}
+.board .warp-turn--right {
+  right: 1.6%;
+  border-radius: 8px 22px 22px 8px;
+}
+.board .warp-turn__arrow {
+  font: 500 clamp(46px, 13cqw, 66px)/0.95 system-ui, sans-serif;
+  text-shadow: 0 0 18px rgba(125, 211, 252, 0.70);
+}
+.board .warp-turn__label {
+  font: 850 clamp(9px, 2.4cqw, 11px) system-ui, sans-serif;
+  letter-spacing: 0.1em;
+}
+.board .warp-turn:active {
+  border-color: #f4fdff;
+  background: rgba(26, 102, 131, 0.87);
+  box-shadow: 0 0 24px rgba(125, 211, 252, 0.52);
+}
+.board .warp-flight-stick {
+  position: absolute;
+  z-index: 4;
+  width: clamp(70px, 19cqw, 92px);
+  aspect-ratio: 1;
+  margin: calc(clamp(70px, 19cqw, 92px) / -2) 0 0 calc(clamp(70px, 19cqw, 92px) / -2);
+  pointer-events: none;
+  border: 1.5px solid rgba(125, 211, 252, 0.64);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.07) 15%, rgba(14, 116, 144, 0.16) 75%, rgba(8, 18, 37, 0.3));
+  box-shadow: inset 0 0 22px rgba(14, 165, 233, 0.12), 0 0 20px rgba(34, 211, 238, 0.16);
+  transform: translateZ(0);
+}
+.board .warp-flight-stick__rings {
+  position: absolute;
+  inset: 15%;
+  border: 1px dashed rgba(165, 243, 252, 0.32);
+  border-radius: 50%;
+}
+.board .warp-flight-stick__thumb {
+  position: absolute;
+  width: 41%;
+  aspect-ratio: 1;
+  top: 29.5%;
+  left: 29.5%;
+  border: 2px solid rgba(224, 242, 254, 0.86);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, rgba(165, 243, 252, 0.80), rgba(6, 78, 116, 0.91));
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.63);
+  will-change: transform;
+}
+.board .warp-steering-switch[hidden],
+.board .warp-turn[hidden],
+.board .warp-flight-stick[hidden] { display: none; }
+.board .warp-steering-switch:focus-visible,
+.board .warp-turn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+[data-mode="warp"][data-warp-steering="buttons"] .rail,
+[data-mode="warp"][data-warp-steering="stick"] .rail {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .board .warp-steering-switch,
+  .board .warp-turn,
+  .board .warp-flight-stick { transition: none; }
+}
+
 .rail {
   position: relative;
   display: grid;
