@@ -906,6 +906,7 @@ function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot,
     flame: rival.boost > 0 ? 1 : 0.45 + (still ? 0 : 0.1 * Math.sin(now / 50 + rival.id)),
     nitro: false,
     rockets: 0,
+    damage: clamp(1 - rival.hull / rules.rivalHull, 0, 1),
     now: still ? 0 : now + rival.id * 130,
     glows,
   });
@@ -1043,6 +1044,7 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     flame: race.burn > 0 || nitro ? 1.4 : 0.5 + rush * 0.6 + (still ? 0 : 0.08 * Math.sin(now / 40)),
     nitro,
     rockets: race.rockets,
+    active: race.abilityTime > 0,
     now: still ? 0 : now,
     glows,
   });

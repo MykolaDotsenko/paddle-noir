@@ -12,6 +12,7 @@ const OPPONENT_KEYS = Object.freeze({ left: new Set(['KeyJ', 'Numpad4']), right:
 // The player's extra, where a game has one: a bar of nitro in Warp. A key, a click of the mouse,
 // or a swipe up: a finger that has risen this far on the screen, more than it moved sideways.
 const ACTION_KEYS = new Set(['ArrowUp', 'KeyW']);
+const ABILITY_KEYS = new Set(['KeyE']);
 const SWIPE_UP_PIXELS = 34;
 const INTERACTIVE_TAGS = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'];
 const INTERACTIVE_SELECTOR = INTERACTIVE_TAGS.join(',').toLowerCase();
@@ -207,6 +208,14 @@ export class InputController {
     if (ACTION_KEYS.has(event.code)) {
       // Held down, it asks once.
       this.action ||= !event.repeat;
+      event.preventDefault();
+      return;
+    }
+
+    if (ABILITY_KEYS.has(event.code)) {
+      if (!event.repeat && !isInteractiveTarget(event.target)) {
+        this.commandHandler(GAME_COMMAND.ABILITY);
+      }
       event.preventDefault();
       return;
     }

@@ -20,6 +20,8 @@ export const GAME_COMMAND = Object.freeze({
   PRIMARY: 'primary',
   /** Show the screen again as it is: a preference it draws on has changed, such as the player's initials. */
   REFRESH: 'refresh',
+  /** Trigger the currently flown Warp craft's signature system. */
+  ABILITY: 'ability',
 });
 
 /** @type {readonly Difficulty[]} */
@@ -191,6 +193,8 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {number} best the most points the player ever made
  * @property {boolean} newBest whether the cup just finished set a new record
  * @property {string} craft the craft being flown, by name
+ * @property {number} abilityCooldown seconds before its signature system can be fired again
+ * @property {number} abilityTime seconds remaining of the active signature system
  * @property {number} tickets what the player has to spend in the hangar
  * @property {number} earned the tickets the cup just finished paid out
  *

@@ -223,7 +223,7 @@ test('with no sprites to hand, each glow is shaded in place', () => {
   const ctx = hull({ glows: null });
 
   assert.equal(callsNamed(ctx, 'drawImage').length, 0);
-  assert.equal(callsNamed(ctx, 'createRadialGradient').length, 2);
+  assert.equal(callsNamed(ctx, 'createRadialGradient').length, 4, 'two engine glows and two recessed turbine housings');
   assert.ok(painted(ctx).every(({ brush }) => brush.globalCompositeOperation === 'source-over'));
 });
 

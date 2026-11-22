@@ -105,6 +105,80 @@ const GUN_EVERY = 0.11;
 const MISSILE_TURN = 2.2;
 // A rocket that has lost its rival flies on this far ahead of the craft, then is gone.
 const MISSILE_REACH = 200;
+
+/**
+ * Every airframe has an activatable subsystem with its own tactical purpose.
+ * Cooldowns are measured in simulated race seconds, not wall-clock time, so
+ * pause, replay, and deterministic fixed-step tests all behave identically.
+ *
+ * @type {Readonly<Record<import('./types.js').CraftKind, { name: string, cooldown: number, duration: number }>>}
+ */
+export const WARP_ABILITIES = Object.freeze({
+  jet: Object.freeze({ name: 'TARGET LINK', cooldown: 16, duration: 4 }),
+  dart: Object.freeze({ name: 'VECTOR DODGE', cooldown: 18, duration: 2 }),
+  wing: Object.freeze({ name: 'AERO SURGE', cooldown: 20, duration: 3 }),
+  heavy: Object.freeze({ name: 'FORTRESS', cooldown: 22, duration: 3.5 }),
+  saucer: Object.freeze({ name: 'FLUX DRIVE', cooldown: 19, duration: 2.5 }),
+});
+
+/**
+ * Activate one signature ability. The cockpit key or touch button calls this
+ * transition once; all subsequent effects are simulated by advanceWarp. A
+ * disabled or cooling-down ability must never consume a charge or emit events.
+ *
+ * @param {GameState} state
+ * @param {GameConfig} config
+ * @returns {GameState}
+ */
+export function activateWarpAbility(state, config) {
+  const current = state.warp;
+  const rules = config.warp;
+
+  if (state.phase !== 'running' || !current || !rules || state.serveCountdown > 0
+      || current.finished || current.calm > 0 || current.spin > 0 || current.abilityCooldown > 0) {
+    return state;
+  }
+
+  const { kind } = rules.loadout;
+  const system = WARP_ABILITIES[kind];
+  const race = {
+    ...current,
+    abilityTime: system.duration,
+    abilityCooldown: system.cooldown,
+  };
+
+  switch (kind) {
+    case 'jet':
+      // Target Link narrows the targeting geometry and accelerates the rocket lock
+      // while the pilot holds a rival in the forward arc.
+      break;
+    case 'dart':
+      // Side thrusters briefly phase the light interceptor through track hazards.
+      race.ghost = Math.max(race.ghost, system.duration);
+      race.boost = Math.max(race.boost, 0.75);
+      break;
+    case 'wing':
+      // Extended aerofoils turn a straight into a prolonged high-speed run.
+      race.boost = Math.max(race.boost, system.duration);
+      break;
+    case 'heavy':
+      // Deploy one emergency armour plate (two maximum) while the turrets overdrive.
+      race.shield = Math.min(2, race.shield + 1);
+      break;
+    case 'saucer':
+      // The flux chamber harvests energy for one additional nitro bar.
+      race.nitro = Math.min(rules.loadout.nitroBars, race.nitro + 1);
+      race.ghost = Math.max(race.ghost, 0.8);
+      break;
+  }
+
+  return {
+    ...state,
+    warp: race,
+    events: [{ type: 'craft-ability', kind, z: race.z, x: laneX(state, config) }],
+  };
+}
+
 /** Where the last stretch begins, as a share of the course. */
 export const FINAL_STRETCH = 0.85;
 
@@ -347,6 +421,8 @@ export function raceState(config, race, points = 0, lost = 0) {
     // A race starts with a bar in the tank and a rocket aboard, if the craft carries any.
     nitro: Math.min(1, rules.loadout.nitroBars),
     nitroBurn: 0,
+    abilityCooldown: 0,
+    abilityTime: 0,
     shield: rules.loadout.shields,
     rockets: Math.min(1, rules.loadout.rockets),
     lock: 0,
@@ -826,12 +902,15 @@ function fight(lap, x, deltaSeconds) {
     : [];
 
   // The guns.
-  const mark = ahead.find((rival) => rival.z - race.z <= rules.gunRange && Math.abs(rival.x - x) <= rules.gunAim);
+  const targeting = rules.loadout.kind === 'jet' && race.abilityTime > 0;
+  const fortress = rules.loadout.kind === 'heavy' && race.abilityTime > 0;
+  const mark = ahead.find((rival) => rival.z - race.z <= rules.gunRange * (targeting ? 1.3 : 1)
+    && Math.abs(rival.x - x) <= rules.gunAim * (targeting ? 1.65 : 1));
   race.aim = mark ? mark.id : 0;
   race.gunIn = Math.max(0, race.gunIn - deltaSeconds);
 
   if (mark) {
-    mark.hull -= rules.loadout.damage * deltaSeconds;
+    mark.hull -= rules.loadout.damage * (fortress ? 1.55 : 1) * deltaSeconds;
 
     if (race.gunIn === 0) {
       race.gunIn = GUN_EVERY;
@@ -845,11 +924,11 @@ function fight(lap, x, deltaSeconds) {
 
   // The rockets: a lock on a rival no rocket is on its way to already.
   const prey = race.rockets > 0
-    ? ahead.find((rival) => rival.spin === 0 && rival.z - race.z > ROCKET_NEAR && rival.z - race.z <= rules.rocketRange && Math.abs(rival.x - x) <= rules.rocketAim && !race.missiles.some((missile) => missile.target === rival.id))
+    ? ahead.find((rival) => rival.spin === 0 && rival.z - race.z > ROCKET_NEAR && rival.z - race.z <= rules.rocketRange * (targeting ? 1.25 : 1) && Math.abs(rival.x - x) <= rules.rocketAim * (targeting ? 1.45 : 1) && !race.missiles.some((missile) => missile.target === rival.id))
     : undefined;
 
   if (prey) {
-    race.lock = (race.lockOn === prey.id ? race.lock : 0) + deltaSeconds / rules.lockSeconds;
+    race.lock = (race.lockOn === prey.id ? race.lock : 0) + deltaSeconds / (rules.lockSeconds * (targeting ? 0.5 : 1));
     race.lockOn = prey.id;
 
     if (race.lock >= 1) {
@@ -970,6 +1049,8 @@ export function advanceWarp(state, deltaSeconds, config, events, action = false)
   race.burn = Math.max(0, race.burn - deltaSeconds);
   race.ghost = Math.max(0, race.ghost - deltaSeconds);
   race.nitroBurn = Math.max(0, race.nitroBurn - deltaSeconds);
+  race.abilityCooldown = Math.max(0, (race.abilityCooldown ?? 0) - deltaSeconds);
+  race.abilityTime = Math.max(0, (race.abilityTime ?? 0) - deltaSeconds);
 
   // A bar of nitro, when the player asks and there is one.
   if (action && race.nitro >= 1 && race.nitroBurn === 0 && race.spin === 0) {

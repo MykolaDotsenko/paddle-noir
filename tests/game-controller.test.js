@@ -1296,7 +1296,7 @@ test('in the menu Warp tells what there is to do', () => {
   const presentation = lastOf(view.presentations);
 
   assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
-  assert.deepEqual(presentation.warp, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', tickets: 0, earned: 0 });
+  assert.deepEqual(presentation.warp, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0 });
   assert.deepEqual(presentation.opponent, { label: 'Race', name: 'The field', proper: false });
   assert.equal(presentation.maxLives, WARP_CONFIG.rules.lives);
   assert.equal(presentation.nova, null);
