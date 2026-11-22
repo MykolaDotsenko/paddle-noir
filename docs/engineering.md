@@ -69,7 +69,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   │   ├── nova.js
 │   │   │   ├── scene.js
 │   │   │   ├── theme.js
+│   │   │   ├── warp-combat.js
+│   │   │   ├── warp-craft.js
 │   │   │   ├── warp-effects.js
+│   │   │   ├── warp-hud.js
+│   │   │   ├── warp-scenery.js
 │   │   │   └── warp.js
 │   │   ├── audio-output.js
 │   │   ├── browser-device.js
@@ -77,6 +81,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── cameo.js
 │   │   ├── canvas-renderer.js
 │   │   ├── dom-game-view.js
+│   │   ├── dom-hangar.js
 │   │   ├── effects.js
 │   │   ├── finisher.js
 │   │   ├── haptics.js
@@ -90,6 +95,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── career.js
 │   │   ├── game-controller.js
 │   │   ├── game-loop.js
+│   │   ├── hangar.js
 │   │   ├── high-scores.js
 │   │   ├── interpolation.js
 │   │   ├── nicknames.js
@@ -109,6 +115,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   ├── catalog.js              the matches a player can choose, the career ladder and the high-score table included
 │   ├── config.js
 │   ├── courses.js              the courses of the Warp cup and the pilots who race them
+│   ├── hangar.js               the crafts of the Warp game's hangar, what tuning costs, and the paints
 │   ├── levels.js               the walls of the Bricks game, drawn a character a brick
 │   └── sectors.js              the sectors of the Nova game, wave by wave
 ├── tests                       unit tests per module, reference matches, collision and module-load checks, support/ fakes

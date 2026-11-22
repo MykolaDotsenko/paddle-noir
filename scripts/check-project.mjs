@@ -47,6 +47,13 @@ const requiredFiles = [
   'src/domain/warp.js',
   'src/adapters/canvas/warp.js',
   'src/adapters/canvas/warp-effects.js',
+  'src/adapters/canvas/warp-scenery.js',
+  'src/adapters/canvas/warp-hud.js',
+  'src/adapters/canvas/warp-craft.js',
+  'src/adapters/canvas/warp-combat.js',
+  'src/adapters/dom-hangar.js',
+  'src/application/hangar.js',
+  'src/hangar.js',
   'src/adapters/dom-game-view.js',
   'src/adapters/audio-output.js',
   'src/adapters/sound-board.js',
@@ -72,6 +79,9 @@ const requiredFiles = [
   'tests/warp.test.js',
   'tests/warp-effects.test.js',
   'tests/canvas-warp.test.js',
+  'tests/canvas-warp-craft.test.js',
+  'tests/dom-hangar.test.js',
+  'tests/hangar.test.js',
   'tests/career.test.js',
   'tests/collisions.test.js',
   'tests/dom-game-view.test.js',
@@ -144,7 +154,8 @@ if (!script.includes('new GameController')) {
   throw new Error('script.js must stay a thin composition root.');
 }
 
-if (script.split('\n').length > 70) {
+// The game's view, the hangar's, and the adapters each needs: wiring, and nothing else.
+if (script.split('\n').length > 80) {
   throw new Error('script.js is too large for a composition root.');
 }
 

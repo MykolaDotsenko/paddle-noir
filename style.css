@@ -461,7 +461,8 @@ kbd {
 .panel--menu .modes { order: 2; }
 .panel--menu [data-solo-only],
 .panel--menu [data-career-only],
-.panel--menu [data-rush-only] { order: 3; }
+.panel--menu [data-rush-only],
+.panel--menu [data-show-hangar] { order: 3; }
 .panel--menu .cta { order: 4; }
 .panel--menu .panel__meta { order: 5; }
 .panel--menu .panel__stats { order: 6; }
@@ -1941,6 +1942,342 @@ kbd {
   }
 }
 
+/* ---------- Hangar ---------- */
+
+/* The Warp game's hangar, a modal like the settings: the craft on show between its arrows,
+   the tuning and paint benches under it, and the way out. The benches scroll if a screen is
+   too short for them; everything else stays put. */
+.panel--hangar {
+  gap: 3cqw;
+  min-height: 0;
+  max-height: calc(min(88dvh, 46rem) - 12cqw - 2px);
+  /* One column as wide as the dialog: the picture is cut to it, never the dialog widened. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.hangar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3cqw;
+  width: 100%;
+}
+
+.panel--hangar .panel__title {
+  font-size: 9cqw;
+}
+
+.hangar__wallet {
+  margin: 0;
+  white-space: nowrap;
+  font-size: max(15px, 5cqw);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--amber);
+}
+
+/* A ticket before a number of them: what the cabinet pays out, and what the hangar takes. */
+.price::before {
+  content: "";
+  display: inline-block;
+  width: 1.15em;
+  height: 0.8em;
+  margin-right: 0.35em;
+  vertical-align: -0.04em;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Cpath d='M0 0h24v5a3 3 0 0 0 0 6v5H0v-5a3 3 0 0 0 0-6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Cpath d='M0 0h24v5a3 3 0 0 0 0 6v5H0v-5a3 3 0 0 0 0-6z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.hangar__stage {
+  display: flex;
+  align-items: center;
+  gap: 2cqw;
+  width: 100%;
+}
+
+.hangar__show {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 1cqw;
+  min-width: 0;
+}
+
+/* The court's own canvas is styled as the board; this one is only a picture. */
+.board .hangar__canvas {
+  width: min(100%, 20rem);
+  aspect-ratio: 2 / 1;
+  border-radius: 0;
+  background: none;
+  touch-action: auto;
+}
+
+.hangar__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1cqw 2.4cqw;
+  margin: 0;
+  font-size: max(17px, 6cqw);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.hangar__place {
+  font-size: max(11px, 3cqw);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.hangar__tag {
+  padding: 0.25em 0.8em;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 999px;
+  font-size: max(10px, 2.8cqw);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  color: var(--amber);
+}
+
+.hangar__tag.is-owned {
+  border-color: rgba(var(--player-rgb), 0.5);
+  color: var(--player);
+}
+
+.hangar__blurb {
+  margin: 0;
+  font-size: max(12px, 3.4cqw);
+  line-height: 1.3;
+  text-align: center;
+  color: var(--muted);
+}
+
+.hangar__work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  justify-items: center;
+  gap: 2.4cqw;
+  width: 100%;
+  min-height: 0;
+}
+
+.dialog .hangar__tabs button {
+  min-width: 22cqw;
+  min-height: 44px;
+  padding: 0 4cqw;
+  font-size: max(12px, 3.6cqw);
+}
+
+.hangar__bench {
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.hangar__bench[hidden] {
+  display: none;
+}
+
+.tunes {
+  display: grid;
+  gap: 1.4cqw;
+}
+
+.tune {
+  display: grid;
+  grid-template-columns: 5.6em minmax(0, 1fr) 5.4em;
+  align-items: center;
+  gap: 2.6cqw;
+  min-height: 44px;
+  font-size: max(12px, 3.5cqw);
+}
+
+.tune__name {
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* As long as the best a system can be: what the craft comes with, what tuning added in
+   amber, and what is still to have. */
+.tune__bar {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.tune__bar i {
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(148, 163, 255, 0.14);
+}
+
+.tune__bar i.is-on {
+  background: var(--player);
+  box-shadow: 0 0 6px rgba(var(--player-rgb), 0.6);
+}
+
+.tune__bar i.is-tuned {
+  background: var(--amber);
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+
+.tune__up {
+  min-height: 44px;
+  padding: 0 0.6em;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 999px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--amber);
+  background: rgba(15, 18, 40, 0.7);
+  transition: transform 120ms ease, border-color 150ms ease;
+}
+
+.tune__up[hidden] {
+  display: none;
+}
+
+.tune__up:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.tune__up:disabled,
+.hangar__actions .ghost:disabled,
+.swatch:disabled,
+.hangar__decals button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.hangar__bench--paint {
+  display: grid;
+  align-content: start;
+  gap: 1.6cqw;
+}
+
+.hangar__bench--paint[hidden] {
+  display: none;
+}
+
+.hangar__label {
+  margin: 0;
+  font-size: max(10px, 2.8cqw);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2cqw;
+  width: 100%;
+}
+
+/* A chip of the paint itself; the one the craft wears is ringed. */
+.swatch {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 3px solid rgba(9, 11, 28, 0.96);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), transparent 46%), rgb(var(--swatch));
+  box-shadow: 0 0 0 1px var(--line);
+  transition: transform 120ms ease;
+}
+
+.swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--text), 0 0 14px rgba(var(--swatch), 0.8);
+}
+
+.swatch:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.dialog .hangar__decals {
+  width: 100%;
+}
+
+.dialog .hangar__decals button {
+  flex: 1;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 1cqw;
+  font-size: max(11px, 3.2cqw);
+}
+
+.hangar__locked {
+  margin: 0;
+  font-size: max(12px, 3.4cqw);
+  color: var(--amber);
+}
+
+.hangar__actions {
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.hangar__actions .ghost {
+  border-color: rgba(251, 191, 36, 0.55);
+  white-space: nowrap;
+  color: var(--amber);
+}
+
+.hangar__actions .ghost[hidden] {
+  display: none;
+}
+
+.dialog .hangar__actions .cta {
+  width: auto;
+  min-width: 34cqw;
+}
+
+/* What a cup paid out, on its result screen. */
+.panel__meta--tickets strong {
+  color: var(--amber);
+}
+
+@media (max-height: 640px) {
+  .panel--hangar {
+    gap: 2.4cqw;
+    max-height: calc(96dvh - 12cqw - 2px);
+  }
+
+  .dialog:has(> .panel--hangar) {
+    max-height: 96dvh;
+  }
+
+  .panel--hangar .panel__title {
+    font-size: 7.4cqw;
+  }
+
+  .board .hangar__canvas {
+    aspect-ratio: 5 / 2;
+  }
+
+  .hangar__blurb {
+    display: none;
+  }
+}
+
 /* ---------- Title screen ---------- */
 
 /* The title screen shows the name, not a match: the score, the pause button, the thumb rail
@@ -2307,6 +2644,126 @@ kbd {
     min-height: 44px;
     padding-block: 8px;
     font-size: 15px;
+  }
+}
+
+/* A phone held sideways: the craft on show on the left with the benches' tabs under it, the
+   bench itself on the right, and the way out up beside the title. */
+@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  .panel--hangar {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    gap: 8px 16px;
+    max-height: calc(94dvh - 26px);
+  }
+
+  .dialog:has(> .panel--hangar) {
+    max-height: 94dvh;
+  }
+
+  .hangar__head {
+    grid-area: 1 / 1;
+    gap: 12px;
+  }
+
+  .panel--hangar .panel__title {
+    font-size: 22px;
+  }
+
+  .hangar__wallet {
+    font-size: 16px;
+  }
+
+  .hangar__actions {
+    grid-area: 4 / 1;
+    gap: 10px;
+  }
+
+  .hangar__actions .ghost {
+    min-width: 0;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  .dialog .hangar__actions .cta {
+    min-width: 6rem;
+  }
+
+  .hangar__stage {
+    grid-area: 2 / 1;
+    gap: 6px;
+  }
+
+  .board .hangar__canvas {
+    aspect-ratio: 2 / 1;
+  }
+
+  .hangar__name {
+    gap: 2px 8px;
+    font-size: 16px;
+  }
+
+  .hangar__place,
+  .hangar__tag {
+    font-size: 10px;
+  }
+
+  .hangar__blurb {
+    display: none;
+  }
+
+  .hangar__work {
+    display: contents;
+  }
+
+  .hangar__tabs {
+    grid-area: 3 / 1;
+    justify-self: center;
+  }
+
+  .dialog .hangar__tabs button {
+    min-width: 64px;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .hangar__bench,
+  .hangar__locked {
+    grid-area: 1 / 2 / 5 / 3;
+    align-self: center;
+    max-height: 100%;
+  }
+
+  .hangar__locked {
+    align-self: end;
+  }
+
+  .tunes,
+  .hangar__bench--paint {
+    gap: 4px;
+  }
+
+  .tune {
+    grid-template-columns: 5.4em minmax(0, 1fr) 5.4em;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .hangar__label {
+    font-size: 10px;
+  }
+
+  .swatches {
+    gap: 6px;
+  }
+
+  .dialog .hangar__decals button {
+    font-size: 12px;
+  }
+
+  .hangar__locked {
+    font-size: 12px;
   }
 }
 

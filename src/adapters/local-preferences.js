@@ -1,12 +1,15 @@
 import { validInitials } from '../application/high-scores.js';
-import { DIFFICULTIES, MODES, TRACK_IDS } from '../application/ports.js';
+import { CRAFT_SYSTEMS, DIFFICULTIES, MODES, TRACK_IDS } from '../application/ports.js';
 
-/** @import { MatchStats, Preferences, PreferencesPort } from '../application/ports.js' */
+/** @import { CraftSetup, CraftSystem, HangarChoices, MatchStats, Preferences, PreferencesPort } from '../application/ports.js' */
 
 const STORAGE_KEY = 'ping-pong-lab:preferences';
 
 /** @type {Readonly<MatchStats>} */
 const NO_STATS = Object.freeze({ matches: 0, wins: 0, streak: 0, bestStreak: 0 });
+
+/** @type {Readonly<HangarChoices>} */
+const NO_HANGAR = Object.freeze({ craft: '', owned: Object.freeze({}) });
 
 /** @type {Readonly<Preferences>} */
 const DEFAULTS = Object.freeze({
@@ -25,6 +28,8 @@ const DEFAULTS = Object.freeze({
   bestBricks: 0,
   bestNova: 0,
   bestWarp: 0,
+  tickets: 0,
+  hangar: NO_HANGAR,
   initials: '',
   stats: NO_STATS,
   rival: 0,
@@ -70,6 +75,46 @@ function sanitizeStats(value) {
   return { matches, wins, streak: Math.min(count(stats.streak), bestStreak), bestStreak };
 }
 
+// A hangar is far smaller; the caps only keep a corrupted entry small.
+const MAX_CRAFTS = 16;
+const MAX_TUNE = 9;
+const NAME = /^[a-z][a-z0-9-]{0,23}$/;
+
+/**
+ * @param {unknown} value
+ * @returns {string} the name of a craft, a paint or a decal; '' for anything else
+ */
+const name = (value) => (typeof value === 'string' && NAME.test(value) ? value : '');
+
+/**
+ * The hangar as it is shaped: which crafts are owned, how far each system of each is tuned,
+ * and what each wears. Whether the game still offers a craft or a paint is not known here;
+ * the hangar itself answers that.
+ *
+ * @param {unknown} value
+ * @returns {HangarChoices}
+ */
+function sanitizeHangar(value) {
+  const hangar = /** @type {Record<string, unknown>} */ (value !== null && typeof value === 'object' ? value : {});
+  const owned = /** @type {Record<string, unknown>} */ (hangar.owned !== null && typeof hangar.owned === 'object' ? hangar.owned : {});
+  /** @type {Record<string, CraftSetup>} */
+  const kept = {};
+
+  for (const id of Object.keys(owned).filter((key) => name(key) !== '').slice(0, MAX_CRAFTS)) {
+    const setup = /** @type {Record<string, unknown>} */ (owned[id] !== null && typeof owned[id] === 'object' ? owned[id] : {});
+    const tune = /** @type {Record<string, unknown>} */ (setup.tune !== null && typeof setup.tune === 'object' ? setup.tune : {});
+
+    kept[id] = {
+      tune: /** @type {Record<CraftSystem, number>} */ (Object.fromEntries(CRAFT_SYSTEMS.map((system) => [system, Math.min(count(tune[system]), MAX_TUNE)]))),
+      paint: name(setup.paint),
+      decal: name(setup.decal),
+      glow: name(setup.glow),
+    };
+  }
+
+  return { craft: name(hangar.craft), owned: kept };
+}
+
 /**
  * Keeps only well-formed values, so a corrupted or outdated stored entry cannot break the game.
  *
@@ -93,6 +138,8 @@ function sanitize(stored) {
     bestBricks: count(stored.bestBricks),
     bestNova: count(stored.bestNova),
     bestWarp: count(stored.bestWarp),
+    tickets: count(stored.tickets),
+    hangar: sanitizeHangar(stored.hangar),
     initials: validInitials(stored.initials),
     stats: sanitizeStats(stored.stats),
     rival: count(stored.rival),

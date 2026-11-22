@@ -11,6 +11,7 @@ import {
 } from '../domain/game.js';
 import { EASE_AFTER, easedConfig, starsFor, unlockedRival } from './career.js';
 import { FixedStepLoop } from './game-loop.js';
+import { chosenCraft, loadoutOf, ticketsFor } from './hangar.js';
 import { highScores } from './high-scores.js';
 import { interpolateState } from './interpolation.js';
 import { nicknameFor } from './nicknames.js';
@@ -24,6 +25,7 @@ import { GAME_COMMAND } from './ports.js';
  *   FeedbackPort,
  *   FrameScheduler,
  *   GameCommand,
+ *   HangarChoices,
  *   HighScoresView,
  *   InputPort,
  *   MatchCatalog,
@@ -50,10 +52,11 @@ const DRAMA_MIN_SPEED_SHARE = 0.55;
 /**
  * Builds the tuning for the next match from the player's choices. A career rival plays as it
  * always does, power-ups included, unless it has beaten the player twice in a row. Supers are
- * the player's choice in every match, in Bricks and in Nova, but never in a Rush run.
+ * the player's choice in every match, in Bricks, in Nova and in Warp, but never in a Rush run.
+ * A Warp cup is flown in the craft the player chose in the hangar, as they tuned it.
  *
  * @param {MatchCatalog} catalog
- * @param {{ mode: Mode, difficulty: string, powerUps: boolean, supers?: boolean, rival?: number, losses?: number }} choices
+ * @param {{ mode: Mode, difficulty: string, powerUps: boolean, supers?: boolean, rival?: number, losses?: number, hangar?: HangarChoices }} choices
  * @returns {GameConfig}
  */
 export function buildMatchConfig(catalog, choices) {
@@ -70,7 +73,10 @@ export function buildMatchConfig(catalog, choices) {
   }
 
   if (choices.mode === 'warp') {
-    return withSupers(catalog.warp, choices.supers);
+    const config = withSupers(catalog.warp, choices.supers);
+    return config.warp && choices.hangar
+      ? { ...config, warp: { ...config.warp, loadout: loadoutOf(catalog.hangar, choices.hangar) } }
+      : config;
   }
 
   if (choices.mode === 'career') {
@@ -131,6 +137,8 @@ export class GameController {
     this.newBestBricks = false;
     this.newBestNova = false;
     this.newBestWarp = false;
+    /** Tickets the Warp cup just finished paid out. */
+    this.warpEarned = 0;
     /** Stars the career match just finished earned. */
     this.careerEarned = 0;
     /** @type {number | null} the best Rush run before the one just finished, which tells whose rows it passed */
@@ -258,6 +266,7 @@ export class GameController {
     this.newBestBricks = false;
     this.newBestNova = false;
     this.newBestWarp = false;
+    this.warpEarned = 0;
     this.careerEarned = 0;
     this.rushBefore = null;
     this.recorded = false;
@@ -287,8 +296,8 @@ export class GameController {
   }
 
   selectedConfig() {
-    const { mode, difficulty, powerUps, supers, careerLosses } = this.preferences.get();
-    return buildMatchConfig(this.catalog, { mode, difficulty, powerUps, supers, rival: this.rival, losses: careerLosses[this.rival] ?? 0 });
+    const { mode, difficulty, powerUps, supers, careerLosses, hangar } = this.preferences.get();
+    return buildMatchConfig(this.catalog, { mode, difficulty, powerUps, supers, rival: this.rival, losses: careerLosses[this.rival] ?? 0, hangar });
   }
 
   /**
@@ -427,10 +436,12 @@ export class GameController {
     }
 
     if (state.warp) {
-      if (state.warp.points > this.preferences.get().bestWarp) {
-        this.newBestWarp = true;
-        this.preferences.set({ bestWarp: state.warp.points });
-      }
+      const { bestWarp, tickets } = this.preferences.get();
+      // Won or lost, the cabinet pays out tickets for everything flown, races flown again
+      // included: the hangar is never further off for a bad day.
+      this.warpEarned = ticketsFor(this.catalog.hangar, state.warp.points + state.warp.lost);
+      this.newBestWarp = state.warp.points > bestWarp;
+      this.preferences.set({ bestWarp: Math.max(bestWarp, state.warp.points), tickets: tickets + this.warpEarned });
       return;
     }
 
@@ -585,6 +596,9 @@ export class GameController {
       points: race.points,
       best: this.preferences.get().bestWarp,
       newBest: this.newBestWarp,
+      craft: chosenCraft(this.catalog.hangar, this.preferences.get().hangar).name,
+      tickets: this.preferences.get().tickets,
+      earned: this.warpEarned,
     };
   }
 

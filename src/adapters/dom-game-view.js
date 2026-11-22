@@ -18,6 +18,7 @@ import { finisherApplies, FINISHER_SECONDS } from './finisher.js';
  *   PreferencesPort,
  *   TrackId,
  *   ViewPort,
+ *   WarpView,
  * } from '../application/ports.js'
  */
 
@@ -354,7 +355,7 @@ export class DomGameView {
     }
 
     // How to play tells of the game chosen: power-ups in a match, the wall in Bricks, the ship in
-    // Nova, the race in Warp.
+    // Nova, the race and its weapons in Warp.
     for (const element of this.findAll('[data-bricks-only]')) {
       element.hidden = mode !== 'bricks';
     }
@@ -369,6 +370,11 @@ export class DomGameView {
 
     for (const element of this.findAll('[data-match-only]')) {
       element.hidden = mode === 'bricks' || mode === 'nova' || mode === 'warp';
+    }
+
+    // Nova and Warp have no ball to curve or to angle.
+    for (const element of this.findAll('[data-ball-only]')) {
+      element.hidden = mode === 'nova' || mode === 'warp';
     }
 
     this.root.dataset.mode = mode;
@@ -674,6 +680,10 @@ export class DomGameView {
       this.showMenuMeta(presentation);
     }
 
+    if (presentation.warp && (presentation.warp.craft !== previous?.warp?.craft || presentation.warp.tickets !== previous?.warp?.tickets)) {
+      this.showHangarCard(presentation.warp);
+    }
+
     if (presentation.stats !== previous?.stats || presentation.mode !== previous?.mode || careerChanged) {
       this.showStats(presentation);
     }
@@ -883,6 +893,17 @@ export class DomGameView {
   }
 
   /**
+   * The hangar's card in the Warp menu: the craft the next cup is flown in, and the tickets
+   * there are to spend on it.
+   *
+   * @param {WarpView} warp
+   */
+  showHangarCard({ craft, tickets }) {
+    this.find('[data-hangar-craft]').textContent = craft;
+    this.find('[data-hangar-tickets]').textContent = `${tickets} ${tickets === 1 ? 'ticket' : 'tickets'}`;
+  }
+
+  /**
    * Solo win statistics. A streak earns a flame, which is decoration: screen readers skip it.
    *
    * @param {Presentation} presentation
@@ -948,11 +969,18 @@ export class DomGameView {
     // reached; the longest rally belongs to a match.
     this.find('[data-over-meta]').hidden = Boolean(highScores) || Boolean(bricks) || Boolean(nova) || Boolean(warp);
     this.find('[data-over-wall]').hidden = !bricks && !nova && !warp;
+    this.find('[data-over-tickets]').hidden = !warp || warp.earned === 0;
 
     if (warp) {
+      const tickets = this.find('[data-over-tickets]');
+      const earned = tickets.ownerDocument.createElement('strong');
+
       this.find('[data-over-wall]').textContent = winner === 'player'
         ? `points · all ${warp.races} races won through`
         : `points · race ${warp.race} of ${warp.races} · ${warp.name}`;
+      // What the cabinet paid out for the cup, to spend in the hangar.
+      earned.textContent = `+${warp.earned}`;
+      tickets.replaceChildren(earned, warp.earned === 1 ? ' ticket for the hangar' : ' tickets for the hangar');
     }
 
     if (nova) {

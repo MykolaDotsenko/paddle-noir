@@ -174,7 +174,7 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
         break;
       }
       default:
-        if (!playBrickEvent(effects, event, { config, state, random }) && !playWarpEvent(effects, event, { config, state, random })) {
+        if (!playBrickEvent(effects, event, { config, state, random }) && !playWarpEvent(effects, event, { config, state, random, jokes })) {
           playNovaEvent(effects, event, { config, random });
         }
         break;

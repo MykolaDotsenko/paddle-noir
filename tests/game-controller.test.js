@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildMatchConfig, GameController } from '../src/application/game-controller.js';
+import { loadoutOf, ticketsFor } from '../src/application/hangar.js';
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { GAME_COMMAND } from '../src/application/ports.js';
 import { HIGH_SCORES, MATCH_CATALOG, RIVALS } from '../src/catalog.js';
 import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, WARP_CONFIG } from '../src/config.js';
 import { GAME_PHASE } from '../src/domain/game.js';
+import { HANGAR } from '../src/hangar.js';
 
 function createFrameScheduler() {
   let nextId = 1;
@@ -64,6 +66,8 @@ function createPreferences(initial = {}) {
     bestBricks: 0,
     bestNova: 0,
     bestWarp: 0,
+    tickets: 0,
+    hangar: { craft: '', owned: {} },
     stats: DEFAULT_STATS,
     rival: 0,
     careerStars: [],
@@ -1292,7 +1296,7 @@ test('in the menu Warp tells what there is to do', () => {
   const presentation = lastOf(view.presentations);
 
   assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
-  assert.deepEqual(presentation.warp, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false });
+  assert.deepEqual(presentation.warp, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', tickets: 0, earned: 0 });
   assert.deepEqual(presentation.opponent, { label: 'Race', name: 'The field', proper: false });
   assert.equal(presentation.maxLives, WARP_CONFIG.rules.lives);
   assert.equal(presentation.nova, null);
@@ -1337,7 +1341,7 @@ test('a cup out of credits records the points, and a record is celebrated', () =
   assert.equal(presentation.winner, 'opponent');
   assert.equal(presentation.status, `Out of credits in race 3 of ${WARP.courses.length} — ${2400 + WARP.placePoints[5]} points.`);
   assert.deepEqual({ best: presentation.warp.best, newBest: presentation.warp.newBest }, { best: 2400 + WARP.placePoints[5], newBest: true });
-  assert.deepEqual(lastOf(preferences.writes), { bestWarp: 2400 + WARP.placePoints[5] });
+  assert.deepEqual(lastOf(preferences.writes), { bestWarp: 2400 + WARP.placePoints[5], tickets: ticketsFor(HANGAR, 2400 + WARP.placePoints[5]) });
 });
 
 test('a cup short of the record changes nothing', () => {
@@ -1351,7 +1355,57 @@ test('a cup short of the record changes nothing', () => {
 
   assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
   assert.equal(lastOf(view.presentations).warp.newBest, false);
-  assert.ok(!preferences.writes.some((write) => 'bestWarp' in write));
+  assert.equal(preferences.get().bestWarp, 9000);
+});
+
+test('won or lost, a cup pays out tickets for its points, once', () => {
+  const { controller, scheduler, view, preferences } = setup({ mode: 'warp', bestWarp: 9000, tickets: 120 });
+  const race = controller.state.warp;
+
+  assert.deepEqual({ tickets: lastOf(view.presentations).warp.tickets, earned: lastOf(view.presentations).warp.earned }, { tickets: 120, earned: 0 });
+
+  view.handler(GAME_COMMAND.START);
+  // Three thousand points in the cup, and two thousand more in races flown again.
+  inPlay(controller, { lives: 1, warp: { ...controller.state.warp, z: race.course.length - 0.1, points: 3000, lost: 2000, speed: WARP.topSpeed, rivals: race.rivals.map((rival) => ({ ...rival, z: race.course.length + 5, finish: 30 })) } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+  scheduler.flush(1040);
+
+  const earned = ticketsFor(HANGAR, controller.state.warp.points + 2000);
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.ok(earned >= ticketsFor(HANGAR, 5000));
+  assert.equal(lastOf(view.presentations).warp.best, 9000, 'the record counts only the cup');
+  assert.deepEqual({ tickets: lastOf(view.presentations).warp.tickets, earned: lastOf(view.presentations).warp.earned }, { tickets: 120 + earned, earned });
+  assert.equal(preferences.get().tickets, 120 + earned);
+
+  // The tickets stay, and the next cup starts with nothing paid out yet.
+  view.handler(GAME_COMMAND.RESET);
+  view.handler(GAME_COMMAND.START);
+  assert.deepEqual({ tickets: lastOf(view.presentations).warp.tickets, earned: lastOf(view.presentations).warp.earned }, { tickets: 120 + earned, earned: 0 });
+  assert.equal(preferences.get().tickets, 120 + earned);
+});
+
+test('a Warp cup is flown in the craft chosen in the hangar, as it is tuned', () => {
+  const manta = HANGAR.crafts.find((craft) => craft.id === 'manta');
+  const hangar = { craft: 'manta', owned: { manta: { tune: { engine: 1, nitro: 0, grip: 0, armor: 2, guns: 0 }, paint: 'red', decal: 'flames', glow: '' } } };
+  const { controller, view, preferences } = setup({ mode: 'warp', hangar });
+  const loadout = loadoutOf(HANGAR, hangar);
+
+  assert.equal(loadout.name, 'Manta');
+  assert.deepEqual(controller.config.warp.loadout, loadout);
+  assert.equal(lastOf(view.presentations).warp.craft, 'Manta');
+  assert.equal(controller.state.warp.shield, loadout.shields, 'the race starts with what the craft carries');
+  assert.equal(loadout.shields, manta.stats.armor + 2 >= 5 ? 1 : 0);
+
+  // A change in the hangar takes hold as the menu is redrawn.
+  preferences.set({ hangar: { craft: '', owned: {} } });
+  view.handler(GAME_COMMAND.RESET);
+  assert.deepEqual(controller.config.warp.loadout, WARP_CONFIG.warp.loadout);
+  assert.equal(lastOf(view.presentations).warp.craft, 'Kestrel');
+
+  // Without a hangar to ask, the cup is flown in the craft it is tuned for.
+  assert.equal(buildMatchConfig(MATCH_CATALOG, { mode: 'warp', difficulty: 'easy', powerUps: true }), MATCH_CATALOG.warp);
+  assert.deepEqual(buildMatchConfig(MATCH_CATALOG, { mode: 'warp', difficulty: 'easy', powerUps: true, hangar: { craft: '', owned: {} } }), MATCH_CATALOG.warp);
 });
 
 test('winning the last race takes the cup', () => {

@@ -3,7 +3,7 @@ import { WARP_COURSES } from './courses.js';
 import { NOVA_SECTORS } from './sectors.js';
 
 /**
- * @import { GameConfig } from './domain/types.js'
+ * @import { GameConfig, Loadout } from './domain/types.js'
  * @import { Difficulty } from './application/ports.js'
  */
 
@@ -244,10 +244,33 @@ export const NOVA_CONFIG = Object.freeze({
 /** Credits a Warp cup gives the player: a race placed too low to go through spends one. */
 export const WARP_LIVES = 3;
 
+/**
+ * The craft a Warp race is flown in unless the hangar says otherwise: the first craft of the
+ * hangar, untuned, in the player's own cyan. The game is tuned for it.
+ *
+ * @type {Readonly<Loadout>}
+ */
+export const WARP_LOADOUT = Object.freeze({
+  name: 'Kestrel',
+  kind: 'jet',
+  paint: '34, 211, 238',
+  decal: 'none',
+  glow: '34, 211, 238',
+  speed: 1,
+  nitroBars: 3,
+  nitroSeconds: 1.5,
+  drift: 1,
+  spin: 1,
+  shields: 0,
+  damage: 55,
+  rockets: 2,
+});
+
 // Warp: the paddle is a racing craft on a neon course, seen from behind. It flies on by itself,
-// so the player only steers, as in every other mode: through rings, over boost pads, round
-// hazards and past five rivals a race. Its place across the lane is the paddle's place across
-// the court. A race lasts about a minute. Tuned by racing the cup with human-like bots.
+// so the player only steers, as in every other mode: through rings and gates, over boost pads
+// and off ramps, round hazards, along the inside of a bend for a drift, and past five rivals a
+// race. Its place across the lane is the paddle's place across the court. A race lasts about a
+// minute. Tuned by racing the cup with human-like bots.
 export const WARP_CONFIG = Object.freeze({
   ...tuned(GAME_CONFIG, {
     rules: Object.freeze({ kind: 'warp', lives: WARP_LIVES }),
@@ -258,6 +281,7 @@ export const WARP_CONFIG = Object.freeze({
       topSpeed: 40,
       boostSpeed: 54,
       accel: 1.2,
+      gravity: 2,
       spinSeconds: 1.1,
       spinSpeed: 0.45,
       safeSeconds: 1.6,
@@ -266,16 +290,42 @@ export const WARP_CONFIG = Object.freeze({
       ringRadius: 0.28,
       padWidth: 0.22,
       padSeconds: 1.4,
+      rampWidth: 0.32,
+      airSeconds: 1.05,
+      gateGap: 0.4,
+      gateCenter: 0.08,
       nearMiss: 0.1,
       draft: 14,
       slipSeconds: 1.2,
       slingSeconds: 1.2,
+      driftBend: 0.5,
+      driftFrom: 0.45,
+      driftSeconds: 1.1,
+      driftBoostSeconds: 0.9,
+      startWindow: 0.4,
+      startBoostSeconds: 1.2,
+      flowStep: 4,
+      maxFlow: 5,
       placePoints: Object.freeze([1000, 600, 400, 200, 100, 50]),
-      chargePerTrick: 0.06,
+      chargePerTrick: 0.04,
       burnSeconds: 3,
       ghostSeconds: 4,
       shockRange: 18,
-      calmSeconds: 3.5,
+      pickupWidth: 0.26,
+      nitroSpeed: 62,
+      nitroPerTrick: 0.05,
+      gunRange: 45,
+      gunAim: 0.14,
+      rivalHull: 140,
+      rocketRange: 110,
+      rocketAim: 0.4,
+      lockSeconds: 0.7,
+      missileSpeed: 45,
+      blastRange: 7,
+      mineEvery: 4.5,
+      maxDrops: 5,
+      calmSeconds: 4.5,
+      loadout: WARP_LOADOUT,
     },
   }),
   // The craft steers across the whole lane with the paddle's whole reach.

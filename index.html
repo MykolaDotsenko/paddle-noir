@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="Paddle Noir: neon arcade ping pong for phones and desktops. Curve the ball, fire super shots, climb a ladder of ten rivals, break eight walls of bricks, fly a starship through five sectors, or race a neon cup in a warp craft.">
+    <meta name="description" content="Paddle Noir: neon arcade ping pong for phones and desktops. Curve the ball, fire super shots, climb a ladder of ten rivals, break eight walls of bricks, fly a starship through five sectors, or race a neon cup with nitro, guns and rockets in a craft you tune and paint yourself.">
     <meta name="theme-color" content="#05060f">
     <meta name="color-scheme" content="dark">
     <meta name="mobile-web-app-capable" content="yes">
@@ -250,6 +250,15 @@
                     </span>
                     <span class="scores-card__more" aria-hidden="true">›</span>
                   </button>
+                  <button type="button" class="scores-card" data-warp-only data-show-hangar hidden>
+                    <svg class="scores-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.8l2.3 8.2 7.2 5.2v2l-7.6-2.1-.6 3.4h-2.6l-.6-3.4-7.6 2.1v-2l7.2-5.2z"/><path d="M12 7.2v4.3"/></svg>
+                    <span class="scores-card__text">
+                      <span class="scores-card__title">Hangar</span>
+                      <strong class="scores-card__place" data-hangar-craft>Kestrel</strong>
+                      <span class="scores-card__next" data-hangar-tickets>0 tickets</span>
+                    </span>
+                    <span class="scores-card__more" aria-hidden="true">›</span>
+                  </button>
                   <button type="button" class="cta" data-command="start">Play</button>
                   <div class="panel__row panel__row--menu">
                     <button type="button" class="ghost ghost--small" data-show-tutorial>
@@ -270,15 +279,59 @@
                 <h2 class="panel__title" id="tutorial-title">How to play</h2>
                 <ol class="tutorial">
                   <li><span class="tutorial__icon" aria-hidden="true">👆</span><span><strong>Drag</strong> anywhere below the middle, or on the rail under the court, to move your paddle.</span></li>
-                  <li><span class="tutorial__icon" aria-hidden="true">↝</span><span><strong>Flick</strong> sideways as the ball lands to curve it. The computer cannot read a curve.</span></li>
+                  <li data-ball-only><span class="tutorial__icon" aria-hidden="true">↝</span><span><strong>Flick</strong> sideways as the ball lands to curve it. The computer cannot read a curve.</span></li>
                   <li><span class="tutorial__icon" aria-hidden="true">✹</span><span><strong>Supers</strong>: returns fill your meter. When it glows, flick as you hit to fire it.</span></li>
-                  <li><span class="tutorial__icon" aria-hidden="true">◐</span><span><strong>Hit off-center</strong> to angle your return. Every hit speeds the ball up.</span></li>
+                  <li data-ball-only><span class="tutorial__icon" aria-hidden="true">◐</span><span><strong>Hit off-center</strong> to angle your return. Every hit speeds the ball up.</span></li>
                   <li data-match-only><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Grab power-ups</strong> with the ball: Wide, Shrink, Turbo, Ghost and Multiball. Whoever hit last gets it.</span></li>
                   <li data-nova-only hidden><span class="tutorial__icon" aria-hidden="true">✈</span><span><strong>Your paddle is a starship.</strong> It fires by itself: steer out of the way of rocks and fire, and under what you want shot down.</span></li>
-                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">➤</span><span><strong>Your paddle is a racing craft.</strong> It flies by itself: steer through rings and over boost pads, round mines and debris, and tuck in behind a rival to slingshot past.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">➤</span><span><strong>Your paddle is a racing craft.</strong> It flies by itself: thread rings and gates, jump ramps, drift on the inside of bends, and slipstream rivals to slingshot past.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">◎</span><span><strong>Fight for your place.</strong> Swipe up, click or press ↑ to burn nitro, and ram at that speed. Guns fire at a rival dead ahead; rockets lock on by themselves.</span></li>
                   <li data-bricks-only hidden><span class="tutorial__icon" aria-hidden="true">▦</span><span><strong>Break every wall.</strong> Catch what falls with your paddle. A super goes through bricks, or takes a whole row.</span></li>
                 </ol>
                 <button type="button" class="cta" data-dismiss-tutorial autofocus>Got it</button>
+              </div>
+            </dialog>
+
+            <dialog class="dialog" data-overlay="hangar" aria-labelledby="hangar-title">
+              <div class="panel panel--hangar">
+                <div class="hangar__head">
+                  <h2 class="panel__title" id="hangar-title">Hangar</h2>
+                  <p class="hangar__wallet"><strong class="price" data-hangar-wallet>0</strong><span class="visually-hidden"> tickets</span></p>
+                </div>
+                <div class="hangar__stage">
+                  <button type="button" class="rival__step" data-hangar-step="-1" aria-label="Previous craft">‹</button>
+                  <div class="hangar__show">
+                    <canvas class="hangar__canvas" data-hangar-canvas width="640" height="320" aria-hidden="true"></canvas>
+                    <p class="hangar__name"><span class="hangar__place" data-hangar-place>1/5</span><strong data-hangar-name>Kestrel</strong><span class="hangar__tag" data-hangar-tag>Flying</span></p>
+                    <p class="hangar__blurb" data-hangar-blurb>The all-rounder the cup is tuned for.</p>
+                  </div>
+                  <button type="button" class="rival__step" data-hangar-step="1" aria-label="Next craft">›</button>
+                </div>
+                <div class="hangar__work">
+                  <div class="segmented hangar__tabs" role="group" aria-label="Workshop">
+                    <button type="button" data-hangar-tab="tune" aria-pressed="true">Tune</button>
+                    <button type="button" data-hangar-tab="paint" aria-pressed="false">Paint</button>
+                    <button type="button" data-hangar-tab="glow" aria-pressed="false">Glow</button>
+                  </div>
+                  <div class="hangar__bench" data-hangar-bench="tune">
+                    <div class="tunes" data-hangar-systems></div>
+                  </div>
+                  <div class="hangar__bench hangar__bench--paint" data-hangar-bench="paint" hidden>
+                    <p class="hangar__label" id="hangar-paint">Paint</p>
+                    <div class="swatches" role="group" aria-labelledby="hangar-paint" data-hangar-paints></div>
+                    <p class="hangar__label" id="hangar-decal">Decal</p>
+                    <div class="segmented hangar__decals" role="group" aria-labelledby="hangar-decal" data-hangar-decals></div>
+                  </div>
+                  <div class="hangar__bench hangar__bench--paint" data-hangar-bench="glow" hidden>
+                    <p class="hangar__label" id="hangar-glow">The light under it, and in its engines</p>
+                    <div class="swatches" role="group" aria-labelledby="hangar-glow" data-hangar-glows></div>
+                  </div>
+                  <p class="hangar__locked" data-hangar-locked hidden>Buy it to paint it.</p>
+                </div>
+                <div class="panel__row hangar__actions">
+                  <button type="button" class="ghost" data-hangar-buy hidden>Buy</button>
+                  <button type="button" class="cta" data-dismiss-hangar autofocus>Done</button>
+                </div>
               </div>
             </dialog>
 
@@ -406,6 +459,7 @@
                 </p>
                 <p class="panel__meta" data-over-meta>Longest rally <strong data-over-rally>0</strong></p>
                 <p class="panel__meta" data-over-wall hidden></p>
+                <p class="panel__meta panel__meta--tickets" data-over-tickets hidden></p>
                 <button type="button" class="standing" data-over-scores data-show-scores hidden>
                   <span class="standing__rows" data-standing-rows></span>
                   <span class="standing__note" data-standing-note></span>

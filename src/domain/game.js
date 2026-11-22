@@ -832,16 +832,17 @@ function advanceNovaGame(state, deltaSeconds, config, events) {
  * @param {number} deltaSeconds
  * @param {GameConfig} config
  * @param {GameEvent[]} events
+ * @param {boolean} action whether the player has just asked for nitro
  * @returns {GameState}
  */
-function advanceWarpGame(state, deltaSeconds, config, events) {
+function advanceWarpGame(state, deltaSeconds, config, events, action) {
   const next = tickEffects(state, deltaSeconds);
 
   if (next.serveCountdown > 0) {
     return waitForServe(next, deltaSeconds, config, events);
   }
 
-  const raced = advanceWarp(next, deltaSeconds, config, events);
+  const raced = advanceWarp(next, deltaSeconds, config, events, action);
   const finish = events.find((event) => event.type === 'race-finish');
 
   if (raced.lives === 0) {
@@ -879,7 +880,7 @@ export function advanceGame(state, deltaSeconds, input, config) {
   }
 
   if (nextState.warp) {
-    return advanceWarpGame(nextState, deltaSeconds, config, events);
+    return advanceWarpGame(nextState, deltaSeconds, config, events, input.action === true);
   }
 
   if (nextState.bricks) {

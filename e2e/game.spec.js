@@ -1499,11 +1499,83 @@ test.describe('in Warp', () => {
     expect(final).toBeGreaterThanOrEqual(100);
     await expect(page.locator('[data-over-wall]')).toHaveText(new RegExp(`^points · race \\d of ${courses.length} · `));
     await expect(page.locator('[data-over-best-warp]')).toBeVisible();
+    // Lost or won, the cup pays out tickets for the hangar.
+    await expect(page.locator('[data-over-tickets]')).toHaveText(/^\+\d+ tickets for the hangar$/);
+    const paid = Number((await page.locator('[data-over-tickets]').textContent()).match(/\d+/)[0]);
+    expect(paid).toBeGreaterThanOrEqual(Math.floor(final / 25));
 
     await page.getByRole('button', { name: 'Menu' }).click();
     await page.reload();
     await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${courses.length} races · Best ${final} points`);
+    await expect(page.getByRole('button', { name: /Hangar/ })).toContainText(`${paid} tickets`);
     expect(errors).toEqual([]);
+  });
+
+  test.describe('with tickets to spend', () => {
+    test.use({ stored: { mode: 'warp', tickets: 9000, jokes: false } });
+
+    test('the hangar sells, tunes and paints a craft, and the cup is flown in it', async ({ page, hasTouch }) => {
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await freezeTime(page);
+      const press = (locator) => (hasTouch ? locator.tap() : locator.click());
+      const card = page.getByRole('button', { name: /Hangar/ });
+      const hangar = page.getByRole('dialog', { name: 'Hangar' });
+
+      await expect(card).toContainText('Kestrel');
+      await expect(card).toContainText('9000 tickets');
+      await press(card);
+      await expect(hangar).toBeVisible();
+      await expect(hangar.locator('[data-hangar-name]')).toHaveText('Kestrel');
+      await expect(hangar.locator('[data-hangar-tag]')).toHaveText('Flying');
+      await expect(hangar.getByRole('button', { name: /^Tune engine to level 1 of 3 for 500 tickets$/ })).toBeEnabled();
+
+      // Round to the last craft: not owned, so it shows its price, and nothing of it can be tuned.
+      for (let step = 0; step < 4; step += 1) {
+        await press(hangar.getByRole('button', { name: 'Next craft' }));
+      }
+
+      await expect(hangar.locator('[data-hangar-name]')).toHaveText('Halo');
+      await expect(hangar.locator('[data-hangar-tag]')).toHaveText('8000 tickets');
+      await expect(hangar.locator('[data-hangar-tune="nitro"]')).toBeHidden();
+      await press(hangar.getByRole('button', { name: 'Buy · 8000' }));
+      await expect(hangar.locator('[data-hangar-tag]')).toHaveText('Flying');
+      await expect(hangar.locator('[data-hangar-wallet]')).toHaveText('1000');
+
+      // Tune it, paint it the color of a paddle's core's own neon, and light it.
+      await press(hangar.locator('[data-hangar-tune="nitro"]'));
+      await expect(hangar.locator('[data-hangar-wallet]')).toHaveText('500');
+      await expect(hangar.getByRole('img', { name: 'Nitro 6 of 8' })).toBeVisible();
+      await expect(hangar.locator('[data-hangar-tune="nitro"]')).toBeDisabled();
+      await press(hangar.getByRole('button', { name: 'Paint', exact: true }));
+      await press(hangar.getByRole('group', { name: 'Paint' }).getByRole('button', { name: 'Cyan' }));
+      await press(hangar.getByRole('button', { name: 'Flames' }));
+      await expect(hangar.getByRole('button', { name: 'Flames' })).toHaveAttribute('aria-pressed', 'true');
+      await press(hangar.getByRole('button', { name: 'Glow', exact: true }));
+      await press(hangar.locator('[data-hangar-glow="amber"]'));
+      await expect(hangar.locator('[data-hangar-glow="amber"]')).toHaveAttribute('aria-pressed', 'true');
+      await press(hangar.getByRole('button', { name: 'Done' }));
+      await expect(hangar).toBeHidden();
+      await expect(card).toContainText('Halo');
+      await expect(card).toContainText('500 tickets');
+
+      // It is all kept.
+      await page.reload();
+      await expect(card).toContainText('Halo');
+      await expect(card).toContainText('500 tickets');
+
+      // The cup is flown in it: whatever the craft and its paint, it is found where a paddle would be.
+      await press(playButton(page));
+      await page.clock.runFor(3500);
+      const surface = hasTouch ? page.locator('.rail') : board(page);
+      const box = await surface.boundingBox();
+      const at = [box.x + box.width * (170 / GAME_CONFIG.width), box.y + box.height / 2];
+      await (hasTouch ? page.touchscreen.tap(...at) : page.mouse.move(...at));
+      await page.clock.runFor(400);
+      expect(Math.abs(await readPlayerX(page) - 170)).toBeLessThan(15);
+      expect(await readBall(page)).toBeNull();
+      expect(errors).toEqual([]);
+    });
   });
 
   test('How to play tells of the race', async ({ page }) => {
@@ -1512,7 +1584,10 @@ test.describe('in Warp', () => {
     const help = page.getByRole('dialog', { name: 'How to play' });
 
     await expect(help.getByText('Your paddle is a racing craft.')).toBeVisible();
+    await expect(help.getByText('Fight for your place.')).toBeVisible();
     await expect(help.getByText('Grab power-ups')).toBeHidden();
     await expect(help.getByText('Your paddle is a starship.')).toBeHidden();
+    // There is no ball to curve.
+    await expect(help.getByText('The computer cannot read a curve.')).toBeHidden();
   });
 });

@@ -547,7 +547,15 @@ test('Warp\'s events each have their sound, and a rival\'s crash is only a dista
     { type: 'crash', z: 0, x: 0, kind: 'mine', pilot: 2 },
     { type: 'near-miss', z: 0, x: 0, points: 40 },
     { type: 'bump', z: 0, x: 0 },
-    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150 },
+    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150, by: 'guns' },
+    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150, by: 'ram' },
+    { type: 'nitro', z: 0, x: 0 },
+    { type: 'gun-fire', z: 0, x: 0 },
+    { type: 'rocket-launch', pilot: 1, z: 0, x: 0 },
+    { type: 'explosion', z: 0, x: 0 },
+    { type: 'ammo', kind: 'rocket', z: 0, x: 0 },
+    { type: 'ammo', kind: 'nitro', z: 0, x: 0 },
+    { type: 'shield-hit', z: 0, x: 0, left: 0 },
     { type: 'smash', kind: 'cargo', z: 0, x: 0, points: 60 },
     { type: 'overtake', place: 2, pilot: 1, points: 50 },
     { type: 'overtaken', place: 3, pilot: 1 },
@@ -557,6 +565,17 @@ test('Warp\'s events each have their sound, and a rival\'s crash is only a dista
     { type: 'final-stretch' },
     { type: 'race-finish', race: 0, place: 1, points: 1000, qualified: true, last: false, margin: 1 },
     { type: 'race-finish', race: 0, place: 3, points: 400, qualified: true, last: false, margin: 1 },
+    { type: 'ring', grade: 'perfect', chain: 1, air: true, z: 0, x: 0, points: 100 },
+    { type: 'boost', z: 0, x: 0, by: 'drift' },
+    { type: 'boost', z: 0, x: 0, by: 'start' },
+    { type: 'jump', z: 0, x: 0 },
+    { type: 'land', z: 0, x: 0, points: 60 },
+    { type: 'gate', grade: 'perfect', z: 0, x: 0, points: 40 },
+    { type: 'gate', grade: 'good', z: 0, x: 0, points: 0 },
+    { type: 'drift-ready', z: 0, x: 0 },
+    { type: 'flow', multiplier: 2 },
+    { type: 'flow', multiplier: 4 },
+    { type: 'mine-drop', pilot: 4, z: 0, x: 0 },
   ];
   const heard = events.map((event) => describe(sounds(event)));
 
@@ -564,6 +583,7 @@ test('Warp\'s events each have their sound, and a rival\'s crash is only a dista
   assert.equal(new Set(heard).size, heard.length, 'each its own');
   assert.equal(describe(sounds({ type: 'ring', grade: 'miss', chain: 0, z: 0, x: 0, points: 0 })), '', 'a ring missed is silent');
   assert.equal(describe(sounds({ type: 'boost', z: 0, x: 0, by: 'super' })), '', 'a super\'s boost is the super\'s sound');
+  assert.equal(describe(sounds({ type: 'jump', z: 0, x: 0, pilot: 1 })), '', 'a rival\'s jump is seen, not heard');
   assert.equal(describe(sounds({ type: 'race-finish', race: 0, place: 5, points: 100, qualified: false, last: false, margin: 1 })), '', 'a race not gone through is told by the credit lost');
 });
 

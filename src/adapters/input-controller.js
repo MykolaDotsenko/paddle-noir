@@ -9,6 +9,10 @@ import { GAME_COMMAND } from '../application/ports.js';
 const PLAYER_KEYS = Object.freeze({ left: new Set(['ArrowLeft', 'KeyA']), right: new Set(['ArrowRight', 'KeyD']) });
 // A second person on the same keyboard uses the far side of it.
 const OPPONENT_KEYS = Object.freeze({ left: new Set(['KeyJ', 'Numpad4']), right: new Set(['KeyL', 'Numpad6']) });
+// The player's extra, where a game has one: a bar of nitro in Warp. A key, a click of the mouse,
+// or a swipe up: a finger that has risen this far on the screen, more than it moved sideways.
+const ACTION_KEYS = new Set(['ArrowUp', 'KeyW']);
+const SWIPE_UP_PIXELS = 34;
 const INTERACTIVE_TAGS = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'];
 const INTERACTIVE_SELECTOR = INTERACTIVE_TAGS.join(',').toLowerCase();
 
@@ -45,6 +49,8 @@ class PaddleInput {
     this.lastClientX = null;
     /** @type {number | null} The pointer this paddle follows, so two fingers stay with their own paddles. */
     this.pointerId = null;
+    /** @type {{ x: number, y: number } | null} The lowest point of the finger's stroke, which a swipe up rises from. */
+    this.low = null;
   }
 
   release() {
@@ -52,6 +58,7 @@ class PaddleInput {
     this.rightPressed = false;
     this.pointerX = null;
     this.pointerId = null;
+    this.low = null;
   }
 
   get axis() {
@@ -79,6 +86,8 @@ export class InputController {
     this.players = 1;
     this.player = new PaddleInput();
     this.opponent = new PaddleInput();
+    /** Whether the player has asked for their extra since the last snapshot. */
+    this.action = false;
     /** @type {Array<[EventTarget, string, EventListener]>} */
     this.listeners = [];
     /** @type {CommandHandler} */
@@ -195,6 +204,13 @@ export class InputController {
       return;
     }
 
+    if (ACTION_KEYS.has(event.code)) {
+      // Held down, it asks once.
+      this.action ||= !event.repeat;
+      event.preventDefault();
+      return;
+    }
+
     if (event.repeat) {
       return;
     }
@@ -217,6 +233,7 @@ export class InputController {
   handleFocusLoss() {
     this.player.release();
     this.opponent.release();
+    this.action = false;
     this.commandHandler(GAME_COMMAND.PAUSE);
   }
 
@@ -255,6 +272,10 @@ export class InputController {
     const rect = this.board.getBoundingClientRect();
     const paddle = this.paddleFor(event, rect);
 
+    if (paddle === this.player) {
+      this.readAction(event, isPress);
+    }
+
     // Moves without horizontal travel (vertical or synthetic) must not take over from the keyboard.
     if (!isPress && event.clientX === paddle.lastClientX) {
       return;
@@ -274,23 +295,62 @@ export class InputController {
     paddle.pointerX = ((event.clientX - rect.left) / rect.width) * this.config.width;
   }
 
+  /**
+   * Whether a pointer asks for the player's extra: a mouse by its click, a finger by a swipe
+   * up, measured from the lowest point of its stroke, so steering along the rail never asks.
+   *
+   * @param {PointerEvent} event
+   * @param {boolean} isPress
+   */
+  readAction(event, isPress) {
+    const { player } = this;
+
+    if (event.pointerType === 'mouse') {
+      this.action ||= isPress;
+      return;
+    }
+
+    if (isPress || !player.low || event.clientY > player.low.y) {
+      player.low = { x: event.clientX, y: event.clientY };
+      return;
+    }
+
+    const rise = player.low.y - event.clientY;
+
+    if (rise >= SWIPE_UP_PIXELS && rise > Math.abs(event.clientX - player.low.x)) {
+      this.action = true;
+      // The next swipe starts from here.
+      player.low = { x: event.clientX, y: event.clientY };
+    }
+  }
+
   /** @param {PointerEvent} event */
   releasePointer(event) {
     for (const paddle of [this.player, this.opponent]) {
       if (paddle.pointerId === event.pointerId) {
         // The paddle stays where the finger left it; only the binding is dropped.
         paddle.pointerId = null;
+        paddle.low = null;
       }
     }
   }
 
-  /** @returns {InputSnapshot} */
+  /**
+   * What the players are asking for now. A request for the extra is told once, in the first
+   * snapshot after it was made.
+   *
+   * @returns {InputSnapshot}
+   */
   snapshot() {
-    return {
+    const snapshot = {
       horizontalAxis: this.player.axis,
       pointerX: this.player.pointerX,
       opponentAxis: this.opponent.axis,
       opponentPointerX: this.opponent.pointerX,
     };
+    const { action } = this;
+    this.action = false;
+
+    return action ? { ...snapshot, action } : snapshot;
   }
 }
