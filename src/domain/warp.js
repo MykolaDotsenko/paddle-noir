@@ -569,7 +569,7 @@ export function raceState(config, race, points = 0, lost = 0) {
     shieldCooldown: 0,
     abilityCooldown: 0,
     abilityTime: 0,
-    shield: rules.loadout.shields + (race === 0 && layout.name === 'Sunset Skyway' ? 1 : 0),
+    shield: rules.loadout.shields,
     rockets: Math.min(1, rules.loadout.rockets),
     lock: 0,
     lockOn: 0,
