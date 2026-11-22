@@ -37,6 +37,8 @@ import { mixRgb, roundedRect, THEME } from './theme.js';
  * @property {number} y
  * @property {number} scale
  * @property {number} bank radians it leans, or turns while it spins
+ * @property {number} [yaw] side-slip angle, for a subtle 2.5D perspective deformation
+ * @property {number} [pitch] nose-up attitude, for a small depth change in the silhouette
  * @property {number} flame 0 to 1 and a little more
  * @property {boolean} nitro whether it burns nitro: a longer, blue flame
  * @property {number} rockets how many hang under its wings
@@ -289,6 +291,225 @@ function mark(ctx, print, decal, paint) {
   ctx.restore();
 }
 
+
+/**
+ * Gives the aerodynamic shells a visible underside. The shadow shell is offset toward the
+ * viewer, like a shallow extrusion, instead of being a second flat outline. Only render
+ * it for nearby craft: thin geometry at tiny sizes shimmers on phones.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Blueprint} print
+ * @param {string} paint
+ */
+function airframeVolume(ctx, print, paint) {
+  const underside = ctx.createLinearGradient(0, 4, 0, 16);
+  underside.addColorStop(0, 'rgb(' + shade(paint, 0.64) + ')');
+  underside.addColorStop(1, 'rgb(' + shade(paint, 0.87) + ')');
+  ctx.fillStyle = underside;
+  ctx.beginPath();
+
+  for (const [index, [x, y]] of print.wings.entries()) {
+    const drop = 2.7 + Math.abs(x / print.span) * 1.7;
+
+    if (index === 0) {
+      ctx.moveTo(x, y + drop);
+    } else {
+      ctx.lineTo(x, y + drop);
+    }
+  }
+
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = 'rgb(' + shade(paint, 0.81) + ')';
+  ctx.beginPath();
+
+  for (const [index, [x, y]] of print.body.entries()) {
+    if (index === 0) {
+      ctx.moveTo(x, y + 4);
+    } else {
+      ctx.lineTo(x, y + 4);
+    }
+  }
+
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * Small believable airframe details: tapered outer panels, moving elevons, fasteners and
+ * cooling louvers. All positions scale with the blueprint, so a dart stays distinctly
+ * slimmer than a flying wing or a heavy gunship.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {CraftStyle} style
+ * @param {Blueprint} print
+ */
+function wingStructure(ctx, style, print) {
+  const { kind, paint, bank } = style;
+  const lean = Math.sin(bank);
+  const span = print.span;
+  const close = style.scale >= 0.72;
+  const highlight = ctx.createLinearGradient(-span, -5, span, 10);
+  highlight.addColorStop(0, 'rgba(' + shade(paint, 0.16) + ', 0.64)');
+  highlight.addColorStop(0.5, 'rgba(' + sheen(paint, 0.35) + ', 0.78)');
+  highlight.addColorStop(1, 'rgba(' + shade(paint, 0.38) + ', 0.62)');
+
+  // Distinct trapezoidal upper wing skin, away from the very dark leading edge.
+  for (const side of [-1, 1]) {
+    const root = kind === 'heavy' ? 15 : kind === 'dart' ? 8 : 11;
+    const out = span * (kind === 'wing' ? 0.9 : 0.84);
+    ctx.beginPath();
+    ctx.moveTo(side * root, -3);
+    ctx.lineTo(side * span * 0.58, 0.4);
+    ctx.lineTo(side * out, 5.5);
+    ctx.lineTo(side * root, 5.8);
+    ctx.closePath();
+    ctx.fillStyle = highlight;
+    ctx.fill();
+
+    // Elevon, with a visible hinge and a bank-sensitive trailing surface.
+    const hingeY = 6 + side * lean * 1.9;
+    ctx.beginPath();
+    ctx.moveTo(side * span * 0.49, hingeY);
+    ctx.lineTo(side * span * 0.82, hingeY + 0.2);
+    ctx.lineTo(side * span * 0.77, hingeY + 2.3);
+    ctx.lineTo(side * span * 0.52, hingeY + 2.2);
+    ctx.closePath();
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.48 - side * lean * 0.13) + ')';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(' + DARK + ', 0.68)';
+    ctx.lineWidth = 0.65;
+    ctx.stroke();
+
+    // A small de-icing/leading-edge metallic strip, rather than a neon outline.
+    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.4) + ', 0.62)';
+    ctx.lineWidth = 0.75;
+    ctx.beginPath();
+    ctx.moveTo(side * (root + 2), -3.2);
+    ctx.lineTo(side * span * 0.7, 1.7);
+    ctx.stroke();
+
+    // Countersunk fasteners only resolve at portrait/close-race scale.
+    if (close) {
+      ctx.fillStyle = 'rgba(' + DARK + ', 0.68)';
+      for (const offset of [0.32, 0.46, 0.6]) {
+        ctx.beginPath();
+        ctx.arc(side * span * offset, 4.4, 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+
+  // Airframe-specific hardware keeps the five hull families readable by silhouette.
+  // Kestrel has canards, Hornet a knife-edge keel, Manta raised tips, Bulwark armour.
+  if (close && kind === 'jet') {
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.34) + ')';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 5, -14);
+      ctx.lineTo(side * 12, -11);
+      ctx.lineTo(side * 10, -8);
+      ctx.lineTo(side * 5, -9);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (close && kind === 'dart') {
+    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.58) + ', 0.8)';
+    ctx.lineWidth = 1.05;
+    ctx.beginPath();
+    ctx.moveTo(0, -24);
+    ctx.lineTo(0, -16);
+    ctx.moveTo(-6, 5);
+    ctx.lineTo(6, 5);
+    ctx.stroke();
+  } else if (close && kind === 'wing') {
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.52) + ')';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 37, 4);
+      ctx.lineTo(side * 40, -7);
+      ctx.lineTo(side * 38, 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (close && kind === 'heavy') {
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.58) + ')';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 12, -8);
+      ctx.lineTo(side * 21, -3);
+      ctx.lineTo(side * 22, 5);
+      ctx.lineTo(side * 12, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.5) + ', 0.56)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+  }
+
+  // Engines have intake ducts and heat ventilation, not just isolated light points.
+  for (const [x, y, wide] of print.engines) {
+    ctx.beginPath();
+    ctx.ellipse(x, y - 4, wide * 1.35, wide * 1.75, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.56) + ')';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.37) + ', 0.7)';
+    ctx.lineWidth = 0.85;
+    ctx.stroke();
+
+    if (close) {
+      ctx.strokeStyle = 'rgba(' + DARK + ', 0.65)';
+      ctx.lineWidth = 0.7;
+      for (let vent = 0; vent < 3; vent += 1) {
+        ctx.beginPath();
+        ctx.moveTo(x - wide * 0.6, y - 7 + vent * 1.8);
+        ctx.lineTo(x + wide * 0.6, y - 7 + vent * 1.8);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // The fuselage has a narrow raised spine and removable access panels.
+  ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.53) + ', 0.54)';
+  ctx.lineWidth = 0.85;
+  ctx.beginPath();
+  ctx.moveTo(0, -18);
+  ctx.lineTo(0, -12);
+  ctx.moveTo(-7, 5);
+  ctx.lineTo(7, 5);
+  ctx.stroke();
+}
+
+/**
+ * A layered transparent canopy: dark tinted glass, a reflected skyline and a central frame
+ * with restrained metal highlights. This stays below the player's unique cockpit beacon.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} paint
+ * @param {number} bank
+ */
+function canopyMaterial(ctx, paint, bank) {
+  const glass = ctx.createLinearGradient(-7 + Math.sin(bank) * 3, -18, 8, 6);
+  glass.addColorStop(0, 'rgb(' + mixRgb(GLASS, STEEL, 0.5) + ')');
+  glass.addColorStop(0.32, 'rgb(' + mixRgb(GLASS, LIGHT, 0.3) + ')');
+  glass.addColorStop(0.48, 'rgb(' + GLASS + ')');
+  glass.addColorStop(1, 'rgb(' + mixRgb(GLASS, paint, 0.12) + ')');
+  ctx.fillStyle = glass;
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.65) + ', 0.62)';
+  ctx.lineWidth = 0.72;
+  ctx.beginPath();
+  ctx.moveTo(-2.8, -12.7);
+  ctx.quadraticCurveTo(-4.6, -7, -2.8, -1.5);
+  ctx.moveTo(2.5, -13.6);
+  ctx.lineTo(3.4, -7);
+  ctx.stroke();
+}
+
 /**
  * The plated crafts: wings shaded from root to tip, a body rounded by its shading, guns,
  * rockets, fins that lean with the craft, panel lines and a lit edge in the paint.
@@ -301,6 +522,11 @@ function mark(ctx, print, decal, paint) {
 function plates(ctx, style, print, fine) {
   const { paint, decal, bank, rockets } = style;
   const lean = Math.sin(bank);
+
+  // The wings have physical thickness, dark underneath and lit on their top surfaces.
+  if (fine) {
+    airframeVolume(ctx, print, paint);
+  }
 
   // The wings, lit along the span from the side the craft leans away from.
   trace(ctx, print.wings);
@@ -319,6 +545,8 @@ function plates(ctx, style, print, fine) {
   ctx.fill();
 
   if (fine) {
+    wingStructure(ctx, style, print);
+
     // Panel lines, flaps and all.
     ctx.strokeStyle = `rgba(${DARK}, 0.55)`;
     ctx.lineWidth = 0.7;
@@ -404,10 +632,14 @@ function plates(ctx, style, print, fine) {
     ctx.stroke();
   }
 
-  // The canopy: dark glass, with the sky in it.
+  // The canopy: layered tinted glass with a reflected sky, framed above the hull.
   trace(ctx, print.canopy);
-  ctx.fillStyle = `rgb(${GLASS})`;
-  ctx.fill();
+  if (fine) {
+    canopyMaterial(ctx, paint, bank);
+  } else {
+    ctx.fillStyle = 'rgb(' + GLASS + ')';
+    ctx.fill();
+  }
 
   if (fine) {
     ctx.strokeStyle = `rgba(${LIGHT}, 0.5)`;
@@ -426,6 +658,19 @@ function plates(ctx, style, print, fine) {
 function disc(ctx, style, fine) {
   const { paint, decal, bank, now, rockets } = style;
   const lean = Math.sin(bank);
+
+  if (fine) {
+    // The disc has a bevel and a recessed underside, not a single flat ellipse.
+    ctx.beginPath();
+    ctx.ellipse(0, 5.5, SAUCER.span, 10, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.8) + ')';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0, 5.5, SAUCER.span * 0.8, 5.5, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.35) + ', 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+  }
 
   ctx.beginPath();
   ctx.ellipse(0, 2, SAUCER.span, 10, 0, 0, Math.PI * 2);
@@ -476,6 +721,19 @@ function disc(ctx, style, fine) {
       ctx.stroke();
     }
 
+    // Close-up armour segmentation; omit sub-pixel service joints on distant saucers.
+    if (style.scale >= 0.72) {
+      ctx.strokeStyle = 'rgba(' + DARK + ', 0.55)';
+      ctx.lineWidth = 0.8;
+      for (let segment = 0; segment < 12; segment += 1) {
+        const angle = (segment / 12) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * 20, 1.2 + Math.sin(angle) * 6);
+        ctx.lineTo(Math.cos(angle) * 29.5, 2 + Math.sin(angle) * 9);
+        ctx.stroke();
+      }
+    }
+
     // Lights round the rim, one after another.
     const lit = now === 0 ? 0 : Math.floor(now / 140) % 7;
 
@@ -501,7 +759,15 @@ function disc(ctx, style, fine) {
   ctx.beginPath();
   ctx.ellipse(0, -1, 10.5, 12, 0, Math.PI, Math.PI * 2);
   ctx.ellipse(0, -1, 10.5, 4, 0, 0, Math.PI);
-  ctx.fillStyle = `rgb(${GLASS})`;
+  if (fine) {
+    const domeGlass = ctx.createLinearGradient(-10, -12, 12, 4);
+    domeGlass.addColorStop(0, 'rgb(' + mixRgb(GLASS, LIGHT, 0.25) + ')');
+    domeGlass.addColorStop(0.58, 'rgb(' + GLASS + ')');
+    domeGlass.addColorStop(1, 'rgb(' + mixRgb(GLASS, paint, 0.16) + ')');
+    ctx.fillStyle = domeGlass;
+  } else {
+    ctx.fillStyle = 'rgb(' + GLASS + ')';
+  }
   ctx.fill();
 
   if (fine) {
@@ -531,6 +797,13 @@ export function drawHull(ctx, style) {
   ctx.translate(x, y);
   ctx.scale(scale, scale);
   ctx.rotate(bank);
+  // Subtle perspective shear without a GPU or a second renderer. The bank remains
+  // independent, so the apparent side-slip and nose attitude do not change steering.
+  if (style.yaw || style.pitch) {
+    const yaw = Math.max(-0.4, Math.min(0.4, style.yaw ?? 0));
+    const pitch = Math.max(-0.3, Math.min(0.3, style.pitch ?? 0));
+    ctx.transform(1 - Math.abs(yaw) * 0.17, pitch * 0.11, yaw * 0.27, 1 + pitch * 0.15, 0, 0);
+  }
 
   for (const engine of engines) {
     exhaust(ctx, style, engine);

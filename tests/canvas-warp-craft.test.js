@@ -69,6 +69,43 @@ test('every kind of craft is built where its style says, in its paint, with the 
   assert.equal(new Set(KINDS.map((kind) => picture(hull({ kind })))).size, KINDS.length);
 });
 
+
+test('nearby aircraft have volumetric wings, reflective canopies and aircraft-specific hardpoints', () => {
+  for (const kind of KINDS) {
+    const near = hull({ kind, scale: 1.2, bank: 0.2 });
+    const middle = hull({ kind, scale: 0.5, bank: 0.2 });
+    const far = hull({ kind, scale: 0.3, bank: 0.2 });
+
+    const gradients = (ctx) => callsNamed(ctx, 'createLinearGradient').length;
+    assert.ok(gradients(near) >= (kind === 'saucer' ? 2 : 5), kind + ' has multiple material layers');
+    assert.ok(painted(near).length > painted(middle).length, kind + ' draws fine hardware up close');
+    assert.ok(painted(middle).length > painted(far).length, kind + ' keeps a simple distant hull');
+    assert.equal(gradients(far), 0, kind + ' does not pay for gradients far away');
+    assert.equal(callsNamed(near, 'save').length, callsNamed(near, 'restore').length, kind);
+  }
+
+  // Fasteners and engine cooling vents only appear at the closer level of detail.
+  const at = (scale) => hull({ kind: 'heavy', scale });
+  assert.ok(callsNamed(at(1.2), 'arc').length > callsNamed(at(0.5), 'arc').length);
+  assert.ok(callsNamed(at(1.2), 'stroke').length > callsNamed(at(0.5), 'stroke').length);
+});
+
+test('flight attitude adds a subtle 2.5D perspective without changing the steering bank', () => {
+  const level = hull({ bank: 0.15 });
+  const leaning = hull({ bank: 0.15, yaw: 0.2, pitch: 0.16 });
+  const tooMuch = hull({ bank: 0.15, yaw: 10, pitch: 10 });
+
+  assert.equal(callsNamed(level, 'transform').length, 0);
+  assert.deepEqual(callsNamed(leaning, 'rotate')[0].args, [0.15]);
+  assert.equal(callsNamed(leaning, 'transform').length, 1);
+  assert.notDeepEqual(callsNamed(leaning, 'transform')[0].args, [1, 0, 0, 1, 0, 0]);
+
+  const [xScale, yShear, xShear, yScale] = callsNamed(tooMuch, 'transform')[0].args;
+  assert.ok(xScale > 0.9 && yScale < 1.1, 'attitude is clamped to preserve silhouette readability');
+  assert.ok(Math.abs(yShear) < 0.04 && Math.abs(xShear) < 0.12);
+  assert.equal(painted(level).length, painted(leaning).length, 'attitude does not add per-frame draw passes');
+});
+
 test('the light on the canopy is the same on every craft: a paddle\'s core where a paddle\'s core would be', () => {
   const light = (kind) => {
     const { calls } = hull({ kind });
