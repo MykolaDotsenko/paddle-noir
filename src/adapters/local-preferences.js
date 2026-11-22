@@ -1,5 +1,5 @@
 import { validInitials } from '../application/high-scores.js';
-import { CRAFT_SYSTEMS, DIFFICULTIES, MODES, TRACK_IDS } from '../application/ports.js';
+import { CRAFT_SYSTEMS, DIFFICULTIES, MODES, TRACK_IDS, WARP_STEERING_MODES } from '../application/ports.js';
 
 /** @import { CraftSetup, CraftSystem, HangarChoices, MatchStats, Preferences, PreferencesPort } from '../application/ports.js' */
 
@@ -14,6 +14,7 @@ const NO_HANGAR = Object.freeze({ craft: '', owned: Object.freeze({}) });
 /** @type {Readonly<Preferences>} */
 const DEFAULTS = Object.freeze({
   mode: 'solo',
+  warpSteering: 'buttons',
   difficulty: 'normal',
   powerUps: true,
   supers: true,
@@ -124,6 +125,7 @@ function sanitizeHangar(value) {
 function sanitize(stored) {
   return {
     mode: MODES.find((mode) => mode === stored.mode) ?? DEFAULTS.mode,
+    warpSteering: WARP_STEERING_MODES.find((mode) => mode === stored.warpSteering) ?? DEFAULTS.warpSteering,
     difficulty: DIFFICULTIES.find((level) => level === stored.difficulty) ?? DEFAULTS.difficulty,
     powerUps: bool(stored.powerUps, DEFAULTS.powerUps),
     supers: bool(stored.supers, DEFAULTS.supers),
