@@ -3,7 +3,7 @@ import { WARP_COURSES } from './courses.js';
 import { NOVA_SECTORS } from './sectors.js';
 
 /**
- * @import { GameConfig } from './domain/types.js'
+ * @import { GameConfig, Loadout } from './domain/types.js'
  * @import { Difficulty } from './application/ports.js'
  */
 
@@ -244,6 +244,28 @@ export const NOVA_CONFIG = Object.freeze({
 /** Credits a Warp cup gives the player: a race placed too low to go through spends one. */
 export const WARP_LIVES = 3;
 
+/**
+ * The craft a Warp race is flown in unless the hangar says otherwise: the first craft of the
+ * hangar, untuned, in the player's own cyan. The game is tuned for it.
+ *
+ * @type {Readonly<Loadout>}
+ */
+export const WARP_LOADOUT = Object.freeze({
+  name: 'Kestrel',
+  kind: 'jet',
+  paint: '34, 211, 238',
+  decal: 'none',
+  glow: '34, 211, 238',
+  speed: 1,
+  nitroBars: 3,
+  nitroSeconds: 1.5,
+  drift: 1,
+  spin: 1,
+  shields: 0,
+  damage: 55,
+  rockets: 2,
+});
+
 // Warp: the paddle is a racing craft on a neon course, seen from behind. It flies on by itself,
 // so the player only steers, as in every other mode: through rings and gates, over boost pads
 // and off ramps, round hazards, along the inside of a bend for a drift, and past five rivals a
@@ -289,9 +311,21 @@ export const WARP_CONFIG = Object.freeze({
       burnSeconds: 3,
       ghostSeconds: 4,
       shockRange: 18,
+      pickupWidth: 0.26,
+      nitroSpeed: 62,
+      nitroPerTrick: 0.05,
+      gunRange: 45,
+      gunAim: 0.14,
+      rivalHull: 140,
+      rocketRange: 110,
+      rocketAim: 0.4,
+      lockSeconds: 0.7,
+      missileSpeed: 45,
+      blastRange: 7,
       mineEvery: 4.5,
       maxDrops: 5,
       calmSeconds: 4.5,
+      loadout: WARP_LOADOUT,
     },
   }),
   // The craft steers across the whole lane with the paddle's whole reach.

@@ -26,7 +26,7 @@ function layout(changes = {}) {
     length: 600,
     bends: [[600, 0]],
     hills: [],
-    every: { rings: 0, pads: 0, mines: 0, debris: 0, cargo: 0, ramps: 0, gates: 0 },
+    every: { rings: 0, pads: 0, mines: 0, debris: 0, cargo: 0, ramps: 0, gates: 0, crates: 0, cells: 0 },
     pilots: [SLOW, SLOW, SLOW, SLOW],
     qualify: 1,
     ...changes,
@@ -34,8 +34,9 @@ function layout(changes = {}) {
 }
 
 /** A race under way, past its start lights, with a course and rivals of the test's own. */
-function game({ courses = [layout(), layout({ name: 'Next' })], items = [], rivals = [], supers = false, warp = {}, seed = 7, x = 0, launched = true } = {}) {
-  const config = { ...WARP_CONFIG, supers: { ...WARP_CONFIG.supers, enabled: supers }, warp: { ...RULES, ...warp, courses } };
+function game({ courses = [layout(), layout({ name: 'Next' })], items = [], rivals = [], supers = false, warp = {}, seed = 7, x = 0, launched = true, loadout = {} } = {}) {
+  // An unarmed craft with an empty tank, unless the test is about its guns, rockets or nitro.
+  const config = { ...WARP_CONFIG, supers: { ...WARP_CONFIG.supers, enabled: supers }, warp: { ...RULES, nitroPerTrick: 0, ...warp, courses, loadout: { ...RULES.loadout, damage: 0, rockets: 0, ...loadout } } };
   const started = startGame(createInitialState(config, seed), config);
   const race = started.warp;
   const field = rivals.map((rival, index) => racer({ id: index + 1, pilot: index, ...rival }));
@@ -48,6 +49,7 @@ function game({ courses = [layout(), layout({ name: 'Next' })], items = [], riva
       speed: RULES.topSpeed,
       // The moment for a rocket start is over, unless the test is about it.
       launched,
+      nitro: 0,
       course: { ...race.course, items: items.map((item, index) => ({ id: index + 1, x: 0, sway: 0, air: false, ...item })) },
       rivals: field,
       place: placeOf({ ...race, rivals: field }),
@@ -58,7 +60,7 @@ function game({ courses = [layout(), layout({ name: 'Next' })], items = [], riva
 
 /** A rival, on a line it keeps a long while. */
 function racer(placed = {}) {
-  return { id: 1, pilot: 0, z: 100, x: 0, speed: 0, line: placed.x ?? 0, lineIn: 99, boost: 0, spin: 0, bumped: 0, air: 0, mineIn: 99, finish: 0, ...placed };
+  return { id: 1, pilot: 0, z: 100, x: 0, speed: 0, line: placed.x ?? 0, lineIn: 99, boost: 0, spin: 0, bumped: 0, air: 0, mineIn: 99, hull: RULES.rivalHull, finish: 0, ...placed };
 }
 
 const race = (state, changes) => ({ ...state, warp: { ...state.warp, ...changes } });
@@ -416,8 +418,8 @@ test('a course is laid out the same every time: its bends a stretch at a time, e
     assert.equal(new Set(course.items.map((item) => item.id)).size, course.items.length);
     assert.ok(course.items.every((item) => Math.abs(item.x) <= 0.8));
 
-    for (const kind of /** @type {const} */ (['rings', 'pads', 'mines', 'debris', 'cargo', 'ramps', 'gates'])) {
-      const singular = { rings: 'ring', pads: 'pad', mines: 'mine', debris: 'debris', cargo: 'cargo', ramps: 'ramp', gates: 'gate' }[kind];
+    for (const kind of /** @type {const} */ (['rings', 'pads', 'mines', 'debris', 'cargo', 'ramps', 'gates', 'crates', 'cells'])) {
+      const singular = { rings: 'ring', pads: 'pad', mines: 'mine', debris: 'debris', cargo: 'cargo', ramps: 'ramp', gates: 'gate', crates: 'crate', cells: 'cell' }[kind];
       const count = course.items.filter((item) => item.kind === singular).length;
       assert.equal(count > 0, written.every[kind] > 0, `${written.name}: ${kind}`);
     }
@@ -742,4 +744,207 @@ test('the player\'s own finish is timed', () => {
   const { state: over } = run(race(state, { z: 590, place: 1, time: 31 }), config, 0.5, { input: lane(0) });
 
   assert.ok(over.warp.finishTime > 31 && over.warp.finishTime < 31.5);
+});
+
+// Nitro, weapons and the craft's loadout.
+
+const burn = (x = 0) => ({ ...lane(x), action: true });
+
+test('a race starts with a bar of nitro in the tank and a rocket aboard, and every rival\'s hull whole', () => {
+  const { warp } = createInitialState(WARP_CONFIG, 1);
+
+  assert.deepEqual([warp.nitro, warp.nitroBurn, warp.rockets, warp.shield, warp.lock, warp.aim], [1, 0, 1, RULES.loadout.shields, 0, 0]);
+  assert.deepEqual(warp.missiles, []);
+  assert.ok(warp.rivals.every((rival) => rival.hull === RULES.rivalHull));
+});
+
+test('a bar of nitro burns when the player asks: faster than any boost, for as long as the craft\'s tank gives', () => {
+  const { config, state } = game();
+  const { state: lit, events } = run(race(state, { nitro: 2 }), config, STEP, { input: burn() });
+
+  assert.equal(named(events, 'nitro').length, 1);
+  assert.equal(lit.warp.nitro, 1);
+  assert.ok(Math.abs(lit.warp.nitroBurn - RULES.loadout.nitroSeconds) < STEP * 2);
+
+  const { state: burning, events: held } = run(lit, config, 1, { input: burn() });
+  assert.equal(named(held, 'nitro').length, 0, 'one bar at a time, however long it is asked for');
+  assert.equal(burning.warp.nitro, 1);
+  assert.ok(burning.warp.speed > RULES.boostSpeed + 1);
+
+  const after = run(burning, config, 3, { input: lane(0) }).state;
+  assert.equal(after.warp.nitroBurn, 0);
+  assert.ok(after.warp.speed < RULES.topSpeed + 1, 'and wears off');
+});
+
+test('no bar, no nitro; nor while the craft spins', () => {
+  const { config, state } = game();
+
+  assert.equal(named(run(race(state, { nitro: 0.9 }), config, 0.2, { input: burn() }).events, 'nitro').length, 0);
+  assert.equal(named(run(race(state, { nitro: 2, spin: 1 }), config, 0.2, { input: burn() }).events, 'nitro').length, 0);
+  assert.equal(named(run(race(state, { nitro: 2 }), config, 0.2, { input: lane(0) }).events, 'nitro').length, 0, 'nor unasked');
+});
+
+test('tricks and nitro cells fill the tank, as far as it holds', () => {
+  const items = [{ kind: 'ring', z: 10 }, { kind: 'cell', z: 20 }, { kind: 'cell', z: 30, x: 0.9 }, { kind: 'cell', z: 40 }, { kind: 'cell', z: 50 }, { kind: 'cell', z: 60 }];
+  const { config, state } = game({ items, warp: { nitroPerTrick: 0.2 }, loadout: { nitroBars: 3 } });
+  const { state: ringed } = run(state, config, 0.3, { input: lane(0) });
+
+  assert.ok(Math.abs(ringed.warp.nitro - 0.2) < 1e-9);
+  const { state: filled, events } = run(ringed, config, 1.2, { input: lane(0) });
+  assert.deepEqual(named(events, 'ammo').map((event) => [event.kind, event.z]), [['nitro', 20], ['nitro', 40], ['nitro', 50], ['nitro', 60]], 'a cell flown by is left where it is');
+  assert.equal(filled.warp.nitro, 3);
+});
+
+test('at the speed of nitro the craft rams a rival out of its way', () => {
+  const { config, state } = game({ rivals: [{ z: 3, x: 0.05, speed: 30 }] });
+  const { state: rammed, events } = run(race(state, { nitro: 1 }), config, 0.2, { input: burn() });
+
+  assert.deepEqual(named(events, 'takedown').map((event) => [event.by, event.points]), [['ram', TRICK_POINTS.takedown]]);
+  assert.equal(named(events, 'bump').length, 0);
+  assert.ok(rammed.warp.rivals[0].spin > 0);
+  assert.ok(rammed.warp.speed > RULES.topSpeed, 'and keeps its speed');
+});
+
+test('the guns fire by themselves at a rival lined up ahead, and wear its hull down until it is taken down', () => {
+  const pilots = [{ ...SLOW, pace: 1 }];
+  // Guns that take a hull down in two seconds.
+  const armed = { courses: [layout({ pilots, length: 4000 }), layout({ pilots })], loadout: { damage: RULES.rivalHull / 2 } };
+  const { config, state } = game({ ...armed, rivals: [{ z: 30, x: 0.05, speed: 40 }] });
+  const { state: firing, events } = run(state, config, 1, { input: lane(0) });
+
+  assert.equal(firing.warp.aim, 1);
+  assert.ok(Math.abs(firing.warp.rivals[0].hull - RULES.rivalHull / 2) < 2);
+  assert.ok(named(events, 'gun-fire').length >= 7 && named(events, 'gun-fire').length <= 10, 'told of a few times a second, not every step');
+  assert.equal(named(events, 'takedown').length, 0);
+
+  const { state: downed, events: more } = run(firing, config, 1.2, { input: lane(0) });
+  assert.deepEqual(named(more, 'takedown').map((event) => [event.by, event.pilot]), [['guns', 0]]);
+  assert.equal(downed.warp.rivals[0].hull, RULES.rivalHull, 'its hull is whole again when it flies on');
+  assert.equal(downed.warp.aim, 0, 'and a rival spinning is left alone');
+});
+
+test('the guns do not bear on a rival out of line, out of range, under the craft\'s nose, or from the air', () => {
+  const pilots = [{ ...SLOW, pace: 1 }];
+  const aim = (rival, changes = {}) => {
+    const { config, state } = game({ courses: [layout({ pilots, length: 4000 }), layout({ pilots })], loadout: { damage: 50 }, rivals: [{ speed: 40, ...rival }] });
+    return run(race(state, changes), config, 0.3, { input: lane(0) }).state.warp;
+  };
+
+  assert.equal(aim({ z: 30, x: 0 }).aim, 1);
+  assert.equal(aim({ z: 30, x: RULES.gunAim + 0.1 }).aim, 0);
+  assert.equal(aim({ z: RULES.gunRange + 10, x: 0 }).aim, 0);
+  assert.equal(aim({ z: 2, x: 0.6 }).aim, 0);
+  assert.equal(aim({ z: 30, x: 0 }, { air: 1 }).aim, 0);
+  assert.equal(aim({ z: 30, x: 0 }, { spin: 1 }).aim, 0);
+  assert.equal(aim({ z: 30, x: 0, air: 1 }).rivals[0].hull, RULES.rivalHull, 'nor on a rival in the air');
+});
+
+test('a rocket crate flown over puts a rocket aboard, as many as the craft carries', () => {
+  const { config, state } = game({ items: [{ kind: 'crate', z: 10 }, { kind: 'crate', z: 20, x: 0.9 }, { kind: 'crate', z: 30 }, { kind: 'crate', z: 40 }], loadout: { rockets: 2 } });
+  const { state: loaded, events } = run(state, config, 1.2, { input: lane(0) });
+
+  assert.deepEqual(named(events, 'ammo').map((event) => [event.kind, event.z]), [['rocket', 10], ['rocket', 30], ['rocket', 40]]);
+  assert.equal(loaded.warp.rockets, 2);
+});
+
+test('a rocket locks on to a rival roughly in line ahead, launches, homes on it and takes it down with a blast', () => {
+  const pilots = [{ ...SLOW, pace: 1 }, { ...SLOW, pace: 1 }, { ...SLOW, pace: 1 }];
+  const { config, state } = game({ courses: [layout({ pilots, length: 4000 }), layout({ pilots })], loadout: { rockets: 2 }, rivals: [{ z: 60, x: 0.3, speed: 40 }, { z: 64, x: 0.4, speed: 40 }, { z: 60, x: -0.8, speed: 40 }] });
+  const armed = race(state, { rockets: 1 });
+  const { state: locking } = run(armed, config, RULES.lockSeconds / 2, { input: lane(0) });
+
+  assert.equal(locking.warp.lockOn, 1);
+  assert.ok(locking.warp.lock > 0.4 && locking.warp.lock < 0.6);
+  assert.equal(locking.warp.missiles.length, 0);
+
+  const { state: away, events } = run(locking, config, RULES.lockSeconds / 2 + 0.05, { input: lane(0) });
+  assert.deepEqual(named(events, 'rocket-launch').map((event) => event.pilot), [0]);
+  assert.equal(away.warp.rockets, 0);
+  assert.deepEqual([away.warp.lock, away.warp.lockOn], [0, 0]);
+  assert.deepEqual(away.warp.missiles.map((missile) => missile.target), [1]);
+
+  const { state: hit, events: blast } = run(away, config, 3, { input: lane(0), until: (_, seen) => named(seen, 'explosion').length > 0 });
+  assert.equal(named(blast, 'explosion').length, 1);
+  assert.deepEqual(named(blast, 'takedown').map((event) => [event.by, event.pilot]), [['rocket', 0], ['rocket', 1]], 'and whoever is beside it');
+  assert.deepEqual(hit.warp.rivals.map((rival) => rival.spin > 0), [true, true, false]);
+  assert.equal(hit.warp.missiles.length, 0);
+});
+
+test('a lock is lost when its rival leaves the line, and no rocket is spent on a rival one is already on its way to', () => {
+  const pilots = [{ ...SLOW, pace: 1 }];
+  const { config, state } = game({ courses: [layout({ pilots, length: 4000 }), layout({ pilots })], loadout: { rockets: 2 }, rivals: [{ z: 80, x: 0, speed: 40 }] });
+  const half = run(race(state, { rockets: 2 }), config, RULES.lockSeconds / 2, { input: lane(0) }).state;
+  const lost = run(half, config, 0.3, { input: lane(0.9) }).state;
+
+  assert.deepEqual([lost.warp.lock, lost.warp.lockOn, lost.warp.rockets], [0, 0, 2]);
+
+  const { state: flying, events } = run(race(state, { rockets: 2 }), config, RULES.lockSeconds * 2, { input: lane(0) });
+  assert.equal(named(events, 'rocket-launch').length, 1);
+  assert.equal(flying.warp.rockets, 1);
+  assert.equal(flying.warp.lock, 0);
+});
+
+test('a rocket whose rival has finished flies on and is gone', () => {
+  const pilots = [{ ...SLOW, pace: 1 }];
+  const { config, state } = game({ courses: [layout({ pilots, length: 4000 }), layout({ pilots })], rivals: [{ z: 80, x: 0, speed: 40, finish: 12 }] });
+  const flying = race(state, { missiles: [{ id: 1, z: 20, x: 0, target: 1 }] });
+  const { state: gone, events } = run(flying, config, 5, { input: lane(0) });
+
+  assert.equal(named(events, 'explosion').length, 0);
+  assert.equal(gone.warp.missiles.length, 0);
+  assert.equal(run(flying, config, 0.5, { input: lane(0) }).state.warp.missiles.length, 1, 'not at once');
+});
+
+test('a shield takes a crash in the craft\'s place, once for each it has', () => {
+  const { config, state } = game({ items: [{ kind: 'mine', z: 10 }, { kind: 'mine', z: 110 }], loadout: { shields: 1 } });
+  const shielded = race(state, { flow: 5, shield: 1 });
+  const { state: saved, events } = run(shielded, config, 0.4, { input: lane(0) });
+
+  assert.deepEqual(named(events, 'shield-hit').map((event) => event.left), [0]);
+  assert.equal(named(events, 'crash').length, 0);
+  assert.deepEqual([saved.warp.spin, saved.warp.shield, saved.warp.flow], [0, 0, 5], 'and the flow goes on');
+  assert.ok(saved.warp.safe > 0);
+
+  const { events: later } = run(saved, config, 3, { input: lane(0) });
+  assert.deepEqual(named(later, 'crash').map((event) => event.kind), ['mine'], 'the next one is a crash');
+});
+
+test('a craft\'s loadout sets how fast it flies, how soon its drift charges and how long a crash spins it', () => {
+  const flown = (loadout) => {
+    const { config, state } = game({ loadout });
+    return run(state, config, 3, { input: lane(0) }).state.warp.speed;
+  };
+  assert.ok(Math.abs(flown({ speed: 1.1 }) - RULES.topSpeed * 1.1) < 0.5);
+  assert.ok(Math.abs(flown({ speed: 0.95 }) - RULES.topSpeed * 0.95) < 0.5);
+
+  const drift = (share) => {
+    const { config, state } = game({ courses: [layout({ bends: [[600, 1]] }), layout()], x: 0.7, loadout: { drift: share } });
+    return run(state, config, 0.5, { input: lane(0.7) }).state.warp.drift;
+  };
+  assert.ok(drift(0.7) > drift(1) && drift(1) > drift(1.3));
+
+  const spun = (share) => {
+    const { config, state } = game({ items: [{ kind: 'mine', z: 5 }], loadout: { spin: share } });
+    return run(state, config, 0.2, { input: lane(0) }).state.warp.spin;
+  };
+  assert.ok(spun(0.7) < spun(1) - 0.2);
+});
+
+test('rivals fly through the crates and cells as if they were not there', () => {
+  const pilots = [{ ...SLOW, pace: 1, skill: 0 }];
+  const { config, state } = game({ courses: [layout({ pilots }), layout({ pilots })], rivals: [{ z: 20, x: 0, speed: 40 }], items: [{ kind: 'crate', z: 30 }, { kind: 'cell', z: 40 }] });
+  const { state: flown, events } = run(state, config, 1, { input: lane(-0.9) });
+
+  assert.equal(named(events, 'crash').concat(named(events, 'ammo')).length, 0);
+  assert.equal(flown.warp.rivals[0].x, 0, 'nor steer for them or round them');
+});
+
+test('the game\'s own courses carry crates and cells, and its own craft is armed', () => {
+  WARP_COURSES.forEach((written, index) => {
+    const { items } = buildCourse(WARP_CONFIG, index);
+    assert.ok(items.some((item) => item.kind === 'crate') && items.some((item) => item.kind === 'cell'), written.name);
+  });
+
+  assert.ok(RULES.loadout.damage > 0 && RULES.loadout.rockets > 0 && RULES.loadout.nitroBars >= 1);
+  assert.deepEqual([RULES.loadout.speed, RULES.loadout.drift, RULES.loadout.spin], [1, 1, 1], 'the game is tuned for it');
 });

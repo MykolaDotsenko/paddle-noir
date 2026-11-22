@@ -335,3 +335,86 @@ test('a key released while a dialog is open is still let go, so it cannot get st
 
   assert.equal(input.snapshot().horizontalAxis, 0);
 });
+
+// The player's extra: nitro in Warp.
+
+const touch = (type, clientX, clientY, extra = {}) => Object.assign(pointerEvent(type, clientX, { clientY }), { pointerType: 'touch', ...extra });
+
+test('Up or W asks for the player\'s extra once, however long it is held, and the next snapshot tells of it once', () => {
+  const { input, window } = setup();
+
+  assert.equal('action' in input.snapshot(), false, 'nothing asked, nothing told');
+  const down = press(window, { code: 'ArrowUp' });
+  press(window, { code: 'ArrowUp', repeat: true });
+
+  assert.equal(down.defaultPrevented, true, 'the page does not scroll under the game');
+  assert.equal(input.snapshot().action, true);
+  assert.equal(input.snapshot().action, undefined, 'once');
+
+  press(window, { code: 'KeyW', key: 'ц' });
+  assert.equal(input.snapshot().action, true);
+  press(window, { code: 'ArrowUp', repeat: true });
+  assert.equal(input.snapshot().action, undefined, 'a key still held asks for nothing more');
+});
+
+test('a swipe up asks for the extra: a finger that rises far enough, more than it moves sideways', () => {
+  const { input, surface } = setup();
+  const swiped = (moves) => {
+    surface.dispatchEvent(touch('pointerdown', 300, 600));
+    for (const [x, y] of moves) surface.dispatchEvent(touch('pointermove', x, y));
+    surface.dispatchEvent(touch('pointerup', 300, 600));
+    return input.snapshot().action === true;
+  };
+
+  assert.equal(swiped([[302, 590], [304, 560]]), true);
+  assert.equal(swiped([[300, 560]]), true, 'straight up, with no sideways travel at all');
+  assert.equal(swiped([[340, 590], [420, 580]]), false, 'steering along the rail asks for nothing');
+  assert.equal(swiped([[300, 580]]), false, 'nor a short rise');
+  assert.equal(swiped([[380, 560]]), false, 'nor a rise that is mostly sideways');
+  assert.equal(swiped([[300, 640], [300, 615]]), false, 'a rise is measured from the lowest point of the stroke');
+  assert.equal(swiped([[300, 640], [300, 600]]), true);
+});
+
+test('one swipe asks once; the next starts from where the last one ended', () => {
+  const { input, surface } = setup();
+
+  surface.dispatchEvent(touch('pointerdown', 300, 600));
+  surface.dispatchEvent(touch('pointermove', 300, 560));
+  surface.dispatchEvent(touch('pointermove', 300, 550));
+  assert.equal(input.snapshot().action, true);
+  assert.equal(input.snapshot().action, undefined);
+
+  surface.dispatchEvent(touch('pointermove', 300, 510));
+  assert.equal(input.snapshot().action, true, 'a second rise, a second ask');
+  assert.notEqual(input.snapshot().pointerX, null, 'and the finger still steers');
+});
+
+test('a mouse asks with a click, not by moving up the board', () => {
+  const { input, surface } = setup();
+  const mouse = (type, x, y) => Object.assign(pointerEvent(type, x, { clientY: y }), { pointerType: 'mouse' });
+
+  surface.dispatchEvent(mouse('pointermove', 300, 600));
+  surface.dispatchEvent(mouse('pointermove', 300, 400));
+  assert.equal(input.snapshot().action, undefined);
+
+  surface.dispatchEvent(mouse('pointerdown', 300, 400));
+  assert.equal(input.snapshot().action, true);
+});
+
+test('nothing asks while a dialog is open, or for the far paddle; and losing focus drops what was asked', () => {
+  const { input, window, document, surface } = setup();
+
+  document.openDialog = {};
+  press(window, { code: 'ArrowUp' });
+  surface.dispatchEvent(Object.assign(pointerEvent('pointerdown', 300), { pointerType: 'mouse' }));
+  assert.equal(input.snapshot().action, undefined);
+  document.openDialog = null;
+
+  input.configure({ players: 2 });
+  surface.dispatchEvent(Object.assign(pointerEvent('pointerdown', 300, { clientY: 100, pointerId: 2 }), { pointerType: 'mouse' }));
+  assert.equal(input.snapshot().action, undefined, 'the top player has none');
+
+  press(window, { code: 'ArrowUp' });
+  window.dispatchEvent(new Event('blur'));
+  assert.equal(input.snapshot().action, undefined);
+});
