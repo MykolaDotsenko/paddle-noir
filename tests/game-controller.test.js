@@ -1297,7 +1297,7 @@ test('in the menu Warp tells what there is to do', () => {
 
   assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
   const { controls, ...overview } = presentation.warp;
-  assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0 });
+  assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', steering: 'buttons', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0 });
   assert.deepEqual(Object.keys(controls), ['nitro', 'guns', 'rockets', 'shield', 'warp']);
   assert.ok(Object.values(controls).every((control) => !control.ready), 'bridge controls start disabled in the menu');
   assert.deepEqual(presentation.opponent, { label: 'Race', name: 'The field', proper: false });
