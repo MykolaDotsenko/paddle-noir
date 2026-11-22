@@ -1,5 +1,6 @@
 import { mixRgb, THEME } from './theme.js';
 import { drawSkyLighting } from './warp-lighting.js';
+import { drawBackdrop } from './warp-backdrop.js';
 
 /**
  * What surrounds a Warp course: the look of each of the five, its sky and what stands on its
@@ -257,6 +258,10 @@ export function drawSky(scene) {
       ctx.fillRect(x, y, size, size);
     }
   }
+
+  // Distant procedural planes: they move more slowly than the existing skyline.
+  // Draw before landmarks so mountains, towers and planets retain correct occlusion.
+  drawBackdrop(scene);
 
   switch (look.skyline) {
     case 'city':
