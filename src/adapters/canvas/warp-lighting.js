@@ -38,7 +38,7 @@ export function drawSkyLighting({ ctx, config, view, look, still, now }) {
   glow.addColorStop(0.42, 'rgba(' + light + ', ' + (power * 0.32) + ')');
   glow.addColorStop(1, 'rgba(' + light + ', 0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(-110, -60, width + 220, 390);
+  ctx.fillRect(-80, -50, width + 160, 360);
 
   // A few soft, wide shafts are cheaper and cleaner than a full-screen per-pixel bloom.
   // Time never affects them in reduced-motion mode.
