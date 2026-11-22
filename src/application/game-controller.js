@@ -16,6 +16,7 @@ import { highScores } from './high-scores.js';
 import { interpolateState } from './interpolation.js';
 import { nicknameFor } from './nicknames.js';
 import { GAME_COMMAND } from './ports.js';
+import { activateWarpAbility } from '../domain/warp.js';
 
 /**
  * @import { GameConfig, GameState } from '../domain/types.js'
@@ -202,6 +203,17 @@ export class GameController {
 
   /** @param {GameCommand} command */
   handleCommand(command) {
+    if (command === GAME_COMMAND.ABILITY) {
+      const next = activateWarpAbility(this.state, this.config);
+      if (next !== this.state) {
+        this.state = next;
+        this.previousState = next;
+        this.announce(next);
+        this.render();
+      }
+      return;
+    }
+
     if (command === GAME_COMMAND.REFRESH) {
       this.render();
       return;
@@ -597,6 +609,8 @@ export class GameController {
       best: this.preferences.get().bestWarp,
       newBest: this.newBestWarp,
       craft: chosenCraft(this.catalog.hangar, this.preferences.get().hangar).name,
+      abilityCooldown: race.abilityCooldown,
+      abilityTime: race.abilityTime,
       tickets: this.preferences.get().tickets,
       earned: this.warpEarned,
     };
