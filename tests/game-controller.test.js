@@ -1296,7 +1296,10 @@ test('in the menu Warp tells what there is to do', () => {
   const presentation = lastOf(view.presentations);
 
   assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
-  assert.deepEqual(presentation.warp, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0 });
+  const { controls, ...overview } = presentation.warp;
+  assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0 });
+  assert.deepEqual(Object.keys(controls), ['nitro', 'guns', 'rockets', 'shield', 'warp']);
+  assert.ok(Object.values(controls).every((control) => !control.ready), 'bridge controls start disabled in the menu');
   assert.deepEqual(presentation.opponent, { label: 'Race', name: 'The field', proper: false });
   assert.equal(presentation.maxLives, WARP_CONFIG.rules.lives);
   assert.equal(presentation.nova, null);
@@ -1316,7 +1319,7 @@ test('while Warp runs the status line tells the race, the place, the points and 
   inPlay(controller, { warp: { ...controller.state.warp, points: 420 } });
   scheduler.flush(1000);
   scheduler.flush(1020);
-  assert.equal(lastOf(view.presentations).status, `Race 1, ${WARP.courses[0].name}: place 6, 420 points, 3 credits left`);
+  assert.equal(lastOf(view.presentations).status, `Race 1, ${WARP.courses[0].name}: place 6, 420 points, ${WARP_CONFIG.rules.lives} credits left`);
 
   inPlay(controller, { lives: 1 });
   scheduler.flush(1040);
