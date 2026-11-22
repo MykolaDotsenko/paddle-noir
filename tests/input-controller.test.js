@@ -418,3 +418,21 @@ test('nothing asks while a dialog is open, or for the far paddle; and losing foc
   window.dispatchEvent(new Event('blur'));
   assert.equal(input.snapshot().action, undefined);
 });
+
+
+test('E triggers the craft signature exactly once and preserves browser shortcuts', () => {
+  const { input, window, commands } = setup();
+  const first = press(window, { code: 'KeyE', key: 'e' });
+  press(window, { code: 'KeyE', key: 'e', repeat: true });
+  assert.equal(first.defaultPrevented, true);
+  assert.deepEqual(commands, [GAME_COMMAND.ABILITY]);
+
+  const modified = press(window, { code: 'KeyE', key: 'e', ctrlKey: true });
+  assert.equal(modified.defaultPrevented, false);
+  assert.deepEqual(commands, [GAME_COMMAND.ABILITY]);
+
+  input.handleKeyDown({ code: 'KeyE', key: 'e', repeat: false,
+    ctrlKey: false, metaKey: false, altKey: false,
+    target: { tagName: 'BUTTON' }, preventDefault() {} });
+  assert.deepEqual(commands, [GAME_COMMAND.ABILITY], 'focused controls keep their meaning');
+});
