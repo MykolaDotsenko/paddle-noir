@@ -267,7 +267,7 @@ function wear(ctx, { damage, span }) {
  * @param {AirframeDetail} craft
  */
 export function drawAirframeDetails(ctx, craft) {
-  wingSurfaces(ctx, craft);
+  if (craft.kind !== 'saucer') wingSurfaces(ctx, craft);
   engineHardware(ctx, craft);
   signatureHardware(ctx, craft);
   wear(ctx, craft);
