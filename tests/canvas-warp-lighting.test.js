@@ -97,6 +97,7 @@ test('jump light projects a widening cone only while a craft is off the track', 
   }));
 
   assert.equal(paint(515).calls.length, 0);
+  assert.equal(paint(525).calls.length, 0, 'idle hover height should not cast a light cone');
   const high = paint(610);
   assert.equal(callsNamed(high, 'createLinearGradient').length, 1);
   assert.equal(callsNamed(high, 'fill').length, 1);
