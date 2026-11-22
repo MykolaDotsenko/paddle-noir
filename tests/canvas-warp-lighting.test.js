@@ -42,7 +42,8 @@ test('five course looks have restrained colored atmospheric bloom and shafts', (
     assert.equal(gradients.length, 1, look.skyline);
     assert.equal(gradients[0].args[4] > gradients[0].args[2], true);
     assert.equal(gradients[0].args[5] > 150, true);
-    assert.equal(gradients[0].args[3], gradients[0].args[1]);
+    assert.equal(gradients[0].args[3], gradients[0].args[0]);
+    assert.equal(gradients[0].args[4], gradients[0].args[1]);
     assert.equal(gradients.length, 1);
     assert.equal(fills.length, 4, look.skyline);
     assert.equal(callsNamed(ctx, 'save').length, callsNamed(ctx, 'restore').length);
@@ -68,7 +69,7 @@ test('track light catches its surface in near segments, without expensive per-se
   assert.equal(callsNamed(paint(28, 0.08), 'fill').length, 0, 'far scenery uses simpler paint');
   assert.equal(callsNamed(paint(28, 0.8, 45, true), 'fill').length, 0, 'backsides of crests do not reflect');
   assert.ok(callsNamed(paint(28), 'stroke').length >= 1, 'close expansion joint');
-  assert.ok(callsNamed(paint(28, 0.8, 45), 'fill').length > callsNamed(paint(28, 0.8, 0), 'fill').length);
+  assert.ok(callsNamed(paint(24, 0.8, 45), 'fill').length > callsNamed(paint(24, 0.8, 0), 'fill').length);
   assert.ok(callsNamed(paint(28, 0.8), 'fill').length > callsNamed(paint(29, 0.8), 'fill').length);
 });
 
