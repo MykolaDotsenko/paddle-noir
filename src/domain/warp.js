@@ -298,6 +298,7 @@ export function warpControlStatus(state, config) {
     && !race.finished && race.calm === 0 && race.spin === 0;
   /** @param {number} seconds */
   const clock = (seconds) => Math.ceil(Math.max(0, seconds)) + 's';
+  const target = manualTarget(race, rules, laneX(state, config));
   /** @param {boolean} enabled @param {string} text */
   const ready = (enabled, text) => ({ ready: active && enabled, status: text });
 
@@ -306,8 +307,8 @@ export function warpControlStatus(state, config) {
       race.nitroBurn > 0 ? 'BURNING' : race.nitro >= 1 ? Math.floor(race.nitro) + ' READY' : 'EMPTY'),
     guns: ready(race.gunCooldown === 0,
       race.gunTime > 0 ? 'FIRING' : race.gunCooldown > 0 ? clock(race.gunCooldown) : 'READY'),
-    rockets: ready(race.air === 0 && race.rockets > 0 && Boolean(manualTarget(race, rules, laneX(state, config))),
-      race.rockets === 0 ? 'EMPTY' : manualTarget(race, rules, laneX(state, config)) ? race.rockets + ' LOCK' : 'SCANNING'),
+    rockets: ready(race.air === 0 && race.rockets > 0 && Boolean(target),
+      race.rockets === 0 ? 'EMPTY' : target ? race.rockets + ' LOCK' : 'SCANNING'),
     shield: ready(race.shieldCooldown === 0,
       race.shieldTime > 0 ? 'ONLINE' : race.shieldCooldown > 0 ? clock(race.shieldCooldown) : 'READY'),
     warp: ready(race.abilityCooldown === 0,
@@ -568,7 +569,7 @@ export function raceState(config, race, points = 0, lost = 0) {
     shieldCooldown: 0,
     abilityCooldown: 0,
     abilityTime: 0,
-    shield: rules.loadout.shields + (race === 0 ? 1 : 0),
+    shield: rules.loadout.shields + (race === 0 && layout.name === 'Sunset Skyway' ? 1 : 0),
     rockets: Math.min(1, rules.loadout.rockets),
     lock: 0,
     lockOn: 0,
