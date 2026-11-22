@@ -1512,7 +1512,7 @@ test.describe('in Warp', () => {
     await expect(radio).toBeVisible();
     await expect(radio).toContainText('ECHO');
     await expect(radio).toContainText('HORIZON');
-    const pointer = await radio.evaluate((element) => getComputedStyle(element).pointerEvents);
+    const pointer = await radio.evaluate((element) => element.ownerDocument.defaultView.getComputedStyle(element).pointerEvents);
     expect(pointer).toBe('none', 'radio transmission must never steal touch steering');
     await page.keyboard.press('Escape');
     await expect(chapter).toBeHidden();
