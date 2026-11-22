@@ -240,6 +240,10 @@
  * @property {number} air seconds the player is still in the air after a ramp
  * @property {number} nitro bars of nitro in the tank
  * @property {number} nitroBurn seconds of the bar being burned left
+ * @property {number} gunTime seconds of manual rapid-fire overdrive
+ * @property {number} gunCooldown seconds until the gun overdrive can fire again
+ * @property {number} shieldTime seconds left of the emergency energy shield
+ * @property {number} shieldCooldown seconds until the emergency field can deploy again
  * @property {number} abilityCooldown seconds before the signature craft system can be fired again
  * @property {number} abilityTime remaining seconds of the active signature system
  * @property {number} shield hits the craft's shield still takes in its place
@@ -316,6 +320,7 @@
  *   | { type: 'bump', z: number, x: number }
  *   | { type: 'takedown', pilot: number, z: number, x: number, points: number, by: 'guns' | 'rocket' | 'ram' | 'super' }
  *   | { type: 'nitro', z: number, x: number }
+ *   | { type: 'warp-system', system: 'guns' | 'shield', z: number, x: number }
  *   | { type: 'craft-ability', kind: CraftKind, z: number, x: number }
  *   | { type: 'gun-fire', z: number, x: number }
  *   | { type: 'rocket-launch', pilot: number, z: number, x: number }
