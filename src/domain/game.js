@@ -26,12 +26,13 @@ import {
 } from './bricks.js';
 import { bossPhase, initialHazardState, NO_HAZARDS, tickHazards } from './hazards.js';
 import { advanceNova, initialNovaState } from './nova.js';
+import { advanceWarp, initialWarpState } from './warp.js';
 import { moveOpponent } from './opponent.js';
 import { collectPowerUps, initialPowerUpState, NO_EXTRA_BALLS, otherSide, paddleWidth, tickEffects, tickPowerUps } from './power-ups.js';
 import { chargeMeter, initialSuperState, returnCharge, scoringSuper, steerSuper, strikeBack } from './supers.js';
 
 /**
- * @import { Ball, BricksConfig, BricksState, ExtraBall, GameConfig, GameEvent, GameState, InputSnapshot, NovaState, Side, SuperKind } from './types.js'
+ * @import { Ball, BricksConfig, BricksState, ExtraBall, GameConfig, GameEvent, GameState, InputSnapshot, NovaState, Side, SuperKind, WarpState } from './types.js'
  * @import { PaddleContact } from './physics.js'
  *
  * @typedef {object} Collision what a ball met during one step
@@ -83,8 +84,8 @@ export function createInitialState(config, seed = 1) {
     phase: GAME_PHASE.READY,
     player: { x: config.width / 2, vx: 0 },
     opponent: { x: config.width / 2, vx: 0 },
-    // In Nova there is no ball: it waits, still, at the center, where the countdown is drawn.
-    ball: config.bricks ? brickServeBall(config, 0, 0) : config.nova ? { x: config.width / 2, y: config.height / 2, vx: 0, vy: 0, spin: 0 } : createServeBall(config, 1, 1),
+    // In Nova and Warp there is no ball: it waits, still, at the center, where the countdown is drawn.
+    ball: config.bricks ? brickServeBall(config, 0, 0) : config.nova || config.warp ? { x: config.width / 2, y: config.height / 2, vx: 0, vy: 0, spin: 0 } : createServeBall(config, 1, 1),
     score: { player: 0, opponent: 0 },
     hits: { player: 0, opponent: 0 },
     lives: config.rules.kind === 'match' ? 0 : config.rules.lives,
@@ -98,6 +99,7 @@ export function createInitialState(config, seed = 1) {
     ...initialSuperState(),
     bricks: initialBricksState(config),
     nova: initialNovaState(config),
+    warp: initialWarpState(config),
     events: NO_EVENTS,
   };
 }
@@ -172,9 +174,9 @@ export function getWinner(state) {
     return null;
   }
 
-  // A Bricks or a Nova game is not won on points: the player wins by clearing the last wall,
-  // or the last sector.
-  if (state.bricks || state.nova) {
+  // A Bricks, Nova or Warp game is not won on points: the player wins by clearing the last
+  // wall, or the last sector, or by going through the last race.
+  if (state.bricks || state.nova || state.warp) {
     return state.lastPoint;
   }
 
@@ -823,6 +825,37 @@ function advanceNovaGame(state, deltaSeconds, config, events) {
 }
 
 /**
+ * One step of a Warp game. The start lights count down as before a match, before every race;
+ * then the race runs, and the game ends when the last credit is spent, or the last race is won.
+ *
+ * @param {GameState} state the state, with the craft already steered
+ * @param {number} deltaSeconds
+ * @param {GameConfig} config
+ * @param {GameEvent[]} events
+ * @returns {GameState}
+ */
+function advanceWarpGame(state, deltaSeconds, config, events) {
+  const next = tickEffects(state, deltaSeconds);
+
+  if (next.serveCountdown > 0) {
+    return waitForServe(next, deltaSeconds, config, events);
+  }
+
+  const raced = advanceWarp(next, deltaSeconds, config, events);
+  const finish = events.find((event) => event.type === 'race-finish');
+
+  if (raced.lives === 0) {
+    return endMatch(raced, 'opponent', events, null);
+  }
+
+  if (finish?.type === 'race-finish' && finish.qualified && finish.last) {
+    return endMatch({ ...raced, warp: { .../** @type {WarpState} */ (raced.warp), calm: 0 } }, 'player', events, null);
+  }
+
+  return withEvents(raced, events);
+}
+
+/**
  * Advances the simulation by one fixed step. Does nothing unless the match is running.
  * The returned state lists the events of this step, such as hits, bounces and points.
  *
@@ -843,6 +876,10 @@ export function advanceGame(state, deltaSeconds, input, config) {
 
   if (nextState.nova) {
     return advanceNovaGame(nextState, deltaSeconds, config, events);
+  }
+
+  if (nextState.warp) {
+    return advanceWarpGame(nextState, deltaSeconds, config, events);
   }
 
   if (nextState.bricks) {

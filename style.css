@@ -188,7 +188,8 @@ canvas:focus-visible {
 /* Five-figure scores in Bricks and Nova need the labels' room a size earlier still. */
 @container hud (max-width: 350px) {
   [data-mode="bricks"] .scoreboard__label,
-  [data-mode="nova"] .scoreboard__label {
+  [data-mode="nova"] .scoreboard__label,
+  [data-mode="warp"] .scoreboard__label {
     display: none;
   }
 }
@@ -298,7 +299,8 @@ canvas:focus-visible {
 
 /* In Bricks and Nova the score runs to five figures, so it is set smaller than a match's. */
 [data-mode="bricks"] .scoreboard__score,
-[data-mode="nova"] .scoreboard__score {
+[data-mode="nova"] .scoreboard__score,
+[data-mode="warp"] .scoreboard__score {
   min-width: 0;
   font-size: clamp(1.3rem, 3vh, 1.75rem);
 }
@@ -687,51 +689,38 @@ kbd {
   box-shadow: 0 0 calc(4 * var(--u)) rgba(var(--player-rgb), 0.45);
 }
 
-/* The modes as cards in two rows of three: the three kinds of match across the top, and under
-   them the career and the arcade's other two games, Bricks and Nova, each with a line on what
-   it is. The top three are too narrow for theirs, which stays in their names for screen readers. */
+/* The modes as cards, all alike: an icon over a name. The three kinds of match across the top,
+   and under them the career and the arcade's other games, Bricks, Nova and Warp. What each is
+   stays in its name for screen readers; the line under the menu tells the chosen one. */
 .modes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: calc(2 * var(--u));
   /* On a tablet the type outgrows a fixed cap, so the cap grows with it. */
   width: min(100%, max(26rem, calc(76 * var(--u))));
 }
 
 .mode {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  grid-column: span 3;
   align-items: center;
-  column-gap: calc(2.4 * var(--u));
+  justify-content: center;
+  gap: calc(0.8 * var(--u));
+  min-width: 0;
   min-height: 44px;
-  padding: calc(1.8 * var(--u)) calc(2.6 * var(--u));
+  padding: calc(1.4 * var(--u)) calc(1 * var(--u));
   border: 1px solid var(--line);
   border-radius: max(12px, calc(3.6 * var(--u)));
   line-height: 1.15;
-  text-align: left;
+  text-align: center;
   color: var(--muted);
   background: linear-gradient(180deg, rgba(22, 26, 56, 0.72), rgba(10, 12, 28, 0.72));
   transition: color 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, transform 120ms ease;
 }
 
-.mode--third {
-  grid-column: span 2;
-  column-gap: calc(1.6 * var(--u));
-  padding-inline: calc(1.6 * var(--u));
-}
-
-.mode--third .mode__icon {
-  width: max(18px, calc(5.4 * var(--u)));
-  height: max(18px, calc(5.4 * var(--u)));
-}
-
-/* The top row's cards have no room for their note: a name, centered beside its icon. */
-.mode--short {
-  justify-content: center;
-}
-
-.mode--short .mode__icon {
-  grid-row: auto;
+.mode--top {
+  grid-column: span 4;
 }
 
 .mode:hover {
@@ -743,9 +732,9 @@ kbd {
 }
 
 .mode__icon {
-  grid-row: span 2;
-  width: max(20px, calc(6.4 * var(--u)));
-  height: max(20px, calc(6.4 * var(--u)));
+  flex: none;
+  width: max(18px, calc(5.4 * var(--u)));
+  height: max(18px, calc(5.4 * var(--u)));
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -759,18 +748,14 @@ kbd {
 }
 
 .mode__name {
-  font-size: max(13px, calc(4 * var(--u)));
+  max-width: 100%;
+  overflow: hidden;
+  font-size: max(12px, calc(3.5 * var(--u)));
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: var(--text);
-}
-
-.mode__note {
-  overflow: hidden;
-  font-size: max(10px, calc(2.9 * var(--u)));
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text);
 }
 
 .mode[aria-pressed="true"] {
@@ -2071,7 +2056,8 @@ kbd {
 
   /* Five figures must fit the narrow column the HUD stands in here. */
   [data-mode="bricks"] .scoreboard__side--player .scoreboard__score,
-  [data-mode="nova"] .scoreboard__side--player .scoreboard__score {
+  [data-mode="nova"] .scoreboard__side--player .scoreboard__score,
+  [data-mode="warp"] .scoreboard__side--player .scoreboard__score {
     font-size: min(1.3rem, calc(var(--hud-w) * 0.3));
     letter-spacing: -0.02em;
   }
@@ -2349,22 +2335,4 @@ kbd {
   .sign__slot.is-next {
     animation: none !important;
   }
-}
-
-.mixtape-link {
-  grid-column: 1 / -1;
-  grid-template-columns: auto 1fr auto;
-  min-height: 44px;
-  color: #ffe0ab;
-  border-color: #bc947258;
-  background: linear-gradient(115deg, #544249, #322d42);
-  text-decoration: none;
-}
-.tape-icon {
-  padding: 1px 3px 3px;
-  border: 2px solid #ffcc94;
-  border-bottom-width: 4px;
-  border-radius: 3px;
-  color: #ffcc94;
-  font-size: 8px;
 }

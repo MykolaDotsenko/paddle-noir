@@ -527,3 +527,67 @@ test('however much goes down, is hit or fires in one step, only a little of it s
   assert.equal(count(Array.from({ length: 6 }, () => pebble)), 2 * one);
   assert.equal(count([{ type: 'enemy-hit', kind: 'boss', x: 0, y: 0, hp: 9 }, { type: 'enemy-hit', kind: 'boss', x: 0, y: 0, hp: 8 }, { type: 'enemy-fire', kind: 'boss', x: 0, y: 0, count: 12 }]), 1);
 });
+
+test('Warp\'s events each have their sound, and a rival\'s crash is only a distant thud', () => {
+  const { board, contexts } = setup();
+  const sounds = (event) => {
+    board.handle([event]);
+    const all = contexts[0]?.oscillators ?? [];
+    const fresh = all.slice(all.counted ?? 0);
+    all.counted = all.length;
+    return fresh;
+  };
+  const describe = (oscillators) => oscillators.map((oscillator) => `${oscillator.type}@${Math.round(oscillator.frequency.events[0][1])}`).join(' ');
+  const events = [
+    { type: 'ring', grade: 'perfect', chain: 1, z: 0, x: 0, points: 50 },
+    { type: 'ring', grade: 'good', chain: 0, z: 0, x: 0, points: 20 },
+    { type: 'boost', z: 0, x: 0, by: 'pad' },
+    { type: 'boost', z: 0, x: 0, by: 'slingshot' },
+    { type: 'crash', z: 0, x: 0, kind: 'mine' },
+    { type: 'crash', z: 0, x: 0, kind: 'mine', pilot: 2 },
+    { type: 'near-miss', z: 0, x: 0, points: 40 },
+    { type: 'bump', z: 0, x: 0 },
+    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150 },
+    { type: 'smash', kind: 'cargo', z: 0, x: 0, points: 60 },
+    { type: 'overtake', place: 2, pilot: 1, points: 50 },
+    { type: 'overtaken', place: 3, pilot: 1 },
+    { type: 'slipstream', z: 0, x: 0 },
+    { type: 'lightning', targets: [] },
+    { type: 'shockwave', z: 0, x: 0 },
+    { type: 'final-stretch' },
+    { type: 'race-finish', race: 0, place: 1, points: 1000, qualified: true, last: false, margin: 1 },
+    { type: 'race-finish', race: 0, place: 3, points: 400, qualified: true, last: false, margin: 1 },
+  ];
+  const heard = events.map((event) => describe(sounds(event)));
+
+  assert.ok(heard.every((sound) => sound.length > 0), heard.join(' | '));
+  assert.equal(new Set(heard).size, heard.length, 'each its own');
+  assert.equal(describe(sounds({ type: 'ring', grade: 'miss', chain: 0, z: 0, x: 0, points: 0 })), '', 'a ring missed is silent');
+  assert.equal(describe(sounds({ type: 'boost', z: 0, x: 0, by: 'super' })), '', 'a super\'s boost is the super\'s sound');
+  assert.equal(describe(sounds({ type: 'race-finish', race: 0, place: 5, points: 100, qualified: false, last: false, margin: 1 })), '', 'a race not gone through is told by the credit lost');
+});
+
+test('a chain of rings flown dead center chimes higher ring by ring, up to a point', () => {
+  const { board, contexts } = setup();
+  const pitch = (chain) => {
+    board.handle([{ type: 'ring', grade: 'perfect', chain, z: 0, x: 0, points: 50 }]);
+    return contexts[0].oscillators.at(-2).frequency.events[0][1];
+  };
+
+  assert.ok(pitch(1) < pitch(2) && pitch(2) < pitch(5));
+  assert.equal(pitch(8), pitch(12), 'it stops climbing');
+});
+
+test('however many rivals crash in one step, only one of them is heard', () => {
+  const { board, contexts } = setup();
+  const count = (events) => {
+    const before = contexts[0]?.oscillators.length ?? 0;
+    board.handle(events);
+    return contexts[0].oscillators.length - before;
+  };
+  const wreck = (pilot) => ({ type: 'crash', z: 0, x: 0, kind: 'debris', pilot });
+  const one = count([wreck(1)]);
+
+  assert.equal(count([wreck(1), wreck(2), wreck(3)]), one);
+  assert.equal(count([wreck(1), { type: 'crash', z: 0, x: 0, kind: 'mine' }]) > one, true, 'the player\'s own always sounds');
+});

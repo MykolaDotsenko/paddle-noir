@@ -134,6 +134,8 @@ function createRoot({ modalDialogs = true } = {}) {
     ['bricks', { 'data-mode': 'bricks' }],
     ['nova', { 'data-mode': 'nova' }],
     ['tutorialNova', { 'data-nova-only': '' }],
+    ['warp', { 'data-mode': 'warp' }],
+    ['tutorialWarp', { 'data-warp-only': '' }],
     ['tutorialBricks', { 'data-bricks-only': '' }],
     ['tutorialMatch', { 'data-match-only': '' }],
     ['rivalGroup', { 'data-career-only': '' }],
@@ -203,6 +205,7 @@ function createRoot({ modalDialogs = true } = {}) {
     ['overBestRush', { 'data-over-best-rush': '' }],
     ['overBestBricks', { 'data-over-best-bricks': '' }],
     ['overBestNova', { 'data-over-best-nova': '' }],
+    ['overBestWarp', { 'data-over-best-warp': '' }],
     ['overWall', { 'data-over-wall': '' }],
     ['overChampion', { 'data-over-champion': '' }],
     ['continueLine', { 'data-continue': '', 'aria-hidden': 'true' }],
@@ -354,6 +357,7 @@ function presentation(overrides = {}) {
     highScores: null,
     bricks: null,
     nova: null,
+    warp: null,
     ...overrides,
   };
 }
@@ -1850,4 +1854,91 @@ test('How to play tells of the ship in Nova', () => {
 
   click(dom.solo);
   assert.deepEqual([dom.tutorialNova.hidden, dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [true, true, false]);
+});
+
+const cup = (overrides = {}) => ({ race: 1, races: 5, name: 'Sunset Skyway', place: 6, points: 0, best: 0, newBest: false, ...overrides });
+const warpGame = (overrides = {}) => presentation({
+  mode: 'warp',
+  rules: { kind: 'warp', lives: 3 },
+  opponent: { label: 'Race', name: 'The field', proper: false },
+  lives: 3,
+  maxLives: 3,
+  warp: cup(),
+  ...overrides,
+});
+
+test('in Warp the scoreboard shows the points and the race, and points tick up without a pop', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp', initials: 'MYK' }) });
+
+  view.render(warpGame({ phase: GAME_PHASE.RUNNING, warp: cup({ points: 40 }) }));
+  view.render(warpGame({ phase: GAME_PHASE.RUNNING, warp: cup({ points: 1320, race: 2 }) }));
+
+  assert.deepEqual([dom.playerLabel.textContent, dom.opponentLabel.textContent], ['Score', 'Race']);
+  assert.deepEqual([dom.playerScore.textContent, dom.opponentScore.textContent], ['1320', '2']);
+  assert.equal(dom.playerScore.classes.has('is-popping'), false);
+  assert.ok(dom.opponentScore.classes.has('is-popping'), 'a new race pops');
+});
+
+test('the menu says how many races there are and the best score', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+
+  view.render(warpGame({ warp: cup({ best: 15200 }) }));
+  assert.equal(dom.menuMeta.textContent, '5 races · Best 15200 points');
+
+  view.render(warpGame({ warp: cup({ best: 1 }) }));
+  assert.equal(dom.menuMeta.textContent, '5 races · Best 1 point');
+});
+
+test('a cup out of credits is told by its points and the race it reached, at once, and asks to continue', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+
+  view.render(warpGame({ phase: GAME_PHASE.RUNNING }));
+  view.render(warpGame({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', lives: 0, warp: cup({ points: 7400, race: 4, name: 'Orbital Ring', best: 7400, newBest: true }) }));
+
+  assert.equal(dom.over.hidden, false);
+  assert.equal(dom.overTitle.textContent, 'Out of credits');
+  assert.equal(dom.overScore.textContent, '7400');
+  assert.equal(dom.overWall.textContent, 'points · race 4 of 5 · Orbital Ring');
+  assert.equal(dom.overMeta.hidden, true);
+  assert.equal(dom.overDifficulty.textContent, 'Warp');
+  assert.equal(dom.overBestWarp.hidden, false);
+  assert.equal(dom.overBestNova.hidden, true);
+  assert.equal(dom.continueLine.hidden, false);
+});
+
+test('a won cup is the cup won, at once', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+
+  view.render(warpGame({ phase: GAME_PHASE.RUNNING }));
+  view.render(warpGame({ phase: GAME_PHASE.GAME_OVER, winner: 'player', warp: cup({ points: 17020, race: 5, name: 'Warp Core', best: 20000 }) }));
+
+  assert.equal(dom.over.hidden, false);
+  assert.equal(dom.overTitle.textContent, 'Cup won');
+  assert.equal(dom.overWall.textContent, 'points · all 5 races won through');
+  assert.equal(dom.overBestWarp.hidden, true);
+  assert.equal(dom.continueLine.hidden, true);
+});
+
+test('a Warp cup is shared with its points, and how far it got', async () => {
+  const { view, dom, device } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+  const shared = async (result) => {
+    view.render(warpGame({ phase: GAME_PHASE.RUNNING }));
+    view.render(warpGame({ phase: GAME_PHASE.GAME_OVER, ...result }));
+    click(dom.share);
+    await nextTick();
+    return device.shared.at(-1);
+  };
+
+  assert.equal(await shared({ winner: 'opponent', warp: cup({ points: 7400, race: 3 }) }), 'I made 7400 points in the Warp cup of Paddle Noir, up to race 3 of 5. Beat that!');
+  assert.equal(await shared({ winner: 'player', warp: cup({ points: 17020, race: 5 }) }), 'I won all 5 races of the Warp cup in Paddle Noir: 17020 points. Beat that!');
+});
+
+test('How to play tells of the race in Warp', () => {
+  const { dom } = setup();
+
+  click(dom.warp);
+  assert.deepEqual([dom.tutorialWarp.hidden, dom.tutorialNova.hidden, dom.tutorialMatch.hidden], [false, true, true]);
+
+  click(dom.solo);
+  assert.deepEqual([dom.tutorialWarp.hidden, dom.tutorialNova.hidden, dom.tutorialMatch.hidden], [true, true, false]);
 });

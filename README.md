@@ -14,10 +14,6 @@ It began as a one-script Pong exercise in 2024. The current version keeps the sa
 
 Paddle Noir is meant to feel like the last surviving arcade cabinet in town, not a dashboard with a canvas in the middle.
 
-### Mixtape Run
-
-The cabinet also opens **[Mixtape Run](./mixtape/)**, an original local co-op bicycle arcade. Ride through three neighborhoods, jump for both sides of a cassette and bring a fallen friend back by clearing the next hurdle. Solo includes a computer buddy. In two-player mode use Space/A and L/↑, or the two touch buttons.
-
 ### Modes
 
 - **Solo** — first to 7 against the computer.
@@ -28,6 +24,8 @@ The cabinet also opens **[Mixtape Run](./mixtape/)**, an original local co-op bi
 - **Bricks** — the cabinet's second game: the same paddle and ball against eight walls of bricks instead of an opponent. Tough bricks take two hits, steel only gives way to a blast or a super, and a bomb takes its neighbors with it, one bomb setting off the next. Bonuses fall for the paddle to catch (a wider paddle, more balls, a laser, a safety net, a slower ball, a spare ball), bricks broken without the paddle touching a ball build a combo, and the supers work on the wall: a fireball goes through bricks, thunder takes a column, a zigzag a row, a phantom splits the ball in three.
 
 - **Nova** — the cabinet's third game: the paddle is a starship. It fires by itself, so the player only steers, as in every other mode: out of the way of rocks and enemy fire, and under what is to be shot down. Five sectors of rocks that split in two, drones that weave down in formation and fire at the ship, and gunships that strafe and fire in threes, then the Dreadnought, a boss that fights in three patterns as its health goes. Bonuses fall (rapid fire, a triple shot, a shield, a spare ship), a multiplier grows while the ship is not hit, and the supers work out here too: a fireball goes through everything in its way, a zigzag fans bolts across the court, thunder jumps from the ship to the six nearest enemies, and a phantom keeps the ship out of harm's way a while.
+
+- **Warp** — the cabinet's fourth game: a racing cup in neon, seen from just behind the craft, as the arcade racers drew it. The paddle is the craft, and it flies by itself, so the player only steers, as in every other mode. Five courses, from a synthwave sunset with its striped sun and palm trees, through a canyon, above the clouds and round a ringed planet, to the warp core; each bends left and right, and five rivals race it, each in a craft and a color of their own: the arcade's regulars, faster course by course, and the Landlord in the last race. Rings flown dead center build a chain, boost pads and a slipstream's slingshot speed the craft up, mines, drifting debris and slow cargo haulers spin it out, and passing close by them or by a rival is a near miss. Finish in the places a course asks for to go through, or spend a credit flying it again, and win the last race to take the cup. The supers work on the course too: a fireball is an afterburner that smashes through everything, a zigzag a shockwave that takes down every rival near, thunder strikes the two just ahead, and a phantom flies through it all.
 
 Career opponents change the same underlying simulation rather than loading separate game implementations. Boss attacks, difficulty and scoring differences are data/rules layered on top of the core match.
 
@@ -73,9 +71,9 @@ Slow motion and hit-stop change time scale/hold behaviour without changing the s
 
 ### Rules and content as data
 
-Solo, 2P, Rush and Career all use the same simulation, and Bricks runs on the same paddle, ball, walls, spin and supers, with a wall of its own in place of the far paddle. Nova keeps the paddle, its steering, the countdown, the super meter and the end of the game, and puts space in place of the ball.
+Solo, 2P, Rush and Career all use the same simulation, and Bricks runs on the same paddle, ball, walls, spin and supers, with a wall of its own in place of the far paddle. Nova keeps the paddle, its steering, the countdown, the super meter and the end of the game, and puts space in place of the ball. Warp keeps them too, and puts a course in place of the court: the countdown becomes the start lights, before every race.
 
-A rules object decides how a point counts, while the Career catalogue defines opponents and boss behaviour, the Bricks levels are drawn as text, a character a brick, and the Nova sectors are lists of waves, without duplicating the engine.
+A rules object decides how a point counts, while the Career catalogue defines opponents and boss behaviour, the Bricks levels are drawn as text, a character a brick, the Nova sectors are lists of waves, and the Warp courses are lists of bends with how often rings, pads and hazards come, without duplicating the engine.
 
 ## Architecture
 

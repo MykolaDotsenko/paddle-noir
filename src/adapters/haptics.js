@@ -47,6 +47,15 @@ function patternFor(event) {
       return [25, 30, 45];
     case 'enemy-arrive':
       return [20, 60, 20, 60, 20];
+    // In Warp rings and overtakes come every few seconds: only what the craft feels is felt.
+    case 'crash':
+      return event.pilot === undefined ? 70 : null;
+    case 'bump':
+      return 25;
+    case 'takedown':
+      return 20;
+    case 'race-finish':
+      return event.qualified ? [30, 50, 30] : null;
     case 'game-over':
       return event.winner === 'player' ? [30, 60, 30, 60, 120] : [160];
     default:

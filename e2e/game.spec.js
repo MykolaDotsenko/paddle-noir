@@ -2,7 +2,7 @@ import { expect, test as base } from '@playwright/test';
 
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { HIGH_SCORES } from '../src/catalog.js';
-import { BRICKS_CONFIG, GAME_CONFIG, NOVA_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG, NOVA_CONFIG, WARP_CONFIG } from '../src/config.js';
 
 // A first visit opens the tutorial over the menu. Most tests model a returning player, so
 // they store that choice before the page loads; the tutorial has a test of its own.
@@ -290,7 +290,7 @@ test.describe('on the smallest phone held upright', () => {
     expect(await touchProblems(page)).toEqual(noTouchProblems);
 
     // Rush has its high-score card there, the career its rival, and Bricks a card of its own.
-    for (const mode of [/Rush/, /Career/, /Bricks/, /Nova/]) {
+    for (const mode of [/Rush/, /Career/, /Bricks/, /Nova/, /Warp/]) {
       await page.getByRole('button', { name: mode }).tap();
       expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
     }
@@ -314,7 +314,7 @@ test.describe('on a phone held sideways', () => {
     const menuFits = () => page.locator('[data-overlay="menu"]').evaluate((sheet) => sheet.scrollHeight <= sheet.clientHeight);
     expect(await menuFits()).toBe(true);
 
-    for (const mode of [/Rush/, /Career/, /Bricks/, /Nova/, /Solo/]) {
+    for (const mode of [/Rush/, /Career/, /Bricks/, /Nova/, /Warp/, /Solo/]) {
       await page.getByRole('button', { name: mode }).tap();
       expect(await touchProblems(page), String(mode)).toEqual(noTouchProblems);
       expect(await menuFits(), String(mode)).toBe(true);
@@ -1437,3 +1437,82 @@ test.describe('in Nova', () => {
   });
 });
 
+
+// Warp: the paddle as a racing craft.
+
+test.describe('in Warp', () => {
+  test.use({ stored: { mode: 'warp', bestWarp: 10, jokes: false } });
+
+  test('the craft races where the player steers, past rivals and through rings, and keeps a record', async ({ page, hasTouch }) => {
+    test.setTimeout(240_000);
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.addInitScript(() => {
+      Math.random = () => 0.5;
+    });
+    await freezeTime(page);
+    const courses = WARP_CONFIG.warp.courses;
+
+    await expect(page.getByRole('button', { name: /Warp/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(status(page)).toHaveText(`Warp: race all ${courses.length} courses of the cup.`);
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${courses.length} races · Best 10 points`);
+    await (hasTouch ? playButton(page).tap() : playButton(page).click());
+    await expect(page.locator('.lives__heart')).toHaveCount(3);
+    await expect(page.locator('[data-label="player"]')).toHaveText('Score');
+    await expect(page.locator('[data-label="opponent"]')).toHaveText('Race');
+
+    // The craft is where a paddle would be, and there is no ball and no paddle across the court.
+    await page.clock.runFor(3500);
+    const surface = hasTouch ? page.locator('.rail') : board(page);
+    const box = await surface.boundingBox();
+    const steer = (x) => {
+      const at = [box.x + box.width * Math.min(0.99, Math.max(0.01, x / GAME_CONFIG.width)), box.y + box.height / 2];
+      return hasTouch ? page.touchscreen.tap(...at) : page.mouse.move(...at);
+    };
+    await steer(170);
+    await page.clock.runFor(400);
+    expect(Math.abs(await readPlayerX(page) - 170)).toBeLessThan(15);
+    expect(await readOpponentX(page)).toBeNull();
+    expect(await readBall(page)).toBeNull();
+
+    // Weave across the lane: rings, near misses and overtakes score.
+    const points = page.locator('[data-score="player"]');
+
+    for (let elapsed = 0; elapsed < 30_000 && Number(await points.textContent()) < 100; elapsed += 250) {
+      await steer(250 + 120 * Math.sin(elapsed / 1800));
+      await page.clock.runFor(250);
+    }
+
+    expect(Number(await points.textContent())).toBeGreaterThanOrEqual(100);
+    await expect(status(page)).toHaveText(/^Race \d, [A-Za-z ]+: place \d, \d+ points, \d credits? left$/);
+
+    // Ride the rumble strips at the lane's edge: too slow to go through, so the credits go.
+    await steer(GAME_CONFIG.width);
+    const out = page.getByRole('heading', { name: 'Out of credits' });
+
+    for (let elapsed = 0; elapsed < 600_000 && !(await out.isVisible()); elapsed += 4000) {
+      await page.clock.runFor(4000);
+    }
+
+    await expect(out).toBeVisible();
+    const final = Number(await page.locator('[data-over-score]').textContent());
+    expect(final).toBeGreaterThanOrEqual(100);
+    await expect(page.locator('[data-over-wall]')).toHaveText(new RegExp(`^points · race \\d of ${courses.length} · `));
+    await expect(page.locator('[data-over-best-warp]')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.reload();
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${courses.length} races · Best ${final} points`);
+    expect(errors).toEqual([]);
+  });
+
+  test('How to play tells of the race', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'How to play' }).click();
+    const help = page.getByRole('dialog', { name: 'How to play' });
+
+    await expect(help.getByText('Your paddle is a racing craft.')).toBeVisible();
+    await expect(help.getByText('Grab power-ups')).toBeHidden();
+    await expect(help.getByText('Your paddle is a starship.')).toBeHidden();
+  });
+});

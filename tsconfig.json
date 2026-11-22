@@ -11,5 +11,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["script.js", "mixtape/ride.js", "src/**/*.js"]
+  "include": ["script.js", "src/**/*.js"]
 }

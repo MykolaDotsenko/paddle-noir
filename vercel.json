@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "mkdir -p site && cp -R index.html style.css script.js favicon.png manifest.webmanifest src icons mixtape site/",
+  "buildCommand": "mkdir -p site && cp -R index.html style.css script.js favicon.png manifest.webmanifest src icons site/",
   "outputDirectory": "site",
   "installCommand": "echo 'Static game: no runtime dependencies to install'"
 }
