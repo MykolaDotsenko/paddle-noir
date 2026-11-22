@@ -1024,7 +1024,7 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     ctx.stroke();
   }
 
-  drawEngineWake(ctx, { x, y, glow: nitro ? NITRO_LIGHT : loadout.glow, speed: race.speed, boost: nitro || race.burn > 0, now, still });
+  drawEngineWake(ctx, { x, y, glow: nitro ? NITRO_LIGHT : race.abilityTime > 0 ? '216, 180, 254' : loadout.glow, speed: race.speed, boost: nitro || race.burn > 0 || race.abilityTime > 0, now, still });
 
   ctx.globalAlpha = race.ghost > 0 ? 0.5 : race.safe > 0 && race.spin === 0 ? 0.55 + (still ? 0 : 0.25 * Math.sin(now / 120)) : 1;
   drawHull(ctx, {
@@ -1041,7 +1041,7 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     // the climb after a ramp. The collision geometry remains untouched.
     yaw: clamp(state.player.vx / 1800, -0.25, 0.25),
     pitch: clamp((heightAt(race.course, race.z + 28) - heightAt(race.course, race.z)) * 0.04 + high * 0.14, -0.16, 0.22),
-    flame: race.burn > 0 || nitro ? 1.4 : 0.5 + rush * 0.6 + (still ? 0 : 0.08 * Math.sin(now / 40)),
+    flame: race.burn > 0 || nitro || race.abilityTime > 0 ? 1.4 : 0.5 + rush * 0.6 + (still ? 0 : 0.08 * Math.sin(now / 40)),
     nitro,
     rockets: race.rockets,
     active: race.abilityTime > 0,
@@ -1049,8 +1049,8 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     glows,
   });
 
-  if (race.shield > 0) {
-    drawShield(ctx, x, y, CRAFT_SCALE, race.shield, still ? 0 : now);
+  if (race.shield > 0 || race.shieldTime > 0) {
+    drawShield(ctx, x, y, CRAFT_SCALE, race.shieldTime > 0 ? 2 : race.shield, still ? 0 : now);
   }
 
   if (race.ghost > 0) {
@@ -1074,7 +1074,9 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
 function drawRush({ ctx, look, view, race, config, now }) {
   const rules = /** @type {WarpConfig} */ (config.warp);
   const nitro = race.nitroBurn > 0;
-  const rush = nitro ? 1 : clamp((race.speed - rules.topSpeed - 2) / (rules.boostSpeed - rules.topSpeed), 0, 1);
+  const warpDrive = race.abilityTime > 0;
+  const rush = nitro || warpDrive ? 1 : clamp((race.speed - rules.topSpeed - 2) / (rules.boostSpeed - rules.topSpeed), 0, 1);
+  const beam = nitro ? NITRO_LIGHT : warpDrive ? '216, 180, 254' : '165, 243, 252';
 
   if (rush <= 0) {
     return;
@@ -1086,12 +1088,12 @@ function drawRush({ ctx, look, view, race, config, now }) {
   ctx.save();
   ctx.lineCap = 'round';
 
-  for (let line = 0; line < (nitro ? 40 : 26); line += 1) {
+  for (let line = 0; line < (nitro ? 40 : warpDrive ? 34 : 26); line += 1) {
     const angle = hash(line, 50) * Math.PI * 2;
-    const along = (now / (nitro ? 300 : 420) + hash(line, 51)) % 1;
+    const along = (now / (nitro || warpDrive ? 300 : 420) + hash(line, 51)) % 1;
     const from = 60 + along * along * height;
     const length = (nitro ? 50 : 30) + along * 90;
-    ctx.strokeStyle = `rgba(${nitro ? NITRO_LIGHT : '165, 243, 252'}, ${rush * along * (nitro ? 0.65 : 0.5)})`;
+    ctx.strokeStyle = `rgba(${beam}, ${rush * along * (nitro || warpDrive ? 0.65 : 0.5)})`;
     ctx.lineWidth = 1 + along * 1.5;
     ctx.beginPath();
     ctx.moveTo(x + Math.cos(angle) * from, y + Math.sin(angle) * from * 0.8);
@@ -1100,8 +1102,8 @@ function drawRush({ ctx, look, view, race, config, now }) {
   }
 
   const edges = ctx.createRadialGradient(width / 2, height * 0.55, height * 0.3, width / 2, height * 0.55, height * 0.75);
-  edges.addColorStop(0, `rgba(${nitro ? NITRO_LIGHT : look.edge}, 0)`);
-  edges.addColorStop(1, `rgba(${nitro ? NITRO_LIGHT : look.edge}, ${(nitro ? 0.3 : 0.22) * rush})`);
+  edges.addColorStop(0, `rgba(${nitro || warpDrive ? beam : look.edge}, 0)`);
+  edges.addColorStop(1, `rgba(${nitro || warpDrive ? beam : look.edge}, ${(nitro || warpDrive ? 0.3 : 0.22) * rush})`);
   ctx.fillStyle = edges;
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
