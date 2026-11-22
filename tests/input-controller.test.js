@@ -436,3 +436,33 @@ test('E triggers the craft signature exactly once and preserves browser shortcut
     target: { tagName: 'BUTTON' }, preventDefault() {} });
   assert.deepEqual(commands, [GAME_COMMAND.ABILITY], 'focused controls keep their meaning');
 });
+
+
+test('Warp bridge hotkeys G/R/F fire once while W/N remain one-shot nitro inputs', () => {
+  const { input, window, commands } = setup();
+
+  for (const [key, command] of [
+    ['KeyG', GAME_COMMAND.WARP_GUNS],
+    ['KeyR', GAME_COMMAND.WARP_ROCKETS],
+    ['KeyF', GAME_COMMAND.WARP_SHIELD],
+  ]) {
+    const event = press(window, { code: key });
+    press(window, { code: key, repeat: true });
+    assert.equal(event.defaultPrevented, true, key);
+    assert.equal(commands.at(-1), command, key);
+  }
+  assert.deepEqual(commands, [GAME_COMMAND.WARP_GUNS, GAME_COMMAND.WARP_ROCKETS, GAME_COMMAND.WARP_SHIELD]);
+
+  for (const key of ['KeyW', 'KeyN', 'ArrowUp']) {
+    press(window, { code: key });
+    assert.equal(input.snapshot().action, true, key);
+  }
+
+  press(window, { code: 'KeyF', ctrlKey: true });
+  assert.equal(commands.length, 3, 'browser modifier shortcuts are preserved');
+  input.handleKeyDown({
+    code: 'KeyG', repeat: false, ctrlKey: false, metaKey: false, altKey: false,
+    target: { tagName: 'INPUT' }, preventDefault() {},
+  });
+  assert.equal(commands.length, 3, 'text inputs do not fire weapons');
+});
