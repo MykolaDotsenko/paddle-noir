@@ -32,7 +32,7 @@ test('other games\' events are not the race\'s, and outside a race nothing is', 
 });
 
 test('a ring flown dead center rings out at the craft and calls the chain; one off its middle only rings; a miss is silent', () => {
-  const perfect = play({ type: 'ring', grade: 'perfect', chain: 3, z: 300, x: 0, points: 150 }).effects;
+  const perfect = play({ type: 'ring', grade: 'perfect', chain: 3, air: false, z: 300, x: 0, points: 150 }).effects;
 
   assert.deepEqual(labelled(perfect), ['PERFECT ×3']);
   assert.equal(perfect.rings[0].x, 180);
@@ -154,6 +154,79 @@ test('over the line: fireworks for a win, a flash for going through, and nothing
 
   const out = finish({ place: 5, qualified: false });
   assert.ok(out.effects.particles.length === 0 && out.flashed === 0);
+});
+
+test('a ring caught in the air is called by what it scored', () => {
+  const { effects } = play({ type: 'ring', grade: 'perfect', chain: 2, air: true, z: 300, x: 0, points: 100 });
+
+  assert.deepEqual(effects.labels.map((label) => [label.text, label.color]), [['AIR RING +100', `rgb(${THEME.side.player.rgb})`]]);
+});
+
+test('a drift boost and a rocket start are called out like a slingshot, each in its own color', () => {
+  const called = (by) => play({ type: 'boost', z: 300, x: 0, by }).effects.labels.map((label) => [label.text, label.color]);
+
+  assert.deepEqual(called('drift'), [['DRIFT BOOST!', `rgb(${THEME.amber})`]]);
+  assert.deepEqual(called('start'), [['ROCKET START!', `rgb(${THEME.lime})`]]);
+  assert.deepEqual(called('pad'), []);
+});
+
+test('the craft kicks off a ramp and lands in a puff either side; a rival\'s jump is seen as it flies', () => {
+  const jump = play({ type: 'jump', z: 300, x: 0 }).effects;
+  assert.ok(jump.particles.length === 18 && jump.rings.length === 1 && jump.pulseAmount > 0);
+
+  const rival = play({ type: 'jump', z: 320, x: 0.3, pilot: 2 });
+  assert.equal(rival.known, true);
+  assert.equal(rival.effects.particles.length + rival.effects.rings.length, 0);
+
+  const land = play({ type: 'land', z: 340, x: 0, points: 60 }).effects;
+  assert.deepEqual(labelled(land), ['BIG AIR +60']);
+  assert.equal(land.particles.length, 20);
+  assert.ok(land.shakeAmount > 0);
+});
+
+test('a gate threaded dead center is called out; one flown through off its middle only rings', () => {
+  const threaded = play({ type: 'gate', grade: 'perfect', z: 300, x: 0.2, points: 40 }).effects;
+  assert.deepEqual(labelled(threaded), ['THREADED! +40']);
+  assert.ok(threaded.particles.length > 0);
+
+  const through = play({ type: 'gate', grade: 'good', z: 300, x: 0.2, points: 0 }).effects;
+  assert.deepEqual([through.labels.length, through.rings.length, through.particles.length], [0, 1, 0]);
+});
+
+test('a drift charged rings at the craft, and the flow going up is called, in amber at its highest', () => {
+  const ready = play({ type: 'drift-ready', z: 300, x: 0.7 }).effects;
+  assert.deepEqual([ready.rings.length, ready.rings[0].x, ready.labels.length], [1, 180, 0]);
+
+  const up = play({ type: 'flow', multiplier: 3 }).effects;
+  assert.deepEqual(up.labels.map((label) => [label.text, label.color]), [['FLOW ×3', `rgb(${THEME.lime})`]]);
+  assert.equal(up.popAmount, 1);
+  assert.deepEqual(play({ type: 'flow', multiplier: config.warp.maxFlow }).effects.labels.map((label) => [label.text, label.color]), [[`MAX FLOW ×${config.warp.maxFlow}`, `rgb(${THEME.amber})`]]);
+});
+
+test('a mine dropped ahead is flagged where it lies, and with the fun extras it is an eviction notice', () => {
+  const drop = { type: 'mine-drop', pilot: 4, z: 340, x: 0.2 };
+  const spot = viewOf(state.warp, config).project(340, 0.2);
+  const plain = play(drop).effects;
+
+  assert.deepEqual(labelled(plain), ['MINE!']);
+  assert.ok(Math.abs(plain.rings[0].x - spot.x) < 0.01);
+
+  const fun = new Effects({ random: () => 0.5 });
+  playEvents(fun, [drop], { config, state, random: () => 0.5, jokes: true });
+  assert.deepEqual(labelled(fun), ['EVICTION NOTICE!']);
+});
+
+test('two racers side by side over the line are a photo finish', () => {
+  const finish = (changes) => {
+    const effects = new Effects({ random: () => 0.5 });
+    playWarpEvent(effects, { type: 'race-finish', race: 0, place: 1, points: 1000, qualified: true, last: false, margin: 0.1, ...changes }, context);
+    return labelled(effects);
+  };
+
+  assert.deepEqual(finish({}), ['PHOTO FINISH!']);
+  assert.deepEqual(finish({ place: 2, qualified: false }), ['PHOTO FINISH!'], 'on either side of it');
+  assert.deepEqual(finish({ margin: 0.8 }), []);
+  assert.deepEqual(finish({ place: 4 }), [], 'not for the places behind');
 });
 
 test('the lights going out say go, in a race only; the countdown leaves its ring to a match', () => {

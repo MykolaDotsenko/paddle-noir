@@ -102,7 +102,7 @@ test('in Nova only what stands out is felt: the ship hit, a gunship or the boss 
   assert.deepEqual(calls, [70, 20, [40, 40, 80, 40, 120], 15, [25, 30, 45], [20, 60, 20, 60, 20], [30, 50, 30]]);
 });
 
-test('in Warp only what the craft feels is felt: its crash, a bump, a takedown and a race gone through', () => {
+test('in Warp only what the craft feels is felt: its crash, a bump, a takedown, a landing, a rocket start and a race gone through', () => {
   const { haptics, calls } = setup();
 
   haptics.handle([
@@ -114,7 +114,10 @@ test('in Warp only what the craft feels is felt: its crash, a bump, a takedown a
     { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150 },
     { type: 'race-finish', race: 0, place: 5, points: 100, qualified: false, last: false, margin: 1 },
     { type: 'race-finish', race: 0, place: 1, points: 1000, qualified: true, last: false, margin: 1 },
+    { type: 'land', z: 0, x: 0, points: 60 },
+    { type: 'boost', z: 0, x: 0, by: 'pad' },
+    { type: 'boost', z: 0, x: 0, by: 'start' },
   ]);
 
-  assert.deepEqual(calls, [70, 25, 20, [30, 50, 30]]);
+  assert.deepEqual(calls, [70, 25, 20, [30, 50, 30], 18, [20, 30, 30]]);
 });

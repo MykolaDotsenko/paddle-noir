@@ -12,6 +12,8 @@ import { SUPER_STYLE, THEME } from './theme.js';
  */
 
 const CYAN = THEME.side.player.rgb;
+/** Seconds between two racers over the line that the board calls a photo finish. */
+const PHOTO_FINISH = 0.25;
 const SPARKS = '254, 240, 138';
 
 /**
@@ -41,10 +43,10 @@ function spotOf(state, config, z, x) {
 /**
  * @param {Effects} effects
  * @param {GameEvent} event
- * @param {{ config: GameConfig, state?: GameState, random: () => number }} context
+ * @param {{ config: GameConfig, state?: GameState, random: () => number, jokes?: boolean }} context
  * @returns {boolean} whether the event was one of the Warp game's
  */
-export function playWarpEvent(effects, event, { config, state, random }) {
+export function playWarpEvent(effects, event, { config, state, random, jokes = false }) {
   const rules = config.warp;
 
   if (!rules || !state?.warp) {
@@ -66,7 +68,14 @@ export function playWarpEvent(effects, event, { config, state, random }) {
 
       if (event.grade === 'perfect') {
         effects.burst({ x: craft.x, y: craft.y - 26, color: `rgb(${SPARKS})`, count: 14 + Math.min(event.chain, 5) * 3, speed: 260, life: 0.4, size: 1.8 });
-        effects.label({ text: event.chain > 1 ? `PERFECT ×${event.chain}` : 'PERFECT', x: craft.x, y: craft.y - 92, color: `rgb(${THEME.amber})`, life: 0.7, size: 18 + Math.min(event.chain, 5) * 2 });
+        effects.label({
+          text: event.air ? `AIR RING +${event.points}` : event.chain > 1 ? `PERFECT ×${event.chain}` : 'PERFECT',
+          x: craft.x,
+          y: craft.y - 92,
+          color: `rgb(${event.air ? CYAN : THEME.amber})`,
+          life: 0.7,
+          size: 18 + Math.min(event.chain, 5) * 2,
+        });
       }
       return true;
     }
@@ -80,9 +89,10 @@ export function playWarpEvent(effects, event, { config, state, random }) {
       effects.ring({ x: craft.x, y: craft.y, color: `rgba(${CYAN}, 0.8)`, radius: 24, growth: 320, life: 0.35, width: 3 });
       effects.pulse(0.5);
 
-      if (event.by === 'slingshot') {
-        effects.label({ text: 'SLINGSHOT!', x: width / 2, y: height * 0.46, color: `rgb(${CYAN})`, life: 0.8, size: 28 });
-        effects.flashSparingly(`rgb(${CYAN})`, 0.1);
+      if (event.by !== 'pad') {
+        const [text, rgb] = event.by === 'slingshot' ? ['SLINGSHOT!', CYAN] : event.by === 'drift' ? ['DRIFT BOOST!', THEME.amber] : ['ROCKET START!', THEME.lime];
+        effects.label({ text, x: width / 2, y: height * 0.46, color: `rgb(${rgb})`, life: 0.8, size: 28 });
+        effects.flashSparingly(`rgb(${rgb})`, 0.1);
       }
       return true;
     }
@@ -109,6 +119,45 @@ export function playWarpEvent(effects, event, { config, state, random }) {
       effects.flashSparingly(`rgb(${THEME.rose})`, 0.2);
       effects.shake(0.9);
       effects.kick('player');
+      return true;
+    }
+    case 'jump':
+      // A rival's jump is seen as it flies; the player's own kicks off the lane.
+      if (event.pilot === undefined) {
+        effects.ring({ x: craft.x, y: craft.y + 6, color: `rgba(${CYAN}, 0.9)`, radius: 16, growth: 380, life: 0.4, width: 4 });
+        effects.burst({ x: craft.x, y: craft.y + 10, color: `rgb(${CYAN})`, count: 18, speed: 260, direction: Math.PI / 2, spread: 1.6, life: 0.4, size: 2 });
+        effects.pulse(0.6);
+      }
+      return true;
+    case 'land':
+      for (const side of [-1, 1]) {
+        effects.burst({ x: craft.x + side * 26, y: craft.y + 12, color: `rgb(${SPARKS})`, count: 10, speed: 220, direction: side > 0 ? 0 : Math.PI, spread: 1, life: 0.35, size: 1.8 });
+      }
+
+      effects.label({ text: `BIG AIR +${event.points}`, x: craft.x, y: craft.y - 92, color: `rgb(${CYAN})`, life: 0.7, size: 20 });
+      effects.shake(0.25);
+      return true;
+    case 'gate':
+      effects.ring({ x: craft.x, y: craft.y - 20, color: `rgba(${THEME.lime}, 0.9)`, radius: 26, growth: 300, life: 0.35, width: event.grade === 'perfect' ? 4 : 2 });
+
+      if (event.grade === 'perfect') {
+        effects.burst({ x: craft.x, y: craft.y - 20, color: `rgb(${THEME.lime})`, count: 16, speed: 260, life: 0.4, size: 1.8 });
+        effects.label({ text: `THREADED! +${event.points}`, x: craft.x, y: craft.y - 92, color: `rgb(${THEME.lime})`, life: 0.7, size: 20 });
+      }
+      return true;
+    case 'drift-ready':
+      effects.ring({ x: craft.x, y: craft.y, color: `rgba(${THEME.amber}, 0.9)`, radius: 30, growth: 240, life: 0.3, width: 3 });
+      return true;
+    case 'flow': {
+      const top = event.multiplier >= rules.maxFlow;
+      effects.pop();
+      effects.label({ text: top ? `MAX FLOW ×${event.multiplier}` : `FLOW ×${event.multiplier}`, x: width / 2, y: height * 0.34, color: `rgb(${top ? THEME.amber : THEME.lime})`, life: 0.8, size: 26, stack: true });
+      return true;
+    }
+    case 'mine-drop': {
+      const at = spotOf(state, config, event.z, event.x);
+      effects.ring({ x: at.x, y: at.y, color: `rgba(${THEME.red}, 0.9)`, radius: 3, growth: 80 + 240 * at.scale, life: 0.5, width: 2 });
+      effects.label({ text: jokes ? 'EVICTION NOTICE!' : 'MINE!', x: width / 2, y: height * 0.4, color: `rgb(${THEME.red})`, life: 0.7, size: 22 });
       return true;
     }
     case 'near-miss':
@@ -192,6 +241,11 @@ function finishLine(effects, event, rules, config, random) {
 
   effects.clearLabels();
   effects.pulse(1);
+
+  // Side by side over the line.
+  if (event.margin < PHOTO_FINISH && event.place <= 2) {
+    effects.label({ text: 'PHOTO FINISH!', x: width / 2, y: height * 0.5, color: `rgb(${THEME.amber})`, life: 1.4, size: 30 });
+  }
 
   if (!event.qualified) {
     return;

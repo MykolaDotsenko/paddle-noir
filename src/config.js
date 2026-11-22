@@ -245,9 +245,10 @@ export const NOVA_CONFIG = Object.freeze({
 export const WARP_LIVES = 3;
 
 // Warp: the paddle is a racing craft on a neon course, seen from behind. It flies on by itself,
-// so the player only steers, as in every other mode: through rings, over boost pads, round
-// hazards and past five rivals a race. Its place across the lane is the paddle's place across
-// the court. A race lasts about a minute. Tuned by racing the cup with human-like bots.
+// so the player only steers, as in every other mode: through rings and gates, over boost pads
+// and off ramps, round hazards, along the inside of a bend for a drift, and past five rivals a
+// race. Its place across the lane is the paddle's place across the court. A race lasts about a
+// minute. Tuned by racing the cup with human-like bots.
 export const WARP_CONFIG = Object.freeze({
   ...tuned(GAME_CONFIG, {
     rules: Object.freeze({ kind: 'warp', lives: WARP_LIVES }),
@@ -258,6 +259,7 @@ export const WARP_CONFIG = Object.freeze({
       topSpeed: 40,
       boostSpeed: 54,
       accel: 1.2,
+      gravity: 2,
       spinSeconds: 1.1,
       spinSpeed: 0.45,
       safeSeconds: 1.6,
@@ -266,16 +268,30 @@ export const WARP_CONFIG = Object.freeze({
       ringRadius: 0.28,
       padWidth: 0.22,
       padSeconds: 1.4,
+      rampWidth: 0.32,
+      airSeconds: 1.05,
+      gateGap: 0.4,
+      gateCenter: 0.08,
       nearMiss: 0.1,
       draft: 14,
       slipSeconds: 1.2,
       slingSeconds: 1.2,
+      driftBend: 0.5,
+      driftFrom: 0.45,
+      driftSeconds: 1.1,
+      driftBoostSeconds: 0.9,
+      startWindow: 0.4,
+      startBoostSeconds: 1.2,
+      flowStep: 4,
+      maxFlow: 5,
       placePoints: Object.freeze([1000, 600, 400, 200, 100, 50]),
-      chargePerTrick: 0.06,
+      chargePerTrick: 0.04,
       burnSeconds: 3,
       ghostSeconds: 4,
       shockRange: 18,
-      calmSeconds: 3.5,
+      mineEvery: 4.5,
+      maxDrops: 5,
+      calmSeconds: 4.5,
     },
   }),
   // The craft steers across the whole lane with the paddle's whole reach.

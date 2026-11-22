@@ -47,6 +47,8 @@ const requiredFiles = [
   'src/domain/warp.js',
   'src/adapters/canvas/warp.js',
   'src/adapters/canvas/warp-effects.js',
+  'src/adapters/canvas/warp-scenery.js',
+  'src/adapters/canvas/warp-hud.js',
   'src/adapters/dom-game-view.js',
   'src/adapters/audio-output.js',
   'src/adapters/sound-board.js',

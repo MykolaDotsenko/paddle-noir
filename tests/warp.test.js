@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { GAME_CONFIG, WARP_CONFIG, WARP_LIVES } from '../src/config.js';
 import { WARP_COURSES } from '../src/courses.js';
 import { advanceGame, createInitialState, GAME_PHASE, getWinner, startGame } from '../src/domain/game.js';
-import { buildCourse, FINAL_STRETCH, ITEM_RADIUS, itemX, laneX, onRumble, placeOf, raceState, roll, TRICK_POINTS } from '../src/domain/warp.js';
+import { buildCourse, curveAt, FINAL_STRETCH, flowOf, gradeAt, heightAt, ITEM_RADIUS, itemX, laneX, onRumble, placeOf, raceState, roll, TRICK_POINTS } from '../src/domain/warp.js';
 
 // The Warp game: the paddle is a racing craft. These tests lay out courses of their own, put
 // rings, pads, hazards and rivals where each case needs them, and let the race run.
@@ -16,7 +16,7 @@ const IDLE = { horizontalAxis: 0, pointerX: null, opponentAxis: 0, opponentPoint
 /** Steers the craft to a place across the lane. */
 const lane = (x) => ({ ...IDLE, pointerX: WARP_CONFIG.width / 2 + x * REACH });
 
-const SLOW = Object.freeze({ name: 'Slow', rgb: '1, 2, 3', craft: 'jet', pace: 0.5, skill: 1 });
+const SLOW = Object.freeze({ name: 'Slow', rgb: '1, 2, 3', craft: 'jet', pace: 0.5, skill: 1, trait: 'none' });
 
 /** A course of the test's own: straight, with nothing on it unless the test puts it there. */
 function layout(changes = {}) {
@@ -25,7 +25,8 @@ function layout(changes = {}) {
     theme: 'sunset',
     length: 600,
     bends: [[600, 0]],
-    every: { rings: 0, pads: 0, mines: 0, debris: 0, cargo: 0 },
+    hills: [],
+    every: { rings: 0, pads: 0, mines: 0, debris: 0, cargo: 0, ramps: 0, gates: 0 },
     pilots: [SLOW, SLOW, SLOW, SLOW],
     qualify: 1,
     ...changes,
@@ -33,7 +34,7 @@ function layout(changes = {}) {
 }
 
 /** A race under way, past its start lights, with a course and rivals of the test's own. */
-function game({ courses = [layout(), layout({ name: 'Next' })], items = [], rivals = [], supers = false, warp = {}, seed = 7, x = 0 } = {}) {
+function game({ courses = [layout(), layout({ name: 'Next' })], items = [], rivals = [], supers = false, warp = {}, seed = 7, x = 0, launched = true } = {}) {
   const config = { ...WARP_CONFIG, supers: { ...WARP_CONFIG.supers, enabled: supers }, warp: { ...RULES, ...warp, courses } };
   const started = startGame(createInitialState(config, seed), config);
   const race = started.warp;
@@ -45,7 +46,9 @@ function game({ courses = [layout(), layout({ name: 'Next' })], items = [], riva
     warp: {
       ...race,
       speed: RULES.topSpeed,
-      course: { ...race.course, items: items.map((item, index) => ({ id: index + 1, x: 0, sway: 0, ...item })) },
+      // The moment for a rocket start is over, unless the test is about it.
+      launched,
+      course: { ...race.course, items: items.map((item, index) => ({ id: index + 1, x: 0, sway: 0, air: false, ...item })) },
       rivals: field,
       place: placeOf({ ...race, rivals: field }),
     },
@@ -55,7 +58,7 @@ function game({ courses = [layout(), layout({ name: 'Next' })], items = [], riva
 
 /** A rival, on a line it keeps a long while. */
 function racer(placed = {}) {
-  return { id: 1, pilot: 0, z: 100, x: 0, speed: 0, line: placed.x ?? 0, lineIn: 99, boost: 0, spin: 0, bumped: 0, finish: 0, ...placed };
+  return { id: 1, pilot: 0, z: 100, x: 0, speed: 0, line: placed.x ?? 0, lineIn: 99, boost: 0, spin: 0, bumped: 0, air: 0, mineIn: 99, finish: 0, ...placed };
 }
 
 const race = (state, changes) => ({ ...state, warp: { ...state.warp, ...changes } });
@@ -139,11 +142,11 @@ test('a ring flown dead center is perfect: points, a chain, a nudge of boost and
 
   assert.deepEqual(rings.map((ring) => [ring.grade, ring.chain, ring.points]), [
     ['perfect', 1, TRICK_POINTS.perfect],
-    ['perfect', 2, TRICK_POINTS.perfect * 2],
+    ['perfect', 2, TRICK_POINTS.perfect],
     ['good', 0, TRICK_POINTS.good],
     ['miss', 0, 0],
   ]);
-  assert.equal(flown.warp.points, TRICK_POINTS.perfect * 3 + TRICK_POINTS.good);
+  assert.equal(flown.warp.points, TRICK_POINTS.perfect * 2 + TRICK_POINTS.good);
   assert.ok(Math.abs(flown.meters.player.charge - RULES.chargePerTrick * 2) < 1e-9);
   assert.equal(flown.warp.cursor, 4);
 });
@@ -411,10 +414,10 @@ test('a course is laid out the same every time: its bends a stretch at a time, e
     assert.ok(course.items.every((item, at) => at === 0 || item.z >= course.items[at - 1].z), written.name);
     assert.ok(course.items[0].z > 60 && course.items.at(-1).z < written.length - 50, written.name);
     assert.equal(new Set(course.items.map((item) => item.id)).size, course.items.length);
-    assert.ok(course.items.every((item) => Math.abs(item.x) < 0.85));
+    assert.ok(course.items.every((item) => Math.abs(item.x) <= 0.8));
 
-    for (const kind of /** @type {const} */ (['rings', 'pads', 'mines', 'debris', 'cargo'])) {
-      const singular = { rings: 'ring', pads: 'pad', mines: 'mine', debris: 'debris', cargo: 'cargo' }[kind];
+    for (const kind of /** @type {const} */ (['rings', 'pads', 'mines', 'debris', 'cargo', 'ramps', 'gates'])) {
+      const singular = { rings: 'ring', pads: 'pad', mines: 'mine', debris: 'debris', cargo: 'cargo', ramps: 'ramp', gates: 'gate' }[kind];
       const count = course.items.filter((item) => item.kind === singular).length;
       assert.equal(count > 0, written.every[kind] > 0, `${written.name}: ${kind}`);
     }
@@ -460,4 +463,283 @@ test('the same seed and the same hands race the same cup', () => {
   };
 
   assert.deepEqual(fly(5), fly(5));
+});
+
+// Hills.
+
+test('a course rolls over hills, level at its start and its finish, and a slope speeds a craft up or slows it down', () => {
+  const hills = [[2, 300, 0]];
+  const { config, state } = game({ courses: [layout({ length: 2000, bends: [[2000, 0]], hills }), layout()] });
+  const { course } = state.warp;
+
+  assert.deepEqual([heightAt(course, 0), heightAt(course, -40), heightAt(course, 2000), heightAt(course, 2300)], [0, 0, 0, 0]);
+  assert.ok(Math.abs(heightAt(course, 675) - 2) < 1e-9, 'a crest as high as it is written');
+  assert.ok(gradeAt(course, 750, RULES) > 1.02 && gradeAt(course, 600, RULES) < 0.98);
+  assert.ok(gradeAt(course, 750, RULES) <= 1.06 && gradeAt(course, 600, RULES) >= 0.94, 'by so much and no more');
+  assert.equal(gradeAt(course, -20, RULES), 1, 'and level ground changes nothing');
+
+  const after = (z) => run(race(state, { z }), config, 0.6, { input: lane(0) }).state.warp.speed;
+  assert.ok(after(730) > RULES.topSpeed + 0.5, 'faster downhill');
+  assert.ok(after(580) < RULES.topSpeed - 0.5, 'slower up');
+});
+
+test('the game\'s own courses roll, and their heights never jump', () => {
+  WARP_COURSES.forEach((written, index) => {
+    const course = buildCourse(WARP_CONFIG, index);
+    const heights = Array.from({ length: written.length }, (_, z) => heightAt(course, z));
+
+    assert.ok(Math.max(...heights) - Math.min(...heights) > 1, written.name);
+    assert.ok(heights.every((height, z) => z === 0 || Math.abs(height - heights[z - 1]) < 0.08), written.name);
+  });
+});
+
+// Ramps and the air.
+
+test('a ramp throws the craft into the air: over hazards, gates and rivals, past the rings on the ground, and through the rings that hang there', () => {
+  const items = [{ kind: 'ramp', z: 10 }, { kind: 'ring', z: 22 }, { kind: 'ring', z: 26, air: true }, { kind: 'mine', z: 30 }, { kind: 'gate', z: 36, x: 0.8 }, { kind: 'pad', z: 40 }];
+  const { config, state } = game({ items, rivals: [{ z: 20, x: 0.8, speed: 20 }] });
+  const { state: up, events: launch } = run(state, config, 0.3, { input: lane(0) });
+
+  assert.deepEqual(named(launch, 'jump').map((event) => [event.z, event.pilot]), [[10, undefined]]);
+  assert.ok(up.warp.air > 0);
+
+  const { state: down, events } = run(up, config, RULES.airSeconds, { input: lane(0) });
+  assert.deepEqual(named(events, 'ring').map((ring) => [ring.z, ring.air, ring.grade, ring.points]), [[26, true, 'perfect', TRICK_POINTS.perfect * 2]]);
+  assert.deepEqual(named(events, 'crash').concat(named(events, 'bump'), named(events, 'boost'), named(events, 'near-miss')), []);
+  assert.deepEqual(named(events, 'land').map((event) => event.points), [TRICK_POINTS.air]);
+  assert.equal(down.warp.air, 0);
+  assert.equal(down.warp.points, TRICK_POINTS.perfect * 2 + TRICK_POINTS.air + TRICK_POINTS.overtake, 'and passing a rival from above is an overtake all the same');
+  assert.ok(Math.abs(down.warp.speed - RULES.topSpeed) < 2, 'it keeps its speed through the air');
+});
+
+test('a ramp flown by throws nobody, and the rings in the air are out of reach from the ground', () => {
+  const { config, state } = game({ items: [{ kind: 'ramp', z: 10, x: 0.6 }, { kind: 'ring', z: 20, air: true }] });
+  const { state: flown, events } = run(state, config, 0.7, { input: lane(0) });
+
+  assert.deepEqual(named(events, 'jump').concat(named(events, 'ring')), []);
+  assert.equal(flown.warp.air, 0);
+  assert.equal(flown.warp.cursor, 2);
+});
+
+test('a rival takes a ramp too, and flies over what is under it', () => {
+  const pilots = [{ ...SLOW, pace: 1, skill: 0 }];
+  const { config, state } = game({ courses: [layout({ pilots }), layout({ pilots })], rivals: [{ z: 20, x: 0, speed: 40 }], items: [{ kind: 'ramp', z: 30 }, { kind: 'mine', z: 45 }, { kind: 'gate', z: 55, x: 0.8 }] });
+  const { state: flown, events } = run(state, config, 1, { input: lane(-0.9) });
+
+  assert.deepEqual(named(events, 'jump').map((event) => event.pilot), [0]);
+  assert.equal(named(events, 'crash').length, 0);
+  assert.ok(flown.warp.rivals[0].air > 0);
+});
+
+// Gates.
+
+test('a gate is threaded through its gap: dead center for points, or anywhere in it; outside it is a crash', () => {
+  const through = (x, changes = {}) => {
+    const { config, state } = game({ items: [{ kind: 'gate', z: 10, x: 0.3 }], x });
+    return run(race(state, changes), config, 0.4, { input: lane(x) });
+  };
+
+  assert.deepEqual(named(through(0.3).events, 'gate').map((event) => [event.grade, event.points]), [['perfect', TRICK_POINTS.gate]]);
+  assert.deepEqual(named(through(0.3 + RULES.gateCenter + 0.05).events, 'gate').map((event) => [event.grade, event.points]), [['good', 0]]);
+  assert.deepEqual(named(through(0.3 - RULES.gateGap).events, 'crash').map((event) => event.kind), ['gate']);
+  assert.ok(through(-0.5).state.warp.spin > 0);
+  assert.deepEqual(named(through(-0.5, { burn: 2 }).events, 'smash').map((event) => [event.kind, event.points]), [['gate', TRICK_POINTS.smash]]);
+  assert.deepEqual(through(-0.5, { ghost: 2 }).events.filter((event) => event.type === 'crash' || event.type === 'gate'), []);
+});
+
+test('a rival steers for a gate\'s gap if it reads the gate, and crashes into the gate if it does not', () => {
+  const at = (skill, reads) => {
+    const pilots = [{ ...SLOW, pace: 1, skill }];
+    // An item the rival's roll for it comes out as the test needs.
+    const id = Array.from({ length: 200 }, (_, n) => n + 1).find((n) => (roll(17, n) < 0.45 + skill / 2) === reads);
+    const { config, state } = game({ courses: [layout({ pilots }), layout({ pilots })], rivals: [{ z: 30, x: -0.6, speed: 40 }], items: [{ id, kind: 'gate', z: 90, x: 0.4 }] });
+    return run(state, config, 2, { input: lane(0.4) });
+  };
+
+  const sharp = at(1, true);
+  assert.equal(named(sharp.events, 'crash').length, 0);
+  assert.ok(Math.abs(sharp.state.warp.rivals[0].x - 0.4) < 0.1);
+  assert.deepEqual(named(at(0, false).events, 'crash').map((event) => [event.kind, event.pilot]), [['gate', 0]]);
+});
+
+// Drifts.
+
+test('holding the inside of a bend charges a drift, which boosts the craft as it leaves the line', () => {
+  const courses = [layout({ bends: [[600, 1]] }), layout()];
+  const { config, state } = game({ courses, x: 0.7 });
+
+  assert.equal(curveAt(state.warp.course, 100, RULES), 1);
+  assert.equal(curveAt(state.warp.course, -5, RULES), 0);
+  const { state: charged, events } = run(state, config, RULES.driftSeconds + 0.2, { input: lane(0.7) });
+  assert.equal(charged.warp.drift, 1);
+  assert.equal(named(events, 'drift-ready').length, 1);
+  assert.equal(named(events, 'boost').length, 0, 'held while the line is held');
+
+  const { state: out, events: released } = run(charged, config, 0.2, { input: lane(0.1) });
+  assert.deepEqual(named(released, 'boost').map((event) => event.by), ['drift']);
+  assert.equal(out.warp.drift, 0);
+  assert.equal(out.warp.points, TRICK_POINTS.drift);
+  assert.ok(out.warp.boost > RULES.driftBoostSeconds - 0.3);
+});
+
+test('a drift charges only on the inside of a bend, off the rumble strips, and fades if the line is left early', () => {
+  const drift = (bend, x, seconds = 0.6) => {
+    const { config, state } = game({ courses: [layout({ bends: [[600, bend]] }), layout()], x });
+    return run(state, config, seconds, { input: lane(x) }).state.warp.drift;
+  };
+
+  assert.ok(drift(1, 0.7) > 0.4);
+  assert.ok(drift(-1, -0.7) > 0.4, 'the inside of a left-hand bend is the left');
+  assert.equal(drift(1, -0.7), 0, 'not on the outside');
+  assert.equal(drift(1, 0.2), 0, 'nor in the middle');
+  assert.equal(drift(0, 0.7), 0, 'nor on a straight');
+  assert.equal(drift(0.3, 0.7), 0, 'nor in a bend too gentle');
+  assert.equal(drift(1, 1), 0, 'nor on the rumble strips');
+  assert.ok(drift(1.5, 0.7) > drift(1, 0.7), 'faster in a harder bend');
+
+  const { config, state } = game({ courses: [layout({ bends: [[600, 1]] }), layout()], x: 0.7 });
+  const half = run(state, config, 0.5, { input: lane(0.7) }).state;
+  const left = run(half, config, 1, { input: lane(0) });
+  assert.equal(left.state.warp.drift, 0);
+  assert.equal(named(left.events, 'boost').length, 0);
+});
+
+// The flow.
+
+test('tricks landed without a crash multiply what the next ones score, and a crash ends the flow', () => {
+  const rings = [10, 20, 30, 40, 50, 60, 70].map((z) => ({ kind: 'ring', z }));
+  const { config, state } = game({ items: [...rings, { kind: 'mine', z: 80 }, { kind: 'ring', z: 130 }] });
+  const { state: flowing, events } = run(state, config, 3, { input: lane(0), until: (_, seen) => named(seen, 'ring').length === 7 });
+
+  const times = (tricks) => 1 + Math.floor(tricks / RULES.flowStep);
+  assert.deepEqual(named(events, 'ring').map((ring) => ring.points), rings.map((_, landed) => TRICK_POINTS.perfect * times(landed)));
+  assert.deepEqual(named(events, 'flow').map((event) => event.multiplier), [2]);
+  assert.equal(flowing.warp.flow, 7);
+  assert.equal(flowOf(flowing.warp, RULES), times(7));
+  assert.ok(times(7) > 1);
+  assert.equal(flowOf({ flow: 99 }, RULES), RULES.maxFlow, 'up to a point');
+
+  const { state: crashed, events: after } = run(flowing, config, 3, { input: lane(0) });
+  assert.equal(named(after, 'crash').length, 1);
+  assert.deepEqual(named(after, 'ring').map((ring) => ring.points), [50], 'from one again');
+  assert.equal(crashed.warp.flow, 1);
+});
+
+// The start.
+
+test('a flick as the lights go green is a rocket start; a moment later it is only a flick', () => {
+  const flick = (time) => {
+    const { config, state } = game({ launched: false });
+    const waiting = run(race(state, { speed: 0, time: 0 }), config, time, { input: lane(0) }).state;
+    return run({ ...waiting, player: { x: 250, vx: config.supers.flickSpeed * 4 } }, config, STEP, { input: lane(0) });
+  };
+
+  const rocket = flick(0.2);
+  assert.deepEqual(named(rocket.events, 'boost').map((event) => event.by), ['start']);
+  assert.ok(rocket.state.warp.boost > RULES.startBoostSeconds - 0.1);
+  assert.equal(rocket.state.warp.points, TRICK_POINTS.start);
+  assert.equal(rocket.state.warp.launched, true);
+
+  const late = flick(RULES.startWindow + 0.2);
+  assert.equal(named(late.events, 'boost').length, 0);
+  assert.equal(late.state.warp.launched, true);
+});
+
+test('one flick is one rocket start', () => {
+  const { config, state } = game({ launched: false });
+  const { events } = run({ ...race(state, { time: 0 }), player: { x: 250, vx: config.supers.flickSpeed * 4 } }, config, 0.3, { input: (next) => ({ ...lane(0), pointerX: next.player.x + 6 }) });
+
+  assert.equal(named(events, 'boost').length, 1);
+});
+
+// Pilots with a way of their own.
+
+test('a blocker covers the player\'s line while they are close behind, and only then', () => {
+  const covering = (trait, gap) => {
+    const pilots = [{ ...SLOW, pace: 1, trait }];
+    const { config, state } = game({ courses: [layout({ pilots, length: 2000 }), layout({ pilots })], rivals: [{ z: gap, x: -0.5, speed: 40 }], x: 0.6 });
+    return run(state, config, 1.2, { input: lane(0.6) }).state.warp.rivals[0];
+  };
+
+  assert.ok(covering('blocker', 9).x > 0.4);
+  assert.equal(covering('blocker', 9).line, 0.6);
+  assert.equal(covering('none', 9).x, -0.5);
+  assert.equal(covering('blocker', 50).x, -0.5, 'not from far ahead');
+});
+
+test('a weaver changes its line far more often than anyone else', () => {
+  const changes = (trait) => {
+    const pilots = [{ ...SLOW, pace: 1, trait }];
+    const { config, state } = game({ courses: [layout({ pilots, length: 4000 }), layout({ pilots })], rivals: [{ z: 120, x: 0, speed: 40, lineIn: 0 }] });
+    const lines = new Set();
+    run(state, config, 12, { input: lane(0), until: (next) => { lines.add(next.warp.rivals[0].line); return false; } });
+    return lines.size;
+  };
+
+  assert.ok(changes('weaver') >= changes('none') + 3);
+});
+
+test('a miner drops mines for a player who follows, a few at most, and they are mines like any other', () => {
+  const pilots = [{ ...SLOW, pace: 1, trait: 'miner' }];
+  const behind = (gap, seconds, x = 0.8) => {
+    const { config, state } = game({ courses: [layout({ pilots, length: 4000 }), layout({ pilots })], rivals: [{ z: gap, x: 0, speed: 40, mineIn: 0 }], x });
+    return run(state, config, seconds, { input: lane(x) });
+  };
+
+  const first = behind(40, 0.1);
+  assert.deepEqual(named(first.events, 'mine-drop').map((event) => event.pilot), [0]);
+  assert.deepEqual(first.state.warp.drops.map((drop) => [drop.kind, drop.x, drop.air]), [['mine', 0, false]]);
+  assert.ok(first.state.warp.drops[0].z > first.state.warp.z + 20);
+
+  const many = behind(69, RULES.mineEvery * 2 + 0.2);
+  assert.equal(named(many.events, 'mine-drop').length, 3, 'one every so often');
+  assert.ok(many.state.warp.drops.length <= RULES.maxDrops);
+  assert.equal(named(many.events, 'crash').length, 0, 'flown by on another line');
+
+  const into = behind(40, 2, 0);
+  assert.deepEqual(named(into.events, 'crash').map((event) => event.kind), ['mine']);
+  assert.equal(into.state.warp.drops.length, 0, 'a mine flown past is gone');
+
+  assert.equal(named(behind(-30, 1).events, 'mine-drop').length, 0, 'none for a player ahead');
+  assert.equal(named(behind(8, 1).events, 'mine-drop').length, 0, 'nor right behind, with no time to see it');
+});
+
+// The courses, as laid out.
+
+test('rings hang in the air past every ramp, nothing stands at a gate or on a ramp, and no gate where a jump comes down', () => {
+  WARP_COURSES.forEach((written, index) => {
+    const { items } = buildCourse(WARP_CONFIG, index);
+    const ramps = items.filter((item) => item.kind === 'ramp');
+    const gates = items.filter((item) => item.kind === 'gate');
+    const grounded = items.filter((item) => !item.air && item.kind !== 'ramp' && item.kind !== 'gate');
+
+    for (const ramp of ramps) {
+      const hanging = items.filter((item) => item.air && item.z > ramp.z && item.z < ramp.z + 40);
+      assert.deepEqual(hanging.map((ring) => [ring.kind, Math.round(ring.z - ramp.z)]), [['ring', 16], ['ring', 30]], written.name);
+      assert.equal(hanging[0].x, ramp.x, 'the first straight ahead');
+      assert.ok(grounded.every((item) => Math.abs(item.z - ramp.z) >= 8), written.name);
+      assert.ok(gates.every((gate) => gate.z <= ramp.z - 16 || gate.z >= ramp.z + 50), written.name);
+    }
+
+    for (const gate of gates) {
+      assert.ok(grounded.every((item) => Math.abs(item.z - gate.z) >= 16), written.name);
+    }
+
+    assert.equal(items.filter((item) => item.air).length, ramps.length * 2);
+  });
+});
+
+test('the cup has pilots with a way of their own: blockers, weavers, and the Landlord with his mines', () => {
+  const traits = new Set(WARP_COURSES.flatMap((course) => course.pilots.map((pilot) => pilot.trait)));
+
+  assert.deepEqual([...traits].sort(), ['blocker', 'miner', 'none', 'weaver']);
+  assert.equal(WARP_COURSES.at(-1).pilots.at(-1).trait, 'miner');
+  assert.ok(WARP_COURSES[0].pilots.every((pilot) => pilot.trait === 'none'), 'the first race is among plain racers');
+});
+
+test('the player\'s own finish is timed', () => {
+  const { config, state } = game({ rivals: [{ z: 40, x: -0.8, speed: 10 }] });
+  const { state: over } = run(race(state, { z: 590, place: 1, time: 31 }), config, 0.5, { input: lane(0) });
+
+  assert.ok(over.warp.finishTime > 31 && over.warp.finishTime < 31.5);
 });

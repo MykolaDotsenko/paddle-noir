@@ -70,6 +70,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   │   ├── scene.js
 │   │   │   ├── theme.js
 │   │   │   ├── warp-effects.js
+│   │   │   ├── warp-hud.js
+│   │   │   ├── warp-scenery.js
 │   │   │   └── warp.js
 │   │   ├── audio-output.js
 │   │   ├── browser-device.js

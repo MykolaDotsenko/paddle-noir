@@ -251,6 +251,11 @@ export class SoundBoard {
     const lift = 2 ** (Math.min(event.chain - 1, 7) / 12);
     this.tone({ frequency: NOTE.C6 * lift, duration: 0.16, type: 'sine', volume: 0.24 });
     this.tone({ frequency: NOTE.G6 * lift, duration: 0.2, type: 'triangle', volume: 0.1, delay: 0.04 });
+
+    if (event.air) {
+      // A ring caught in the air rings twice.
+      this.tone({ frequency: NOTE.C6 * lift * 2, duration: 0.22, type: 'sine', volume: 0.14, delay: 0.09 });
+    }
   }
 
   /**
@@ -271,7 +276,37 @@ export class SoundBoard {
           this.tone({ frequency: NOTE.E6, duration: 0.18, type: 'triangle', volume: 0.16, delay: 0.3 });
         } else if (event.by === 'pad') {
           this.tone({ frequency: 220, endFrequency: 900, duration: 0.28, type: 'sawtooth', volume: 0.12 });
+        } else if (event.by === 'drift') {
+          this.tone({ frequency: 520, endFrequency: 1900, duration: 0.24, type: 'square', volume: 0.1 });
+          this.tone({ frequency: NOTE.G6, duration: 0.14, type: 'triangle', volume: 0.14, delay: 0.16 });
+        } else if (event.by === 'start') {
+          this.tone({ frequency: 90, endFrequency: 1300, duration: 0.5, type: 'sawtooth', volume: 0.2 });
+          this.arpeggio([NOTE.C6, NOTE.E6, NOTE.G6], 0.06, 'triangle', 0.2, 0, 0.3);
         }
+        return true;
+      case 'jump':
+        if (event.pilot === undefined) {
+          this.tone({ frequency: 260, endFrequency: 1040, duration: 0.3, type: 'sine', volume: 0.2 });
+        }
+        return true;
+      case 'land':
+        this.tone({ frequency: 150, endFrequency: 60, duration: 0.16, type: 'triangle', volume: 0.3 });
+        return true;
+      case 'gate':
+        if (event.grade === 'perfect') {
+          this.arpeggio([NOTE.G5, NOTE.C6, NOTE.G6], 0.045, 'triangle', 0.2);
+        } else {
+          this.tone({ frequency: NOTE.E5, duration: 0.07, type: 'sine', volume: 0.1 });
+        }
+        return true;
+      case 'drift-ready':
+        this.tone({ frequency: 1760, endFrequency: 2350, duration: 0.09, type: 'square', volume: 0.07 });
+        return true;
+      case 'flow':
+        this.arpeggio([NOTE.E5, NOTE.G5, NOTE.C6].map((note) => note * 2 ** ((event.multiplier - 2) / 6)), 0.05, 'square', 0.1);
+        return true;
+      case 'mine-drop':
+        this.arpeggio([330, 220], 0.09, 'square', 0.09);
         return true;
       case 'crash':
         if (event.pilot === undefined) {

@@ -179,19 +179,23 @@
  *
  * @typedef {'bolt' | 'super' | 'ram'} DownCause
  *
- * @typedef {'ring' | 'pad' | 'mine' | 'debris' | 'cargo'} TrackItemKind
+ * @typedef {'ring' | 'pad' | 'ramp' | 'gate' | 'mine' | 'debris' | 'cargo'} TrackItemKind
  *
  * @typedef {object} TrackItem Something on a Warp course, where it stands.
  * @property {number} id
- * @property {TrackItemKind} kind a ring to fly through, a boost pad to fly over, or something
- *   to fly round: a mine, a drifting piece of debris, or a slow cargo craft
+ * @property {TrackItemKind} kind a ring to fly through, a boost pad to fly over, a ramp to jump
+ *   from, a gate, which is a barrier across the lane with a gap to thread, or something to fly
+ *   round: a mine, a drifting piece of debris, or a slow cargo craft
  * @property {number} z how far along the course, in meters
- * @property {number} x across the lane, from -1 at its left edge to 1 at its right
+ * @property {number} x across the lane, from -1 at its left edge to 1 at its right; a gate's gap
  * @property {number} sway how far it drifts to either side, across the lane, as time goes
+ * @property {boolean} air whether it hangs in the air, where only a craft off a ramp reaches it
  *
- * @typedef {object} Course A Warp course as it is flown: its bends and what is on it.
+ * @typedef {object} Course A Warp course as it is flown: its bends, its hills and what is on it.
  * @property {number} length in meters, from the start to the finish line
  * @property {readonly number[]} curves the bend of each stretch of the course, a stretch a segment
+ * @property {readonly (readonly [number, number, number])[]} hills the waves its height is the sum
+ *   of: how high each is, how long, and where along itself it begins, from 0 to 1
  * @property {readonly TrackItem[]} items in the order they come
  *
  * @typedef {object} Racer A rival in a Warp race.
@@ -205,6 +209,8 @@
  * @property {number} boost seconds of boost left
  * @property {number} spin seconds it is still spinning after a hit
  * @property {number} bumped seconds before it can be bumped again
+ * @property {number} air seconds it is still in the air after a ramp
+ * @property {number} mineIn seconds until a pilot who drops mines may drop the next
  * @property {number} finish seconds the race had run when it crossed the line; 0 until then
  *
  * @typedef {object} WarpState A Warp race and the cup it is part of.
@@ -215,18 +221,25 @@
  * @property {number} speed meters a second
  * @property {number} cursor the next item on the course the player has yet to reach
  * @property {readonly Racer[]} rivals
+ * @property {readonly TrackItem[]} drops mines a rival has dropped ahead of the player, nearest first
+ * @property {number} dropped mines dropped so far in the race
  * @property {number} place the player's place in the race, from 1
  * @property {number} boost seconds of boost left
  * @property {number} spin seconds the player is still spinning after a hit
  * @property {number} safe seconds the player cannot be hit again after one
  * @property {number} burn seconds of a fireball's afterburner left
  * @property {number} ghost seconds of a phantom left
+ * @property {number} air seconds the player is still in the air after a ramp
  * @property {number} slip slipstream built up behind a rival, from 0 to 1
+ * @property {number} drift drift charged on the inside of a bend, from 0 to 1
  * @property {number} chain rings flown dead center in a row
+ * @property {number} flow tricks landed since the last crash, which multiply what a trick scores
+ * @property {boolean} launched whether the start is behind: the moment for a rocket start is over
  * @property {number} points
  * @property {number} calm seconds of the pause after a race, before the next one's start lights
  * @property {boolean} retry whether the race after the pause is this one again
  * @property {boolean} finished whether the player has crossed the line
+ * @property {number} finishTime seconds the race had run when the player crossed the line
  *
  * @typedef {{ type: 'match-start' }
  *   | { type: 'menu' }
@@ -268,9 +281,15 @@
  *   | { type: 'chain', x: number, y: number, targets: readonly { x: number, y: number }[] }
  *   | { type: 'boss-rage', phase: number, x: number, y: number }
  *   | { type: 'sector-clear', sector: number, bonus: number, last: boolean }
- *   | { type: 'ring', grade: 'perfect' | 'good' | 'miss', chain: number, z: number, x: number, points: number }
- *   | { type: 'boost', z: number, x: number, by: 'pad' | 'slingshot' | 'super' }
+ *   | { type: 'ring', grade: 'perfect' | 'good' | 'miss', chain: number, air: boolean, z: number, x: number, points: number }
+ *   | { type: 'boost', z: number, x: number, by: 'pad' | 'slingshot' | 'super' | 'drift' | 'start' }
  *   | { type: 'crash', z: number, x: number, kind: TrackItemKind, pilot?: number }
+ *   | { type: 'jump', z: number, x: number, pilot?: number }
+ *   | { type: 'land', z: number, x: number, points: number }
+ *   | { type: 'gate', grade: 'perfect' | 'good', z: number, x: number, points: number }
+ *   | { type: 'drift-ready', z: number, x: number }
+ *   | { type: 'flow', multiplier: number }
+ *   | { type: 'mine-drop', pilot: number, z: number, x: number }
  *   | { type: 'near-miss', z: number, x: number, points: number }
  *   | { type: 'bump', z: number, x: number }
  *   | { type: 'takedown', pilot: number, z: number, x: number, points: number }
@@ -293,7 +312,8 @@
  *   shield-save, an enemy-arrive is the boss coming in, a chain is thunder jumping from the ship
  *   to the enemies it strikes, and a boss-rage the boss moving on to its next pattern of fire.
  *   In Warp the course's things are where they are along it, `z`, and across the lane, `x`,
- *   which the board projects; a crash with a `pilot` is a rival's, one without the player's;
+ *   which the board projects; a crash or a jump with a `pilot` is a rival's, one without the
+ *   player's; a flow is the trick multiplier going up; a mine-drop is a rival dropping a mine;
  *   and a race-finish's `margin` is the seconds between the player and the racer next to them
  *   in the order.
  *
@@ -349,12 +369,17 @@
  *
  * @typedef {'sunset' | 'canyon' | 'clouds' | 'orbit' | 'tunnel'} CourseTheme
  *
+ * @typedef {'none' | 'blocker' | 'weaver' | 'miner'} PilotTrait How a pilot races: a blocker
+ *   covers the player's line while they are close behind, a weaver changes its line all the
+ *   time, and a miner drops mines for whoever follows.
+ *
  * @typedef {object} Pilot A racer of the Warp game, as the board names and paints it.
  * @property {string} name
  * @property {string} rgb "r, g, b"
  * @property {'jet' | 'wing' | 'saucer' | 'dart'} craft
  * @property {number} pace top speed, as a share of the player's
  * @property {number} skill chance of steering round what is in its way, from 0 to 1
+ * @property {PilotTrait} trait
  *
  * @typedef {object} CourseLayout A Warp course, as it is written.
  * @property {string} name
@@ -362,8 +387,12 @@
  * @property {number} length in meters
  * @property {readonly (readonly [number, number])[]} bends the course's bends: how long each is, in
  *   meters, and how hard it turns, negative to the left; a straight is a bend of 0
- * @property {{ rings: number, pads: number, mines: number, debris: number, cargo: number }} every
- *   meters between one ring, pad, mine, piece of debris or cargo craft and the next; 0 for none
+ * @property {readonly (readonly [number, number, number])[]} hills the waves its height is the sum
+ *   of: how high each is, in heights of the eye above the lane, how long, in meters, and where
+ *   along itself it begins, from 0 to 1
+ * @property {{ rings: number, pads: number, mines: number, debris: number, cargo: number, ramps: number, gates: number }} every
+ *   meters between one ring, pad, mine, piece of debris, cargo craft, ramp or gate and the next;
+ *   0 for none
  * @property {readonly Pilot[]} pilots the field the player races, slowest first
  * @property {number} qualify the worst place that goes through to the next race
  *
@@ -373,6 +402,7 @@
  * @property {number} topSpeed the player's speed with nothing helping or hindering it
  * @property {number} boostSpeed
  * @property {number} accel how quickly speed comes to what it should be, a share a second
+ * @property {number} gravity how much a slope changes speed: faster downhill, slower up
  * @property {number} spinSeconds
  * @property {number} spinSpeed share of its speed a racer keeps when it is hit
  * @property {number} safeSeconds how long a racer that was hit cannot be hit again
@@ -381,15 +411,29 @@
  * @property {number} ringRadius how near counts as through it
  * @property {number} padWidth half a boost pad's width
  * @property {number} padSeconds
+ * @property {number} rampWidth half a ramp's width
+ * @property {number} airSeconds how long a jump lasts
+ * @property {number} gateGap half the width of a gate's gap
+ * @property {number} gateCenter how near the gap's middle counts as threading it
  * @property {number} nearMiss how much nearer than a hit counts as a near miss
  * @property {number} draft how far behind a rival, in meters, its slipstream reaches
  * @property {number} slipSeconds how long a slipstream takes to build to a slingshot
  * @property {number} slingSeconds
+ * @property {number} driftBend how hard a bend must turn for a drift to charge in it
+ * @property {number} driftFrom how far toward the inside of the bend the craft must fly
+ * @property {number} driftSeconds how long a drift takes to charge in a bend of 1
+ * @property {number} driftBoostSeconds
+ * @property {number} startWindow seconds after the lights go green in which a flick is a rocket start
+ * @property {number} startBoostSeconds
+ * @property {number} flowStep tricks that raise the trick multiplier by one
+ * @property {number} maxFlow the highest the trick multiplier goes
  * @property {readonly number[]} placePoints points for each place at the finish
- * @property {number} chargePerTrick charge a ring dead center, a near miss or an overtake adds
+ * @property {number} chargePerTrick charge a trick adds to the super meter
  * @property {number} burnSeconds a fireball's afterburner
  * @property {number} ghostSeconds a phantom
  * @property {number} shockRange how far a zigzag's shockwave reaches, in meters
+ * @property {number} mineEvery seconds between the mines a miner drops
+ * @property {number} maxDrops mines a miner may have lying ahead of the player at once
  * @property {number} calmSeconds the pause after a race before the next one's start lights
  *
  * @typedef {object} NovaConfig How the Nova game plays.

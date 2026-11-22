@@ -4,7 +4,8 @@ import { GlowSprites, paintCourt, paintGrid } from './canvas/court.js';
 import { playEvents } from './canvas/event-effects.js';
 import { drawBricks, drawCombo, drawDrops, drawLaser, drawNet } from './canvas/bricks.js';
 import { drawBossBar, drawEnemies, drawLoot, drawMultiplier, drawShip, drawShots, drawSpace } from './canvas/nova.js';
-import { drawWarp, drawWarpHud } from './canvas/warp.js';
+import { drawWarp } from './canvas/warp.js';
+import { drawWarpHud } from './canvas/warp-hud.js';
 import { drawCameo, drawLabels, drawMeters, drawRally, drawServeCountdown } from './canvas/hud.js';
 import { drawBall, drawExtraBalls, drawGhostFog, drawHazards, drawPaddle, drawPickups, drawTrail } from './canvas/scene.js';
 import { THEME } from './canvas/theme.js';
@@ -384,12 +385,8 @@ export class CanvasRenderer {
   drawWarpFrame(state, now) {
     const { context: ctx, config, effects, glows } = this;
 
-    ctx.save();
-    // The whole board is the course, so a shake moves the picture without showing its edges.
-    ctx.translate(-MAX_SHAKE, -MAX_SHAKE);
-    ctx.scale((config.width + MAX_SHAKE * 2) / config.width, (config.height + MAX_SHAKE * 2) / config.height);
+    // The course is painted a way past the board's edges, so a shake never shows them.
     drawWarp(ctx, state, config, now, glows, effects.reducedMotion);
-    ctx.restore();
     effects.draw(ctx);
     drawWarpHud(ctx, state, config, effects.popAmount);
     drawMeters(ctx, state, config, now);

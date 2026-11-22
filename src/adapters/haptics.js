@@ -52,6 +52,10 @@ function patternFor(event) {
       return event.pilot === undefined ? 70 : null;
     case 'bump':
       return 25;
+    case 'land':
+      return 18;
+    case 'boost':
+      return event.by === 'start' ? [20, 30, 30] : null;
     case 'takedown':
       return 20;
     case 'race-finish':
