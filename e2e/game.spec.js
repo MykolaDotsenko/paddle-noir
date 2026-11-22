@@ -1443,6 +1443,48 @@ test.describe('in Nova', () => {
 test.describe('in Warp', () => {
   test.use({ stored: { mode: 'warp', bestWarp: 10, jokes: false } });
 
+
+  test('starship bridge shows five side controls with real ready, firing, shielding and warp states', async ({ page }) => {
+    await freezeTime(page);
+    const panels = page.locator('[data-warp-console]');
+    const button = (name) => page.locator('[data-warp-control="' + name + '"]');
+
+    await expect(panels).toHaveCount(2);
+    await expect(panels.first()).toBeHidden();
+    await playButton(page).click();
+    await expect(panels.first()).toBeVisible();
+    await expect(panels.last()).toBeVisible();
+    await expect(page.locator('[data-warp-control]')).toHaveCount(5);
+    await expect(button('shield')).toBeDisabled();
+
+    await page.clock.runFor(3600);
+    await expect(button('nitro')).toBeEnabled();
+    await expect(button('guns')).toBeEnabled();
+    await expect(button('shield')).toBeEnabled();
+    await expect(button('warp')).toBeEnabled();
+
+    await button('shield').click();
+    await expect(button('shield')).toContainText('ONLINE');
+    await expect(button('shield')).toBeDisabled();
+
+    await button('guns').click();
+    await expect(button('guns')).toContainText('FIRING');
+    await expect(button('guns')).toBeDisabled();
+
+    await button('nitro').click();
+    await expect(button('nitro')).toContainText('BURNING');
+
+    await page.keyboard.press('e');
+    await expect(button('warp')).toContainText('ENGAGED');
+    await expect(button('warp')).toBeDisabled();
+
+    await page.keyboard.press('Escape');
+    await expect(panels.first()).toBeHidden();
+    await expect(panels.last()).toBeHidden();
+    await page.locator('[data-overlay="pause"]').getByRole('button', { name: 'Menu' }).click();
+    await expect(panels.first()).toBeHidden();
+  });
+
   test('the craft races where the player steers, past rivals and through rings, and keeps a record', async ({ page, hasTouch }) => {
     test.setTimeout(240_000);
     const errors = [];
@@ -1457,7 +1499,7 @@ test.describe('in Warp', () => {
     await expect(status(page)).toHaveText(`Warp: race all ${courses.length} courses of the cup.`);
     await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${courses.length} races · Best 10 points`);
     await (hasTouch ? playButton(page).tap() : playButton(page).click());
-    await expect(page.locator('.lives__heart')).toHaveCount(3);
+    await expect(page.locator('.lives__heart')).toHaveCount(4);
     await expect(page.locator('[data-label="player"]')).toHaveText('Score');
     await expect(page.locator('[data-label="opponent"]')).toHaveText('Race');
 
