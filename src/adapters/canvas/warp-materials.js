@@ -309,7 +309,7 @@ export function drawWorldArchitecture({ ctx, look, config, view, race, still, no
       }
     }
     for (let n = 0; n < 7; n += 1) {
-      const s = 8 + n * 7;
+      const s = 8 + n * 7 + wrap(race.z * 0.027, 6);
       ctx.strokeStyle = 'rgba(253, 164, 175, ' + (0.11 + (n % 3) * 0.04) + ')';
       ctx.lineWidth = 1;
       ctx.beginPath();
