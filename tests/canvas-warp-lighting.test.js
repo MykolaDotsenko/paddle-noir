@@ -51,8 +51,8 @@ test('five course looks have restrained colored atmospheric bloom and shafts', (
 
   const fixed = (now) => context((ctx) => drawSkyLighting(scene(ctx, LOOKS.orbit, { still: true, now }))).calls;
   const moving = (now) => context((ctx) => drawSkyLighting(scene(ctx, LOOKS.orbit, { now }))).calls;
-  assert.deepEqual(fixed(100), fixed(800));
-  assert.notDeepEqual(moving(100), moving(800));
+  assert.equal(JSON.stringify(fixed(100)), JSON.stringify(fixed(800)));
+  assert.notEqual(JSON.stringify(moving(100)), JSON.stringify(moving(800)));
 });
 
 test('track light catches its surface in near segments, without expensive per-segment gradients', () => {
