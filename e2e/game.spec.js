@@ -1498,6 +1498,27 @@ test.describe('in Warp', () => {
     await expect(page.locator('[data-warp-steering-switch]')).toContainText('CLASSIC DRAG');
   });
 
+  test('Warp story campaign displays a chapter mission and non-blocking radio after launch', async ({ page }) => {
+    await freezeTime(page);
+    const chapter = page.locator('[data-warp-mission]');
+    const radio = page.locator('[data-warp-radio]');
+    await expect(chapter).toBeHidden();
+    await playButton(page).click();
+    await page.clock.runFor(3500);
+    await expect(chapter).toBeVisible();
+    await expect(chapter).toContainText('THE GHOST SIGNAL');
+    await expect(chapter).toContainText('signal rings');
+    await page.clock.runFor(1500);
+    await expect(radio).toBeVisible();
+    await expect(radio).toContainText('ECHO');
+    await expect(radio).toContainText('HORIZON');
+    const pointer = await radio.evaluate((element) => getComputedStyle(element).pointerEvents);
+    expect(pointer).toBe('none', 'radio transmission must never steal touch steering');
+    await page.keyboard.press('Escape');
+    await expect(chapter).toBeHidden();
+    await expect(radio).toBeHidden();
+  });
+
   test('starship bridge shows five side controls with real ready, firing, shielding and warp states', async ({ page }) => {
     await freezeTime(page);
     const panels = page.locator('[data-warp-console]');
