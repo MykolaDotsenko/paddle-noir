@@ -29,7 +29,7 @@
  */
 
 /** @type {readonly WarpChapter[]} */
-export const WARP_STORY = Object.freeze([
+export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
   {
     title: '01 · THE GHOST SIGNAL',
     mission: 'Fly through 2 signal rings',
@@ -90,7 +90,7 @@ export const WARP_STORY = Object.freeze([
     warning: 'The gate is almost shut. Reach the finish and get us out of here!',
     secured: 'WARP CORRIDOR OPEN. Horizon’s evacuation route is clear. Shields reinforced.',
   },
-].map((chapter) => Object.freeze(chapter)));
+]).map((chapter) => Object.freeze(chapter)));
 
 /**
  * @typedef {object} WarpStoryState
