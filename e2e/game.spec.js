@@ -880,14 +880,6 @@ test.describe('the career', () => {
       await (hasTouch ? playButton(page).tap() : playButton(page).click());
 
       // Stand still in the middle: one drip of every attack is aimed at the player.
-      // New touch default is two direction buttons. This particular legacy
-      // test verifies classic absolute dragging, so select that mode first.
-      if (hasTouch) {
-        const steering = page.locator('[data-warp-steering-switch]');
-        await steering.tap();
-        await steering.tap();
-        await expect(steering).toContainText('CLASSIC DRAG');
-      }
       const surface = hasTouch ? page.locator('.rail') : board(page);
       const middle = await pointOn(surface, 0.5);
       await (hasTouch ? surface.tap(middle) : surface.hover(middle));
@@ -1558,7 +1550,13 @@ test.describe('in Warp', () => {
 
     // The craft is where a paddle would be, and there is no ball and no paddle across the court.
     await page.clock.runFor(3500);
-    const surface = hasTouch ? page.locator('.rail') : board(page);
+    if (hasTouch) {
+      const steering = page.locator('[data-warp-steering-switch]');
+      await steering.tap();
+      await steering.tap();
+      await expect(steering).toContainText('CLASSIC DRAG');
+    }
+    const surface = board(page);
     const box = await surface.boundingBox();
     const steer = (x) => {
       const at = [box.x + box.width * Math.min(0.99, Math.max(0.01, x / GAME_CONFIG.width)), box.y + box.height / 2];
@@ -1658,7 +1656,7 @@ test.describe('in Warp', () => {
         await steering.tap();
         await expect(steering).toContainText('CLASSIC DRAG');
       }
-      const surface = hasTouch ? page.locator('.rail') : board(page);
+      const surface = board(page);
       const box = await surface.boundingBox();
       const at = [box.x + box.width * (170 / GAME_CONFIG.width), box.y + box.height / 2];
       await (hasTouch ? page.touchscreen.tap(...at) : page.mouse.move(...at));
