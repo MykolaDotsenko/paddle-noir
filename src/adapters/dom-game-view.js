@@ -100,6 +100,8 @@ export class DomGameView {
       over: this.find('[data-overlay="over"]'),
     };
     this.pauseButton = this.find('[data-hud-pause]');
+    /** Optional for stripped-down embedded layouts. */
+    this.abilityButton = /** @type {HTMLButtonElement | null} */ (this.root.querySelector('[data-warp-ability]'));
     this.lives = this.find('[data-lives]');
     this.matchPoint = this.find('[data-match-point]');
     this.continueLine = this.find('[data-continue]');
@@ -696,6 +698,13 @@ export class DomGameView {
       this.showHighScores(presentation.highScores);
     }
 
+    if (this.abilityButton && presentation.warp) {
+      const cooldown = Math.ceil(presentation.warp.abilityCooldown);
+      const label = cooldown > 0 ? `✦ ${cooldown}s` : '✦ SPECIAL';
+      if (this.abilityButton.textContent !== label) this.abilityButton.textContent = label;
+      this.abilityButton.disabled = cooldown > 0 || presentation.phase !== GAME_PHASE.RUNNING;
+    }
+
     if (presentation.phase === GAME_PHASE.GAME_OVER && previous?.phase !== GAME_PHASE.GAME_OVER) {
       this.showResult(presentation);
     }
@@ -794,6 +803,7 @@ export class DomGameView {
     } else if (phaseChanged && this.rendered !== null) {
       this.guideFocus(phase);
     }
+    if (this.abilityButton) this.abilityButton.hidden = mode !== 'warp' || phase !== GAME_PHASE.RUNNING;
     this.pauseButton.toggleAttribute('disabled', !inMatch);
     this.pauseButton.setAttribute('aria-label', phase === GAME_PHASE.PAUSED ? 'Resume' : 'Pause');
 
