@@ -148,7 +148,8 @@ test('a ring flown dead center is perfect: points, a chain, a nudge of boost and
     ['good', 0, TRICK_POINTS.good],
     ['miss', 0, 0],
   ]);
-  assert.equal(flown.warp.points, TRICK_POINTS.perfect * 2 + TRICK_POINTS.good);
+  assert.equal(flown.warp.points, TRICK_POINTS.perfect * 2 + TRICK_POINTS.good + 180, 'two signal rings award the chapter bonus');
+  assert.equal(flown.warp.story.done, true);
   assert.ok(Math.abs(flown.meters.player.charge - RULES.chargePerTrick * 2) < 1e-9);
   assert.equal(flown.warp.cursor, 4);
 });

@@ -1,5 +1,6 @@
 import { clamp } from './physics.js';
 import { nextRandom } from './random.js';
+import { advanceWarpStory, startWarpStory } from './warp-story.js';
 import { chargeMeter, isLoaded } from './supers.js';
 
 /**
@@ -524,12 +525,13 @@ export function itemX(item, time) {
  * @param {number} [lost] points of races flown again so far
  * @returns {WarpState}
  */
-export function raceState(config, race, points = 0, lost = 0) {
+export function raceState(config, race, points = 0, lost = 0, recovered = 0) {
   const rules = rulesOf(config);
   const layout = rules.courses[race];
 
   return {
     race,
+    story: startWarpStory(recovered),
     course: buildCourse(config, race),
     time: 0,
     z: 0,
@@ -1183,7 +1185,7 @@ export function advanceWarp(state, deltaSeconds, config, events, action = false)
   /** @type {Lap} */
   const lap = {
     state,
-    race: { ...before, rivals: before.rivals.map((rival) => ({ ...rival })), drops: [...before.drops], missiles: before.missiles.map((missile) => ({ ...missile })) },
+    race: { ...before, story: { ...before.story }, rivals: before.rivals.map((rival) => ({ ...rival })), drops: [...before.drops], missiles: before.missiles.map((missile) => ({ ...missile })) },
     seed: state.seed,
     lives: state.lives,
     charge: 0,
@@ -1342,6 +1344,10 @@ export function advanceWarp(state, deltaSeconds, config, events, action = false)
     events.push({ type: 'final-stretch' });
   }
 
+  // Dispatch the chapter's optional objective and short, timed radio messages
+  // before the finish so collecting the last fragment still counts.
+  advanceWarpStory(race, rules, events, deltaSeconds);
+
   if (race.z >= race.course.length) {
     finish(lap);
   }
@@ -1399,7 +1405,7 @@ function afterTheLine(state, deltaSeconds, config) {
     serveNumber: 0,
     serveCountdown: config.startDelaySeconds,
     warp: race.retry
-      ? raceState(config, race.race, race.banked, race.lost + race.points - race.banked)
-      : raceState(config, race.race + 1, race.points, race.lost),
+      ? raceState(config, race.race, race.banked, race.lost + race.points - race.banked, race.story?.recovered ?? 0)
+      : raceState(config, race.race + 1, race.points, race.lost, (race.story?.recovered ?? 0) + Number(race.story?.done ?? false)),
   };
 }

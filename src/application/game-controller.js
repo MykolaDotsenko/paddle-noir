@@ -17,6 +17,7 @@ import { interpolateState } from './interpolation.js';
 import { nicknameFor } from './nicknames.js';
 import { GAME_COMMAND, WARP_STEERING_MODES } from './ports.js';
 import { activateWarpControl, warpControlStatus } from '../domain/warp.js';
+import { warpStoryEnding, warpStoryView } from '../domain/warp-story.js';
 
 /**
  * @import { GameConfig, GameState } from '../domain/types.js'
@@ -629,6 +630,8 @@ export class GameController {
       newBest: this.newBestWarp,
       craft: chosenCraft(this.catalog.hangar, this.preferences.get().hangar).name,
       steering: this.preferences.get().warpSteering ?? 'buttons',
+      story: { ...warpStoryView(race), active: this.state.phase === GAME_PHASE.RUNNING && this.state.serveCountdown <= 0 && !race.finished },
+      ending: warpStoryEnding((race.story?.recovered ?? 0) + Number(race.story?.done ?? false)),
       abilityCooldown: race.abilityCooldown,
       abilityTime: race.abilityTime,
       controls: warpControlStatus(this.state, this.config),

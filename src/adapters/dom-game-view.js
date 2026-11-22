@@ -107,6 +107,9 @@ export class DomGameView {
     this.steeringSwitch = /** @type {HTMLButtonElement | null} */ (this.root.querySelector('[data-warp-steering-switch]'));
     this.steeringButtons = this.findAll('[data-warp-steer]');
     this.flightStickIndicator = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-flight-stick]'));
+    this.storyMission = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-warp-mission]'));
+    this.storyRadio = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-warp-radio]'));
+    this.storyEnding = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-warp-ending]'));
     this.lives = this.find('[data-lives]');
     this.matchPoint = this.find('[data-match-point]');
     this.continueLine = this.find('[data-continue]');
@@ -736,6 +739,34 @@ export class DomGameView {
       }
     }
 
+    // Five brief, non-modal transmissions: display only the current chapter
+    // and only during flight, high above the aircraft. No DOM churn per frame.
+    const story = presentation.warp?.story;
+    const showMission = presentation.mode === 'warp' && presentation.phase === GAME_PHASE.RUNNING && story?.active === true;
+    if (this.storyMission) {
+      this.storyMission.hidden = !showMission;
+      if (showMission && story) {
+        const heading = this.storyMission.querySelector('[data-warp-chapter]');
+        const task = this.storyMission.querySelector('[data-warp-objective]');
+        const label = story.completed ? '✓ SIGNAL RECOVERED' : story.title;
+        const progress = story.completed ? 'INTEL SECURED · BONUS CLAIMED'
+          : `${story.mission} · ${story.progress}/${story.target}`;
+        if (heading && heading.textContent !== label) heading.textContent = label;
+        if (task && task.textContent !== progress) task.textContent = progress;
+        this.storyMission.dataset.completed = String(story.completed);
+      }
+    }
+    if (this.storyRadio) {
+      this.storyRadio.hidden = !showMission || !story?.message;
+      if (showMission && story?.message) {
+        const sender = this.storyRadio.querySelector('[data-warp-sender]');
+        const message = this.storyRadio.querySelector('[data-warp-message]');
+        const title = `${story.speaker} · INCOMING`;
+        if (sender && sender.textContent !== title) sender.textContent = title;
+        if (message && message.textContent !== story.message) message.textContent = story.message;
+      }
+    }
+
     if (presentation.phase === GAME_PHASE.GAME_OVER && previous?.phase !== GAME_PHASE.GAME_OVER) {
       this.showResult(presentation);
     }
@@ -1017,6 +1048,13 @@ export class DomGameView {
     this.find('[data-over-meta]').hidden = Boolean(highScores) || Boolean(bricks) || Boolean(nova) || Boolean(warp);
     this.find('[data-over-wall]').hidden = !bricks && !nova && !warp;
     this.find('[data-over-tickets]').hidden = !warp || warp.earned === 0;
+
+    if (this.storyEnding) {
+      this.storyEnding.hidden = !warp || winner !== 'player';
+      if (warp && winner === 'player' && this.storyEnding.textContent !== warp.ending) {
+        this.storyEnding.textContent = warp.ending;
+      }
+    }
 
     if (warp) {
       const tickets = this.find('[data-over-tickets]');

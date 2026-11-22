@@ -191,6 +191,21 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       }
       return true;
     }
+    case 'story-complete': {
+      const rgb = THEME.lime;
+      effects.ring({ x: craft.x, y: craft.y, color: `rgba(${rgb}, 0.91)`, radius: 22, growth: 330, life: 0.48, width: 3 });
+      effects.burst({ x: craft.x, y: craft.y - 23, color: `rgb(${rgb})`, count: 19, speed: 180, life: 0.42, size: 1.8 });
+      effects.label({
+        text: `INTEL SECURED +${event.points}`,
+        x: width / 2,
+        y: height * 0.43,
+        color: `rgb(${rgb})`,
+        life: 0.9,
+        size: 21,
+      });
+      effects.pulse(0.45);
+      return true;
+    }
     case 'warp-system': {
       const shielding = event.system === 'shield';
       const rgb = shielding ? SHIELD : THEME.amber;
