@@ -721,15 +721,17 @@ function disc(ctx, style, fine) {
       ctx.stroke();
     }
 
-    // Radial armour segments: service joints give the saucer visible scale and curvature.
-    ctx.strokeStyle = 'rgba(' + DARK + ', 0.55)';
-    ctx.lineWidth = 0.8;
-    for (let segment = 0; segment < 12; segment += 1) {
-      const angle = (segment / 12) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(angle) * 20, 1.2 + Math.sin(angle) * 6);
-      ctx.lineTo(Math.cos(angle) * 29.5, 2 + Math.sin(angle) * 9);
-      ctx.stroke();
+    // Close-up armour segmentation; omit sub-pixel service joints on distant saucers.
+    if (style.scale >= 0.72) {
+      ctx.strokeStyle = 'rgba(' + DARK + ', 0.55)';
+      ctx.lineWidth = 0.8;
+      for (let segment = 0; segment < 12; segment += 1) {
+        const angle = (segment / 12) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * 20, 1.2 + Math.sin(angle) * 6);
+        ctx.lineTo(Math.cos(angle) * 29.5, 2 + Math.sin(angle) * 9);
+        ctx.stroke();
+      }
     }
 
     // Lights round the rim, one after another.
