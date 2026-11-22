@@ -12,7 +12,10 @@ const HORIZON = 272;
 const PAD = 110;
 const TAU = Math.PI * 2;
 
-/** A repeatable noise sample. Background features may never flicker between frames. */
+/** A repeatable noise sample. Background features may never flicker between frames.
+ * @param {number} a
+ * @param {number} b
+ */
 function sample(a, b) {
   let h = (Math.imul(a + 7, 2654435761) ^ Math.imul(b + 13, 2246822519)) >>> 0;
   h ^= h >>> 15;
