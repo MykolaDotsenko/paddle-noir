@@ -22,6 +22,10 @@ export const GAME_COMMAND = Object.freeze({
   REFRESH: 'refresh',
   /** Trigger the currently flown Warp craft's signature system. */
   ABILITY: 'ability',
+  WARP_NITRO: 'warp-nitro',
+  WARP_GUNS: 'warp-guns',
+  WARP_ROCKETS: 'warp-rockets',
+  WARP_SHIELD: 'warp-shield',
 });
 
 /** @type {readonly Difficulty[]} */
@@ -195,6 +199,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {string} craft the craft being flown, by name
  * @property {number} abilityCooldown seconds before its signature system can be fired again
  * @property {number} abilityTime seconds remaining of the active signature system
+ * @property {Record<'nitro' | 'guns' | 'rockets' | 'shield' | 'warp', { ready: boolean, status: string }>} controls the live readiness of the five bridge buttons
  * @property {number} tickets what the player has to spend in the hangar
  * @property {number} earned the tickets the cup just finished paid out
  *
