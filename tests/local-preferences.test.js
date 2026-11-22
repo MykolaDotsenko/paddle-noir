@@ -7,6 +7,7 @@ const KEY = 'ping-pong-lab:preferences';
 const NO_STATS = { matches: 0, wins: 0, streak: 0, bestStreak: 0 };
 const DEFAULTS = {
   mode: 'solo',
+  warpSteering: 'buttons',
   difficulty: 'normal',
   powerUps: true,
   supers: true,
@@ -48,6 +49,7 @@ test('starts from sensible defaults when nothing is stored', () => {
 test('restores stored choices', () => {
   const stored = {
     mode: 'rush',
+    warpSteering: 'stick',
     difficulty: 'hard',
     powerUps: false,
     supers: false,
@@ -76,7 +78,7 @@ test('restores stored choices', () => {
 });
 
 test('ignores malformed or outdated stored values', () => {
-  const stored = { mode: 'battle-royale', difficulty: 'impossible', track: 'polka', sound: 'yes', supers: 'maybe', jokes: 'lots', vibration: null, bestRally: -3, bestRush: '12', initials: 'myk', stats: 'lots' };
+  const stored = { warpSteering: 'flying-wheel', mode: 'battle-royale', difficulty: 'impossible', track: 'polka', sound: 'yes', supers: 'maybe', jokes: 'lots', vibration: null, bestRally: -3, bestRush: '12', initials: 'myk', stats: 'lots' };
   const preferences = new LocalPreferences({ localStorage: createStorage({ [KEY]: JSON.stringify(stored) }) });
 
   assert.deepEqual(preferences.get(), DEFAULTS);
@@ -272,4 +274,17 @@ test('after a save fails, another tab\'s save does not roll back this tab\'s new
   tab.window.hearSave();
 
   assert.equal(tab.preferences.get().bestRally, 9);
+});
+
+
+test('Warp steering choice persists, validates all three modes and falls back safely', () => {
+  const storage = createStorage();
+  const prefs = new LocalPreferences({ localStorage: storage });
+  assert.equal(prefs.get().warpSteering, 'buttons');
+  for (const mode of ['drag', 'buttons', 'stick']) {
+    prefs.set({ warpSteering: mode });
+    assert.equal(new LocalPreferences({ localStorage: storage }).get().warpSteering, mode);
+  }
+  prefs.set({ warpSteering: /** @type {'drag'} */ ('unrecognized') });
+  assert.equal(prefs.get().warpSteering, 'buttons');
 });

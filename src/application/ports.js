@@ -26,10 +26,15 @@ export const GAME_COMMAND = Object.freeze({
   WARP_GUNS: 'warp-guns',
   WARP_ROCKETS: 'warp-rockets',
   WARP_SHIELD: 'warp-shield',
+  WARP_STEERING_CYCLE: 'warp-steering-cycle',
 });
 
 /** @type {readonly Difficulty[]} */
 export const DIFFICULTIES = Object.freeze(['easy', 'normal', 'hard']);
+
+/** The three persistent Warp control schemes, from classic to accessible touch controls. */
+/** @type {readonly WarpSteeringMode[]} */
+export const WARP_STEERING_MODES = Object.freeze(['drag', 'buttons', 'stick']);
 
 /** @type {readonly Mode[]} */
 export const MODES = Object.freeze(['solo', 'rush', 'duo', 'career', 'bricks', 'nova', 'warp']);
@@ -50,6 +55,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @typedef {(typeof GAME_COMMAND)[keyof typeof GAME_COMMAND]} GameCommand
  * @typedef {(command: GameCommand) => void} CommandHandler
  * @typedef {'easy' | 'normal' | 'hard'} Difficulty
+ * @typedef {'drag' | 'buttons' | 'stick'} WarpSteeringMode
  * @typedef {'solo' | 'rush' | 'duo' | 'career' | 'bricks' | 'nova' | 'warp'} Mode Solo against the computer,
  *   a Rush survival run, two people, the career ladder of rivals, Bricks, the paddle against a
  *   wall, Nova, the paddle as a starship, or Warp, the paddle as a racing craft.
@@ -92,6 +98,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  *
  * @typedef {object} Preferences Choices that outlive a match.
  * @property {Mode} mode
+ * @property {WarpSteeringMode} warpSteering persisted Warp steering method
  * @property {Difficulty} difficulty applied when the next Solo match starts
  * @property {boolean} powerUps whether power-ups appear in Solo and two-player matches
  * @property {boolean} supers whether the super meters fill in Solo, two-player and career matches
@@ -197,6 +204,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {number} best the most points the player ever made
  * @property {boolean} newBest whether the cup just finished set a new record
  * @property {string} craft the craft being flown, by name
+ * @property {WarpSteeringMode} steering selected flight control scheme
  * @property {number} abilityCooldown seconds before its signature system can be fired again
  * @property {number} abilityTime seconds remaining of the active signature system
  * @property {Record<'nitro' | 'guns' | 'rockets' | 'shield' | 'warp', { ready: boolean, status: string }>} controls the live readiness of the five bridge buttons
@@ -232,7 +240,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  *
  * @typedef {object} InputPort
  * @property {(handler: CommandHandler) => void} onCommand
- * @property {(layout: { players: 1 | 2 }) => void} configure how many people steer paddles
+ * @property {(layout: { players: 1 | 2, warpSteering?: WarpSteeringMode }) => void} configure how many people steer paddles and Warp control mode
  * @property {() => InputSnapshot} snapshot
  * @property {() => void} connect
  * @property {() => void} disconnect

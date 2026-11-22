@@ -1,6 +1,7 @@
 import { mixRgb, THEME } from './theme.js';
 import { drawSkyLighting } from './warp-lighting.js';
 import { drawBackdrop } from './warp-backdrop.js';
+import { drawWorldArchitecture } from './warp-materials.js';
 
 /**
  * What surrounds a Warp course: the look of each of the five, its sky and what stands on its
@@ -288,6 +289,9 @@ export function drawSky(scene) {
     default:
       drawCore(scene, time);
   }
+
+  // Mid-depth structural silhouettes enrich the five worlds without adding hazards.
+  drawWorldArchitecture(scene);
 
   // Atmospheric scatter sits behind the track, but over the distant skyline.
   drawSkyLighting(scene);

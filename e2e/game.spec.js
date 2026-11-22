@@ -1444,6 +1444,51 @@ test.describe('in Warp', () => {
   test.use({ stored: { mode: 'warp', bestWarp: 10, jokes: false } });
 
 
+  test('three steering modes cycle during flight and the choice survives a new visit', async ({ page }) => {
+    await freezeTime(page);
+    await playButton(page).click();
+    await page.clock.runFor(3500);
+
+    const switcher = page.locator('[data-warp-steering-switch]');
+    const left = page.locator('[data-warp-steer="left"]');
+    const right = page.locator('[data-warp-steer="right"]');
+    const stick = page.locator('[data-flight-stick]');
+
+    await expect(switcher).toBeVisible();
+    await expect(switcher).toContainText('LEFT / RIGHT');
+    await expect(left).toBeVisible();
+    await expect(right).toBeVisible();
+
+    await switcher.click();
+    await expect(switcher).toContainText('FLOATING STICK');
+    await expect(left).toBeHidden();
+    await expect(right).toBeHidden();
+
+    const rect = await page.locator('[data-game-canvas]').boundingBox();
+    const x = rect.x + rect.width * 0.28;
+    const y = rect.y + rect.height * 0.78;
+    await page.locator('[data-game-canvas]').dispatchEvent('pointerdown', {
+      pointerId: 33, pointerType: 'touch', clientX: x, clientY: y, isPrimary: true, bubbles: true,
+    });
+    await expect(stick).toBeVisible();
+    await page.locator('[data-game-canvas]').dispatchEvent('pointermove', {
+      pointerId: 33, pointerType: 'touch', clientX: x + 52, clientY: y, isPrimary: true, bubbles: true,
+    });
+    await page.locator('[data-game-canvas]').dispatchEvent('pointerup', {
+      pointerId: 33, pointerType: 'touch', clientX: x + 52, clientY: y, isPrimary: true, bubbles: true,
+    });
+    await expect(stick).toBeHidden();
+
+    await switcher.click();
+    await expect(switcher).toContainText('CLASSIC DRAG');
+    await expect(left).toBeHidden();
+    await expect(page.locator('[data-arena]')).toHaveAttribute('data-warp-steering', 'drag');
+
+    await page.reload();
+    await playButton(page).click();
+    await expect(page.locator('[data-warp-steering-switch]')).toContainText('CLASSIC DRAG');
+  });
+
   test('starship bridge shows five side controls with real ready, firing, shielding and warp states', async ({ page }) => {
     await freezeTime(page);
     const panels = page.locator('[data-warp-console]');
@@ -1505,7 +1550,13 @@ test.describe('in Warp', () => {
 
     // The craft is where a paddle would be, and there is no ball and no paddle across the court.
     await page.clock.runFor(3500);
-    const surface = hasTouch ? page.locator('.rail') : board(page);
+    if (hasTouch) {
+      const steering = page.locator('[data-warp-steering-switch]');
+      await steering.tap();
+      await steering.tap();
+      await expect(steering).toContainText('CLASSIC DRAG');
+    }
+    const surface = board(page);
     const box = await surface.boundingBox();
     const steer = (x) => {
       const at = [box.x + box.width * Math.min(0.99, Math.max(0.01, x / GAME_CONFIG.width)), box.y + box.height / 2];
@@ -1597,7 +1648,15 @@ test.describe('in Warp', () => {
       // The cup is flown in it: whatever the craft and its paint, it is found where a paddle would be.
       await press(playButton(page));
       await page.clock.runFor(3500);
-      const surface = hasTouch ? page.locator('.rail') : board(page);
+      // New touch default is two direction buttons. This particular legacy
+      // test verifies classic absolute dragging, so select that mode first.
+      if (hasTouch) {
+        const steering = page.locator('[data-warp-steering-switch]');
+        await steering.tap();
+        await steering.tap();
+        await expect(steering).toContainText('CLASSIC DRAG');
+      }
+      const surface = board(page);
       const box = await surface.boundingBox();
       const at = [box.x + box.width * (170 / GAME_CONFIG.width), box.y + box.height / 2];
       await (hasTouch ? page.touchscreen.tap(...at) : page.mouse.move(...at));

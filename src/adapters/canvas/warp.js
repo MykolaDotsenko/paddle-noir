@@ -3,6 +3,7 @@ import { FONT, mixRgb, roundedRect, SUPER_STYLE, THEME } from './theme.js';
 import { drawCell, drawCrate, drawHullBar, weapons } from './warp-combat.js';
 import { CRAFT_SCALE, drawHull, drawShield, drawUnderglow } from './warp-craft.js';
 import { drawEngineWake, drawJumpLighting, drawTrackLighting } from './warp-lighting.js';
+import { drawSurfaceMaterial } from './warp-materials.js';
 import { CORE_LIGHT, drawDust, drawSky, fogLevel, hash, HORIZON, LOOKS, PAD, paletteOf, roadside } from './warp-scenery.js';
 
 /**
@@ -305,6 +306,7 @@ function drawPiece(scene, near, far) {
   // The surface.
   quad(ctx, near.left, near.right, far.right, far.left, palette.lane[band ? 0 : 1][level]);
   drawTrackLighting(scene, near, far);
+  drawSurfaceMaterial(scene, near, far);
 
   // Rumble strips.
   const strip = band ? palette.stripe : STRIP_DARK;

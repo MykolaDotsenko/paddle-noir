@@ -156,6 +156,22 @@
               </button>
             </div>
 
+            <!-- Flight controls are separate from tactical consoles. Mode is stored
+                 per player and cycles: classic drag / dual arrows / floating stick. -->
+            <button type="button" class="warp-steering-switch" data-command="warp-steering-cycle" data-warp-steering-switch aria-label="Change Warp steering mode" hidden>
+              <span aria-hidden="true">◎</span> STEER: BUTTONS <span class="warp-steering-switch__cycle" aria-hidden="true">↻</span>
+            </button>
+            <button type="button" class="warp-turn warp-turn--left" data-warp-steer="left" aria-label="Hold to steer left" hidden>
+              <span class="warp-turn__arrow" aria-hidden="true">‹</span><span class="warp-turn__label" aria-hidden="true">LEFT</span>
+            </button>
+            <button type="button" class="warp-turn warp-turn--right" data-warp-steer="right" aria-label="Hold to steer right" hidden>
+              <span class="warp-turn__arrow" aria-hidden="true">›</span><span class="warp-turn__label" aria-hidden="true">RIGHT</span>
+            </button>
+            <div class="warp-flight-stick" data-flight-stick aria-hidden="true" hidden>
+              <span class="warp-flight-stick__rings"></span>
+              <span class="warp-flight-stick__thumb" data-flight-knob></span>
+            </div>
+
             <p class="match-point" data-match-point hidden>Match point</p>
             <div class="versus" data-versus aria-hidden="true" hidden>
               <div class="versus__side versus__side--rival">
@@ -318,7 +334,7 @@
                   <li data-nova-only hidden><span class="tutorial__icon" aria-hidden="true">✈</span><span><strong>Your paddle is a starship.</strong> It fires by itself: steer out of the way of rocks and fire, and under what you want shot down.</span></li>
                   <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">➤</span><span><strong>Your paddle is a racing craft.</strong> It flies by itself: thread rings and gates, jump ramps, drift on the inside of bends, and slipstream rivals to slingshot past.</span></li>
                   <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">◎</span><span><strong>Fight for your place.</strong> Boost with nitro, activate rapid guns, launch guided rockets when a rival is in range, protect yourself with shields and engage warp drive for a speed surge.</span></li>
-                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Bridge controls:</strong> tap the side panels or use <kbd>W</kbd> nitro, <kbd>G</kbd> guns, <kbd>R</kbd> rockets, <kbd>F</kbd> shield, <kbd>E</kbd> warp. Rockets need a target lock; other systems recharge. Each craft has a unique warp effect.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Flight controls:</strong> tap <strong>STEER</strong> during Warp to choose <strong>Buttons</strong> (hold left/right), <strong>Floating Stick</strong> (drag a thumb in the lower half) or <strong>Classic Drag</strong>. The selected mode is remembered. On keyboard use <kbd>←</kbd>/<kbd>→</kbd> or <kbd>A</kbd>/<kbd>D</kbd>. The bridge weapon systems work independently.</span></li>
                   <li data-bricks-only hidden><span class="tutorial__icon" aria-hidden="true">▦</span><span><strong>Break every wall.</strong> Catch what falls with your paddle. A super goes through bricks, or takes a whole row.</span></li>
                 </ol>
                 <button type="button" class="cta" data-dismiss-tutorial autofocus>Got it</button>

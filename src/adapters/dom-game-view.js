@@ -103,6 +103,10 @@ export class DomGameView {
     /** The starship bridge is only present in layouts that support Warp. */
     this.bridgeButtons = /** @type {HTMLButtonElement[]} */ (this.findAll('[data-warp-control]'));
     this.bridgePanels = this.findAll('[data-warp-console]');
+    /** Optional in lightweight non-Warp host layouts. */
+    this.steeringSwitch = /** @type {HTMLButtonElement | null} */ (this.root.querySelector('[data-warp-steering-switch]'));
+    this.steeringButtons = this.findAll('[data-warp-steer]');
+    this.flightStickIndicator = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-flight-stick]'));
     this.lives = this.find('[data-lives]');
     this.matchPoint = this.find('[data-match-point]');
     this.continueLine = this.find('[data-continue]');
@@ -699,6 +703,23 @@ export class DomGameView {
       this.showHighScores(presentation.highScores);
     }
 
+    // The chosen control scheme persists between races. Repaint only when it
+    // changes, but keep the selector available while the cockpit is running.
+    const steering = presentation.warp?.steering ?? 'drag';
+    if (this.root.dataset.warpSteering !== steering) {
+      this.root.dataset.warpSteering = steering;
+      if (this.steeringSwitch) {
+        const names = { drag: 'CLASSIC DRAG', buttons: 'LEFT / RIGHT', stick: 'FLOATING STICK' };
+        const label = names[steering];
+        this.steeringSwitch.textContent = `◎ STEER: ${label} ↻`;
+        this.steeringSwitch.setAttribute('aria-label', `Steering: ${label}. Press to change control mode`);
+      }
+    }
+    const steeringVisible = presentation.mode === 'warp' && presentation.phase === GAME_PHASE.RUNNING;
+    if (this.steeringSwitch) this.steeringSwitch.hidden = !steeringVisible;
+    for (const button of this.steeringButtons) button.hidden = !steeringVisible || steering !== 'buttons';
+    if ((!steeringVisible || steering !== 'stick') && this.flightStickIndicator) this.flightStickIndicator.hidden = true;
+
     // Update tiny status captions only when their value changes. This runs each
     // frame, so avoid replacing the icon/label markup or spamming live regions.
     if (presentation.warp) {
@@ -814,6 +835,12 @@ export class DomGameView {
       this.guideFocus(phase);
     }
     for (const panel of this.bridgePanels) panel.hidden = mode !== 'warp' || phase !== GAME_PHASE.RUNNING;
+    // Hide steering immediately on pause, not after the next simulation frame.
+    if (phase !== GAME_PHASE.RUNNING || mode !== 'warp') {
+      if (this.steeringSwitch) this.steeringSwitch.hidden = true;
+      if (this.flightStickIndicator) this.flightStickIndicator.hidden = true;
+      for (const button of this.steeringButtons) button.hidden = true;
+    }
     this.pauseButton.toggleAttribute('disabled', !inMatch);
     this.pauseButton.setAttribute('aria-label', phase === GAME_PHASE.PAUSED ? 'Resume' : 'Pause');
 
