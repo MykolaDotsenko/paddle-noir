@@ -180,7 +180,7 @@ export function drawEngineWake(ctx, { x, y, glow, speed, boost, now, still }) {
 export function drawJumpLighting(ctx, { x, y, groundY, glow }) {
   const height = groundY - y;
 
-  if (height < 14) {
+  if (height < 24) {
     return;
   }
 
