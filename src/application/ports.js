@@ -33,6 +33,7 @@ export const GAME_COMMAND = Object.freeze({
 export const DIFFICULTIES = Object.freeze(['easy', 'normal', 'hard']);
 
 /** The three persistent Warp control schemes, from classic to accessible touch controls. */
+/** @type {readonly WarpSteeringMode[]} */
 export const WARP_STEERING_MODES = Object.freeze(['drag', 'buttons', 'stick']);
 
 /** @type {readonly Mode[]} */
