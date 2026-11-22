@@ -349,6 +349,7 @@ function wingStructure(ctx, style, print) {
   const { kind, paint, bank } = style;
   const lean = Math.sin(bank);
   const span = print.span;
+  const close = style.scale >= 0.72;
   const highlight = ctx.createLinearGradient(-span, -5, span, 10);
   highlight.addColorStop(0, 'rgba(' + shade(paint, 0.16) + ', 0.64)');
   highlight.addColorStop(0.5, 'rgba(' + sheen(paint, 0.35) + ', 0.78)');
@@ -389,12 +390,63 @@ function wingStructure(ctx, style, print) {
     ctx.lineTo(side * span * 0.7, 1.7);
     ctx.stroke();
 
-    // Countersunk fasteners follow the service panel.
-    ctx.fillStyle = 'rgba(' + DARK + ', 0.68)';
-    for (const offset of [0.32, 0.46, 0.6]) {
+    // Countersunk fasteners only resolve at portrait/close-race scale.
+    if (close) {
+      ctx.fillStyle = 'rgba(' + DARK + ', 0.68)';
+      for (const offset of [0.32, 0.46, 0.6]) {
+        ctx.beginPath();
+        ctx.arc(side * span * offset, 4.4, 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+
+  // Airframe-specific hardware keeps the five hull families readable by silhouette.
+  // Kestrel has canards, Hornet a knife-edge keel, Manta raised tips, Bulwark armour.
+  if (close && kind === 'jet') {
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.34) + ')';
+    for (const side of [-1, 1]) {
       ctx.beginPath();
-      ctx.arc(side * span * offset, 4.4, 0.45, 0, Math.PI * 2);
+      ctx.moveTo(side * 5, -14);
+      ctx.lineTo(side * 12, -11);
+      ctx.lineTo(side * 10, -8);
+      ctx.lineTo(side * 5, -9);
+      ctx.closePath();
       ctx.fill();
+    }
+  } else if (close && kind === 'dart') {
+    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.58) + ', 0.8)';
+    ctx.lineWidth = 1.05;
+    ctx.beginPath();
+    ctx.moveTo(0, -24);
+    ctx.lineTo(0, -16);
+    ctx.moveTo(-6, 5);
+    ctx.lineTo(6, 5);
+    ctx.stroke();
+  } else if (close && kind === 'wing') {
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.52) + ')';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 37, 4);
+      ctx.lineTo(side * 40, -7);
+      ctx.lineTo(side * 38, 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (close && kind === 'heavy') {
+    ctx.fillStyle = 'rgb(' + shade(paint, 0.58) + ')';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 12, -8);
+      ctx.lineTo(side * 21, -3);
+      ctx.lineTo(side * 22, 5);
+      ctx.lineTo(side * 12, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.5) + ', 0.56)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
     }
   }
 
@@ -408,13 +460,15 @@ function wingStructure(ctx, style, print) {
     ctx.lineWidth = 0.85;
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(' + DARK + ', 0.65)';
-    ctx.lineWidth = 0.7;
-    for (let vent = 0; vent < 3; vent += 1) {
-      ctx.beginPath();
-      ctx.moveTo(x - wide * 0.6, y - 7 + vent * 1.8);
-      ctx.lineTo(x + wide * 0.6, y - 7 + vent * 1.8);
-      ctx.stroke();
+    if (close) {
+      ctx.strokeStyle = 'rgba(' + DARK + ', 0.65)';
+      ctx.lineWidth = 0.7;
+      for (let vent = 0; vent < 3; vent += 1) {
+        ctx.beginPath();
+        ctx.moveTo(x - wide * 0.6, y - 7 + vent * 1.8);
+        ctx.lineTo(x + wide * 0.6, y - 7 + vent * 1.8);
+        ctx.stroke();
+      }
     }
   }
 
