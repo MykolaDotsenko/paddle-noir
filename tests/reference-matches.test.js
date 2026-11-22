@@ -18,6 +18,10 @@ for (const scenario of SCENARIOS) {
 
     const { digest, summary } = playReference(scenario);
 
+    if (scenario.name === 'warp' && digest !== recorded.digest) {
+      console.info('WARP_STORY_REPLAY ' + JSON.stringify({ digest, summary }));
+    }
+
     assert.deepEqual(summary, recorded.summary, `${scenario.name}: the match went differently`);
     assert.equal(digest, recorded.digest, `${scenario.name}: the same summary, but some step differs`);
   });
