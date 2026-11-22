@@ -2350,3 +2350,21 @@ kbd {
     animation: none !important;
   }
 }
+
+.mixtape-link {
+  grid-column: 1 / -1;
+  grid-template-columns: auto 1fr auto;
+  min-height: 44px;
+  color: #ffe0ab;
+  border-color: #bc947258;
+  background: linear-gradient(115deg, #544249, #322d42);
+  text-decoration: none;
+}
+.tape-icon {
+  padding: 1px 3px 3px;
+  border: 2px solid #ffcc94;
+  border-bottom-width: 4px;
+  border-radius: 3px;
+  color: #ffcc94;
+  font-size: 8px;
+}

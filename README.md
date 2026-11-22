@@ -14,6 +14,10 @@ It began as a one-script Pong exercise in 2024. The current version keeps the sa
 
 Paddle Noir is meant to feel like the last surviving arcade cabinet in town, not a dashboard with a canvas in the middle.
 
+### Mixtape Run
+
+The cabinet also opens **[Mixtape Run](./mixtape/)**, an original local co-op bicycle arcade. Ride through three neighborhoods, jump for both sides of a cassette and bring a fallen friend back by clearing the next hurdle. Solo includes a computer buddy. In two-player mode use Space/A and L/↑, or the two touch buttons.
+
 ### Modes
 
 - **Solo** — first to 7 against the computer.

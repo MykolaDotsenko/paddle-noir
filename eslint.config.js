@@ -90,7 +90,7 @@ export default [
   },
   {
     // Only the composition root touches browser globals; adapters receive them injected.
-    files: ['script.js'],
+    files: ['script.js', 'mixtape/ride.js'],
     languageOptions: { globals: browserGlobals },
   },
   {
