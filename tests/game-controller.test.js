@@ -1296,7 +1296,11 @@ test('in the menu Warp tells what there is to do', () => {
   const presentation = lastOf(view.presentations);
 
   assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
-  const { controls, ...overview } = presentation.warp;
+  const { controls, story, ending, ...overview } = presentation.warp;
+  assert.equal(story.title, '01 · THE GHOST SIGNAL');
+  assert.equal(story.mission, 'Fly through 2 signal rings');
+  assert.deepEqual([story.progress, story.target, story.completed, story.active], [0, 2, false, false]);
+  assert.match(ending, /THE SIGNAL SURVIVES/);
   assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', steering: 'buttons', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0 });
   assert.deepEqual(Object.keys(controls), ['nitro', 'guns', 'rockets', 'shield', 'warp']);
   assert.ok(Object.values(controls).every((control) => !control.ready), 'bridge controls start disabled in the menu');
