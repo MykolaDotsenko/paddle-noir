@@ -15,7 +15,7 @@ import { chosenCraft, loadoutOf, ticketsFor } from './hangar.js';
 import { highScores } from './high-scores.js';
 import { interpolateState } from './interpolation.js';
 import { nicknameFor } from './nicknames.js';
-import { GAME_COMMAND } from './ports.js';
+import { GAME_COMMAND, WARP_STEERING_MODES } from './ports.js';
 import { activateWarpControl, warpControlStatus } from '../domain/warp.js';
 
 /**
@@ -160,7 +160,7 @@ export class GameController {
   connect() {
     this.input.onCommand((command) => this.handleCommand(command));
     this.view.onCommand((command) => this.handleCommand(command));
-    this.input.configure({ players: this.mode === 'duo' ? 2 : 1 });
+    this.input.configure({ players: this.mode === 'duo' ? 2 : 1, warpSteering: this.mode === 'warp' ? this.preferences.get().warpSteering : 'drag' });
     this.input.connect();
     this.view.connect();
     this.renderer.connect();
@@ -203,6 +203,17 @@ export class GameController {
 
   /** @param {GameCommand} command */
   handleCommand(command) {
+    if (command === GAME_COMMAND.WARP_STEERING_CYCLE) {
+      if (this.mode === 'warp') {
+        const current = this.preferences.get().warpSteering;
+        const next = WARP_STEERING_MODES[(WARP_STEERING_MODES.indexOf(current) + 1) % WARP_STEERING_MODES.length];
+        this.preferences.set({ warpSteering: next });
+        this.input.configure({ players: 1, warpSteering: next });
+        this.render();
+      }
+      return;
+    }
+
     if (command === GAME_COMMAND.ABILITY || command === GAME_COMMAND.WARP_NITRO
       || command === GAME_COMMAND.WARP_GUNS || command === GAME_COMMAND.WARP_ROCKETS
       || command === GAME_COMMAND.WARP_SHIELD) {
@@ -310,7 +321,7 @@ export class GameController {
     this.mode = this.preferences.get().mode;
     this.rival = this.rivalIndex();
     this.config = this.selectedConfig();
-    this.input.configure({ players: this.mode === 'duo' ? 2 : 1 });
+    this.input.configure({ players: this.mode === 'duo' ? 2 : 1, warpSteering: this.mode === 'warp' ? this.preferences.get().warpSteering : 'drag' });
   }
 
   selectedConfig() {
@@ -615,6 +626,7 @@ export class GameController {
       best: this.preferences.get().bestWarp,
       newBest: this.newBestWarp,
       craft: chosenCraft(this.catalog.hangar, this.preferences.get().hangar).name,
+      steering: this.preferences.get().warpSteering,
       abilityCooldown: race.abilityCooldown,
       abilityTime: race.abilityTime,
       controls: warpControlStatus(this.state, this.config),
