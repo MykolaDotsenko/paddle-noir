@@ -3,8 +3,9 @@ import { SUPER_STYLE, THEME } from './theme.js';
 
 /**
  * What the Warp game's events look like. Most happen at the player's craft: a ring flown dead
- * center, a boost, a crash, a near miss, a slingshot. What happens to a rival happens where the
- * board shows it: it crashes, it is taken down, thunder strikes it. The callouts are short and
+ * center, a boost, a crash, a near miss, a slingshot, a burst of nitro, a shield taking a hit.
+ * What happens to a rival happens where the board shows it: it crashes, the guns' rounds land
+ * on it, a rocket blows up on it, it is taken down, thunder strikes it. The callouts are short and
  * one at a time, so they never hide the lane. `playEvents` hands these events here.
  *
  * @import { GameConfig, GameEvent, GameState, WarpConfig } from '../../domain/types.js'
@@ -15,6 +16,11 @@ const CYAN = THEME.side.player.rgb;
 /** Seconds between two racers over the line that the board calls a photo finish. */
 const PHOTO_FINISH = 0.25;
 const SPARKS = '254, 240, 138';
+const NITRO = '125, 211, 252';
+const ROCKET = '251, 146, 60';
+const SHIELD = '96, 165, 250';
+/** What the board calls a rival taken down, by how. */
+const TAKEN_DOWN = Object.freeze({ guns: 'SHOT DOWN', rocket: 'BLOWN UP', ram: 'RAMMED', super: 'DOWN' });
 
 /**
  * Where the player's craft is on the board.
@@ -177,10 +183,55 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       effects.burst({ x: at.x, y: at.y, color: `rgb(${rgb})`, count: 36, speed: 140 + 260 * at.scale, life: 0.7, size: 2.2 });
       effects.burst({ x: at.x, y: at.y, color: `rgb(${THEME.amber})`, count: 18, speed: 120 + 200 * at.scale, life: 0.5, size: 1.8 });
       effects.ring({ x: at.x, y: at.y, color: `rgb(${rgb})`, radius: 6, growth: 160 + 300 * at.scale, life: 0.5, width: 4 });
-      effects.label({ text: `${(pilot?.name ?? 'RIVAL').toUpperCase()} DOWN! +${event.points}`, x: width / 2, y: height * 0.42, color: `rgb(${THEME.amber})`, life: 0.9, size: 22, stack: true });
-      effects.shake(0.4);
+      effects.label({ text: `${(pilot?.name ?? 'RIVAL').toUpperCase()} ${TAKEN_DOWN[event.by]}! +${event.points}`, x: width / 2, y: height * 0.42, color: `rgb(${THEME.amber})`, life: 0.9, size: 22, stack: true });
+      effects.shake(event.by === 'ram' ? 0.6 : 0.4);
+
+      if (event.by === 'ram') {
+        effects.kick('player');
+      }
       return true;
     }
+    case 'nitro':
+      // The tank lets go: fire out of the engines, a ring off the craft, and the word.
+      effects.burst({ x: craft.x, y: craft.y + 14, color: `rgb(${NITRO})`, count: 26, speed: 320, direction: Math.PI / 2, spread: 1.1, life: 0.4, size: 2.2 });
+      effects.ring({ x: craft.x, y: craft.y, color: `rgba(${NITRO}, 0.9)`, radius: 26, growth: 420, life: 0.4, width: 4 });
+      effects.label({ text: 'NITRO!', x: width / 2, y: height * 0.46, color: `rgb(${NITRO})`, life: 0.6, size: 28 });
+      effects.flashSparingly(`rgb(${NITRO})`, 0.1);
+      effects.pulse(0.7);
+      return true;
+    case 'gun-fire':
+      // The rounds are drawn as they fly and land, with the lane: sparks here would add their
+      // light to the rival under them, several times a second, and burn out to white.
+      return true;
+    case 'rocket-launch':
+      effects.burst({ x: craft.x, y: craft.y - 6, color: `rgb(${ROCKET})`, count: 14, speed: 220, direction: Math.PI / 2, spread: 1.4, life: 0.35, size: 2 });
+      effects.label({ text: 'ROCKET AWAY!', x: craft.x, y: craft.y - 92, color: `rgb(${ROCKET})`, life: 0.6, size: 17 });
+      return true;
+    case 'explosion': {
+      const at = spotOf(state, config, event.z, event.x);
+      const size = 0.4 + at.scale;
+
+      effects.burst({ x: at.x, y: at.y, color: `rgb(${ROCKET})`, count: 44, speed: 160 + 320 * at.scale, life: 0.7, size: 2.6 });
+      effects.burst({ x: at.x, y: at.y, color: `rgb(${SPARKS})`, count: 22, speed: 100 + 220 * at.scale, life: 0.5, size: 2 });
+      effects.ring({ x: at.x, y: at.y, color: `rgba(${ROCKET}, 0.95)`, radius: 6, growth: 260 * size, life: 0.5, width: 6 });
+      effects.schedule(0.08, () => effects.ring({ x: at.x, y: at.y, color: `rgba(${SPARKS}, 0.8)`, radius: 4, growth: 180 * size, life: 0.4, width: 3 }));
+      effects.flashSparingly(`rgb(${ROCKET})`, 0.14);
+      effects.shake(0.3 + 0.4 * Math.min(1, at.scale));
+      return true;
+    }
+    case 'ammo': {
+      const [text, rgb] = event.kind === 'rocket' ? ['ROCKET!', ROCKET] : ['NITRO +1', NITRO];
+      effects.ring({ x: craft.x, y: craft.y - 14, color: `rgba(${rgb}, 0.9)`, radius: 20, growth: 260, life: 0.3, width: 3 });
+      effects.label({ text, x: craft.x, y: craft.y - 86, color: `rgb(${rgb})`, life: 0.6, size: 17 });
+      return true;
+    }
+    case 'shield-hit':
+      // The bubble takes it and bursts.
+      effects.ring({ x: craft.x, y: craft.y - 6, color: `rgba(${SHIELD}, 0.95)`, radius: 40, growth: 300, life: 0.45, width: 5 });
+      effects.burst({ x: craft.x, y: craft.y - 6, color: `rgb(${SHIELD})`, count: 28, speed: 300, life: 0.5, size: 2 });
+      effects.label({ text: event.left > 0 ? `SHIELD ×${event.left}` : 'SHIELD DOWN', x: craft.x, y: craft.y - 92, color: `rgb(${SHIELD})`, life: 0.7, size: 18 });
+      effects.shake(0.35);
+      return true;
     case 'smash':
       effects.burst({ x: craft.x, y: craft.y - 40, color: `rgb(${SUPER_STYLE.fireball.rgb})`, count: 26, speed: 320, direction: -Math.PI / 2, spread: 2, life: 0.45, size: 2 });
       effects.label({ text: `SMASH +${event.points}`, x: craft.x, y: craft.y - 92, color: `rgb(${SUPER_STYLE.fireball.rgb})`, life: 0.6, size: 18 });

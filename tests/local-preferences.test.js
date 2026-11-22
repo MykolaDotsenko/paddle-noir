@@ -21,6 +21,8 @@ const DEFAULTS = {
   bestBricks: 0,
   bestNova: 0,
   bestWarp: 0,
+  tickets: 0,
+  hangar: { craft: '', owned: {} },
   initials: '',
   stats: NO_STATS,
   rival: 0,
@@ -60,6 +62,8 @@ test('restores stored choices', () => {
     bestBricks: 12650,
     bestNova: 31200,
     bestWarp: 15400,
+    tickets: 2480,
+    hangar: { craft: 'manta', owned: { manta: { tune: { engine: 2, nitro: 0, grip: 1, armor: 0, guns: 3 }, paint: 'red', decal: 'flames', glow: 'pink' } } },
     initials: 'MYK',
     stats: { matches: 9, wins: 6, streak: 2, bestStreak: 4 },
     rival: 3,
@@ -93,6 +97,43 @@ test('initials are three capital letters, or none at all', () => {
   const preferences = new LocalPreferences({ localStorage: createStorage() });
   preferences.set({ initials: 'no' });
   assert.equal(preferences.get().initials, '', 'a malformed change is not kept either');
+});
+
+test('a hangar that is not shaped like one is put right', () => {
+  const read = (hangar, tickets = 0) => new LocalPreferences({ localStorage: createStorage({ [KEY]: JSON.stringify({ hangar, tickets }) }) }).get();
+  const stock = { engine: 0, nitro: 0, grip: 0, armor: 0, guns: 0 };
+
+  for (const malformed of [null, 'full', 7, [], { craft: 9, owned: 'all' }, { owned: null }]) {
+    assert.deepEqual(read(malformed).hangar, { craft: '', owned: {} }, JSON.stringify(malformed));
+  }
+
+  assert.equal(read({}, -5).tickets, 0);
+  assert.equal(read({}, '900').tickets, 0);
+  assert.equal(read({}, 900).tickets, 900);
+
+  // Names are short and plain; a tune is a count for each system, and nothing else is kept.
+  const { hangar } = read({
+    craft: 'Manta<script>',
+    owned: {
+      manta: { tune: { engine: 2, nitro: -1, grip: 'lots', guns: 99, cupholder: 3 }, paint: 'red', decal: 12, glow: 'NEON' },
+      hornet: null,
+      halo: { tune: 'max', paint: 'pink' },
+      'not a craft': { tune: stock },
+      __proto__: { tune: stock },
+    },
+  });
+
+  assert.deepEqual(hangar, {
+    craft: '',
+    owned: {
+      manta: { tune: { engine: 2, nitro: 0, grip: 0, armor: 0, guns: 9 }, paint: 'red', decal: '', glow: '' },
+      hornet: { tune: stock, paint: '', decal: '', glow: '' },
+      halo: { tune: stock, paint: 'pink', decal: '', glow: '' },
+    },
+  });
+
+  const crowded = Object.fromEntries(Array.from({ length: 40 }, (_, index) => [`craft-${index}`, {}]));
+  assert.equal(Object.keys(read({ owned: crowded }).hangar.owned).length, 16);
 });
 
 test('career progress that cannot be true is brought back into range', () => {

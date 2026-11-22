@@ -57,7 +57,18 @@ function patternFor(event) {
     case 'boost':
       return event.by === 'start' ? [20, 30, 30] : null;
     case 'takedown':
-      return 20;
+      return event.by === 'ram' ? [25, 20, 35] : 20;
+    // The guns fire several times a second and are not felt; what the craft does once is.
+    case 'nitro':
+      return [15, 20, 40];
+    case 'rocket-launch':
+      return 15;
+    case 'explosion':
+      return 30;
+    case 'shield-hit':
+      return 45;
+    case 'ammo':
+      return 12;
     case 'race-finish':
       return event.qualified ? [30, 50, 30] : null;
     case 'game-over':

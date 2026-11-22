@@ -111,7 +111,7 @@ test('in Warp only what the craft feels is felt: its crash, a bump, a takedown, 
     { type: 'crash', z: 0, x: 0, kind: 'mine', pilot: 2 },
     { type: 'crash', z: 0, x: 0, kind: 'mine' },
     { type: 'bump', z: 0, x: 0 },
-    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150 },
+    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150, by: 'guns' },
     { type: 'race-finish', race: 0, place: 5, points: 100, qualified: false, last: false, margin: 1 },
     { type: 'race-finish', race: 0, place: 1, points: 1000, qualified: true, last: false, margin: 1 },
     { type: 'land', z: 0, x: 0, points: 60 },
@@ -120,4 +120,21 @@ test('in Warp only what the craft feels is felt: its crash, a bump, a takedown, 
   ]);
 
   assert.deepEqual(calls, [70, 25, 20, [30, 50, 30], 18, [20, 30, 30]]);
+});
+
+test('the craft\'s weapons are felt when they do something once, never the guns that fire all the time', () => {
+  const { haptics, calls } = setup();
+
+  haptics.handle([
+    { type: 'gun-fire', z: 0, x: 0 },
+    { type: 'nitro', z: 0, x: 0 },
+    { type: 'rocket-launch', pilot: 1, z: 0, x: 0 },
+    { type: 'explosion', z: 0, x: 0 },
+    { type: 'shield-hit', z: 0, x: 0, left: 1 },
+    { type: 'ammo', kind: 'rocket', z: 0, x: 0 },
+    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150, by: 'ram' },
+    { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150, by: 'rocket' },
+  ]);
+
+  assert.deepEqual(calls, [[15, 20, 40], 15, 30, 45, 12, [25, 20, 35], 20]);
 });

@@ -319,6 +319,24 @@ test('a race placed too low costs a credit, and is flown again', () => {
   assert.equal(again.lives, WARP_LIVES - 1);
 });
 
+test('a race counts once: flown again, it is flown for its points anew', () => {
+  const { config, state } = game({ rivals: [{ z: 700, x: 0, speed: 10, finish: 9 }] });
+  // Two races in, 5000 points banked, and 900 more made in this one before a place too low.
+  const flying = race(state, { z: 590, points: 5900, banked: 5000, lost: 300 });
+  const { state: over } = run(flying, config, 0.5, { input: lane(0) });
+
+  assert.equal(over.warp.points, 5900 + RULES.placePoints[1], 'on the board the race still shows what it made');
+
+  const again = run(over, config, RULES.calmSeconds + 0.1, { input: lane(0) }).state.warp;
+  assert.deepEqual({ points: again.points, banked: again.banked, lost: again.lost }, { points: 5000, banked: 5000, lost: 300 + 900 + RULES.placePoints[1] });
+
+  // Gone through, a race's points are the cup's, and the next race starts from them.
+  const through = game({ rivals: [{ z: 40, x: -0.8, speed: 10 }] });
+  const next = run(race(through.state, { z: 590, points: 5900, banked: 5000, lost: 300 }), through.config, RULES.calmSeconds + 0.6, { input: lane(0) }).state.warp;
+  assert.deepEqual({ race: next.race, banked: next.banked, lost: next.lost }, { race: 1, banked: next.points, lost: 300 });
+  assert.ok(next.points >= 5900 + RULES.placePoints[0]);
+});
+
 test('the last credit spent ends the cup', () => {
   const { config, state } = game({ rivals: [{ z: 700, x: 0, speed: 10, finish: 9 }] });
   const { state: over, events } = run({ ...race(state, { z: 590 }), lives: 1 }, config, 0.5, { input: lane(0) });

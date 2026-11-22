@@ -273,7 +273,7 @@
     }
   },
   "warp": {
-    "digest": "6b6a48e1d366bcd9e0a3e82fb6dfd1205f87a9bf627fbf45fa2505cbc5601125",
+    "digest": "5dfb487126d9bbe71e5dec8ea1254a506ac3db32f248ac4c5016395e29c87de6",
     "summary": {
       "steps": 28800,
       "score": {
@@ -313,7 +313,7 @@
         "takedown": 18
       },
       "race": 0,
-      "points": 8380,
+      "points": 1100,
       "lives": 37
     }
   }

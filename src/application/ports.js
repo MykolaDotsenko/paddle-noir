@@ -2,7 +2,7 @@
  * Contracts between the application core and its adapters. Adapters implement these
  * shapes and receive them at the composition root; the core never imports an adapter.
  *
- * @import { GameConfig, GameEvent, GamePhase, GameState, InputSnapshot, Modifiers, Rules, Side } from '../domain/types.js'
+ * @import { CraftKind, GameConfig, GameEvent, GamePhase, GameState, InputSnapshot, Modifiers, Rules, Side } from '../domain/types.js'
  */
 
 /** The commands adapters may send to the application. */
@@ -29,6 +29,12 @@ export const DIFFICULTIES = Object.freeze(['easy', 'normal', 'hard']);
 export const MODES = Object.freeze(['solo', 'rush', 'duo', 'career', 'bricks', 'nova', 'warp']);
 
 /**
+ * The systems of a Warp craft that the hangar tunes, in the order it lists them.
+ * @type {readonly CraftSystem[]}
+ */
+export const CRAFT_SYSTEMS = Object.freeze(['engine', 'nitro', 'grip', 'armor', 'guns']);
+
+/**
  * The backing tracks, in the order the track button cycles through them.
  * @type {readonly TrackId[]}
  */
@@ -42,6 +48,35 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  *   a Rush survival run, two people, the career ladder of rivals, Bricks, the paddle against a
  *   wall, Nova, the paddle as a starship, or Warp, the paddle as a racing craft.
  * @typedef {'neon' | 'arena' | 'anthem' | 'contender' | 'iron' | 'eurodance' | 'rave' | 'trance' | 'rondo' | 'cancan' | 'ode' | 'shchedryk'} TrackId
+ *
+ * @typedef {'engine' | 'nitro' | 'grip' | 'armor' | 'guns'} CraftSystem
+ *
+ * @typedef {object} CraftSetup How the player has set up a craft they own.
+ * @property {Record<CraftSystem, number>} tune the level each system is tuned to, from 0
+ * @property {string} paint the paint it wears, by name; '' for the craft's own
+ * @property {string} decal how the paint is marked, by name; '' for none
+ * @property {string} glow the light under it, by name; '' for the craft's own
+ *
+ * @typedef {object} HangarChoices The player's hangar.
+ * @property {string} craft the craft they fly, by its id; '' for the first
+ * @property {Record<string, CraftSetup>} owned the crafts they have bought or set up, by id
+ *
+ * @typedef {object} CraftSpec A craft the hangar offers.
+ * @property {string} id
+ * @property {string} name
+ * @property {CraftKind} kind
+ * @property {number} price in tickets; 0 for the craft everyone has
+ * @property {string} blurb a line on what it is good at
+ * @property {Readonly<Record<CraftSystem, number>>} stats how good each system is untuned, from 1 to 5
+ * @property {string} paint the paint it comes in, by name
+ *
+ * @typedef {object} HangarCatalog What the hangar offers.
+ * @property {readonly CraftSpec[]} crafts the first is the one everyone has
+ * @property {Readonly<Record<CraftSystem, string>>} systems what each system is called
+ * @property {readonly number[]} prices what each level of a system costs, the first level first
+ * @property {readonly { id: string, name: string, rgb: string }[]} paints
+ * @property {readonly { id: string, name: string }[]} decals the first is none
+ * @property {number} pointsPerTicket points of a cup that pay out a ticket
  *
  * @typedef {object} MatchStats Solo results, kept across visits.
  * @property {number} matches
@@ -65,6 +100,8 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {number} bestBricks most points in a Bricks game
  * @property {number} bestNova most points in a Nova game
  * @property {number} bestWarp most points in a Warp cup
+ * @property {number} tickets what the cabinet has paid out for Warp cups, to spend in the hangar
+ * @property {HangarChoices} hangar the crafts the player owns, how each is set up, and which they fly
  * @property {string} initials the three letters the player signs the high-score table with, or '' until they do
  * @property {MatchStats} stats
  * @property {number} rival the career rival the next career match is against, as a place on the ladder from 0
@@ -96,6 +133,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {GameConfig} bricks
  * @property {GameConfig} nova
  * @property {GameConfig} warp
+ * @property {HangarCatalog} hangar the crafts, tuning and paint the Warp game's hangar offers
  * @property {readonly Rival[]} career the career ladder, from the first rival to the last boss
  * @property {readonly HighScore[]} highScores the Rush high-score table as the arcade left it, best first
  *
@@ -152,6 +190,9 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {number} points
  * @property {number} best the most points the player ever made
  * @property {boolean} newBest whether the cup just finished set a new record
+ * @property {string} craft the craft being flown, by name
+ * @property {number} tickets what the player has to spend in the hangar
+ * @property {number} earned the tickets the cup just finished paid out
  *
  * @typedef {object} Presentation What the view shows around the board.
  * @property {GamePhase} phase

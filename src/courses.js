@@ -29,7 +29,7 @@ const SANYA = pilot('Sanya', '45, 212, 191', 'dart', 1.06, 0.75, 'blocker');
 const WOBBLE = pilot('DJ Wobble', '232, 121, 249', 'saucer', 1.07, 0.7, 'weaver');
 const ZINA = pilot('Zina', '250, 204, 21', 'wing', 1.09, 0.85, 'blocker');
 const LAG = pilot('LAG', '167, 139, 250', 'dart', 1.1, 0.8, 'weaver');
-const LANDLORD = pilot('Landlord', '239, 68, 68', 'wing', 1.12, 0.9, 'miner');
+const LANDLORD = pilot('Landlord', '239, 68, 68', 'heavy', 1.12, 0.9, 'miner');
 
 /** @type {readonly CourseLayout[]} */
 export const WARP_COURSES = Object.freeze(/** @type {CourseLayout[]} */ ([

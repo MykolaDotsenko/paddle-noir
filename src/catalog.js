@@ -1,4 +1,5 @@
 import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, tuned, WARP_CONFIG } from './config.js';
+import { HANGAR } from './hangar.js';
 
 /**
  * @import { HighScore, MatchCatalog, Rival } from './application/ports.js'
@@ -182,6 +183,7 @@ export const MATCH_CATALOG = Object.freeze({
   bricks: BRICKS_CONFIG,
   nova: NOVA_CONFIG,
   warp: WARP_CONFIG,
+  hangar: HANGAR,
   career: RIVALS,
   highScores: HIGH_SCORES,
 });

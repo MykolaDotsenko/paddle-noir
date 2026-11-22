@@ -253,7 +253,9 @@
  * @property {number} chain rings flown dead center in a row
  * @property {number} flow tricks landed since the last crash, which multiply what a trick scores
  * @property {boolean} launched whether the start is behind: the moment for a rocket start is over
- * @property {number} points
+ * @property {number} points the cup's points: every race counts once, as it was last flown
+ * @property {number} banked the cup's points as this race started: what a race flown again goes back to
+ * @property {number} lost points of races flown again, which the cup does not count
  * @property {number} calm seconds of the pause after a race, before the next one's start lights
  * @property {boolean} retry whether the race after the pause is this one again
  * @property {boolean} finished whether the player has crossed the line

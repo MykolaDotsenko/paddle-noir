@@ -305,9 +305,10 @@ export function itemX(item, time) {
  * @param {GameConfig} config
  * @param {number} race
  * @param {number} [points] the cup's points so far
+ * @param {number} [lost] points of races flown again so far
  * @returns {WarpState}
  */
-export function raceState(config, race, points = 0) {
+export function raceState(config, race, points = 0, lost = 0) {
   const rules = rulesOf(config);
   const layout = rules.courses[race];
 
@@ -360,6 +361,8 @@ export function raceState(config, race, points = 0) {
     flow: 0,
     launched: false,
     points,
+    banked: points,
+    lost,
     calm: 0,
     retry: false,
     finished: false,
@@ -893,7 +896,7 @@ function fight(lap, x, deltaSeconds) {
 /**
  * The race is over for the player: they take the points of their place, and go through to the
  * next race if they placed well enough. A player who did not spends a credit and flies the race
- * again; with no credit left the game is over. The racers fly on a moment past the line.
+ * again, for its points anew; with no credit left the game is over. The racers fly on a moment past the line.
  *
  * @param {Lap} lap
  */
@@ -1154,12 +1157,14 @@ function afterTheLine(state, deltaSeconds, config) {
     };
   }
 
-  const next = race.retry ? race.race : race.race + 1;
-
+  // A race flown again starts from the points the cup had before it: a race counts once, so a
+  // place too low is never a way to score a course twice.
   return {
     ...state,
     serveNumber: 0,
     serveCountdown: config.startDelaySeconds,
-    warp: raceState(config, next, race.points),
+    warp: race.retry
+      ? raceState(config, race.race, race.banked, race.lost + race.points - race.banked)
+      : raceState(config, race.race + 1, race.points, race.lost),
   };
 }

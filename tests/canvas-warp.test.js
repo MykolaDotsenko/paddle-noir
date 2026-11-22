@@ -260,8 +260,8 @@ test('a boost streaks lines out from where the lane runs out of sight and closes
   assert.equal(streaks(rush(rules.topSpeed)), 0);
   assert.ok(streaks(rush(rules.boostSpeed)) >= 20);
   assert.equal(streaks(rush(rules.boostSpeed, true)), 0);
-  assert.equal(callsNamed(rush(rules.boostSpeed), 'createRadialGradient').length, 1);
-  assert.equal(callsNamed(rush(rules.topSpeed), 'createRadialGradient').length, 0);
+  // The edges close in: one more shading than the lights the craft throw on the lane.
+  assert.equal(callsNamed(rush(rules.boostSpeed), 'createRadialGradient').length, callsNamed(rush(rules.topSpeed), 'createRadialGradient').length + 1);
 });
 
 test('dust streams past the craft as it flies, and stays put with motion reduced', () => {
@@ -315,7 +315,7 @@ test('every kind of craft is drawn, each in its pilot\'s color', () => {
     }
   });
 
-  assert.deepEqual([...new Set(WARP_COURSES.flatMap((course) => course.pilots.map((pilot) => pilot.craft)))].sort(), ['dart', 'jet', 'saucer', 'wing']);
+  assert.deepEqual([...new Set(WARP_COURSES.flatMap((course) => course.pilots.map((pilot) => pilot.craft)))].sort(), ['dart', 'heavy', 'jet', 'saucer', 'wing']);
 });
 
 // What is written over the race.
@@ -394,9 +394,9 @@ test('the board after the line says whether the player goes through', () => {
 
 test('a craft\'s flames never add their light to what is under them, so they cannot burn out to the white kept for the ball', () => {
   const ctx = frame(game({ z: 300, rivals: raceState(config, 0).rivals.map((rival, at) => ({ ...rival, z: 306 + at * 5, boost: 1 })) }), 1000, true);
-  // A boosting rival's flames and the player's at its ease, and the pale core of each.
-  const flames = callsNamed(ctx, 'fill').filter(({ brush }) => [`rgba(${THEME.amber}, 0.85)`, `rgba(${THEME.amber}, 0.675)`, 'rgba(254, 240, 138, 0.9)'].includes(brush.fillStyle));
+  // A boosting rival's flames and the player's at its ease: the hot heart of each.
+  const flames = callsNamed(ctx, 'fill').filter(({ brush }) => brush.fillStyle === 'rgba(254, 240, 138, 0.92)');
 
-  assert.ok(flames.length >= 12, 'two flames an engine');
+  assert.ok(flames.length >= 6, 'a flame an engine');
   assert.ok(flames.every(({ brush }) => brush.globalCompositeOperation === 'source-over'));
 });

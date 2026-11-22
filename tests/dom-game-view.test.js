@@ -136,8 +136,13 @@ function createRoot({ modalDialogs = true } = {}) {
     ['tutorialNova', { 'data-nova-only': '' }],
     ['warp', { 'data-mode': 'warp' }],
     ['tutorialWarp', { 'data-warp-only': '' }],
+    ['hangarCard', { 'data-warp-only': '', 'data-show-hangar': '' }],
+    ['hangarCraft', { 'data-hangar-craft': '' }],
+    ['hangarTickets', { 'data-hangar-tickets': '' }],
+    ['overTickets', { 'data-over-tickets': '' }],
     ['tutorialBricks', { 'data-bricks-only': '' }],
     ['tutorialMatch', { 'data-match-only': '' }],
+    ['tutorialBall', { 'data-ball-only': '' }],
     ['rivalGroup', { 'data-career-only': '' }],
     ['rivalPrevious', { 'data-rival-step': '-1' }],
     ['rivalNext', { 'data-rival-step': '1' }],
@@ -1856,7 +1861,7 @@ test('How to play tells of the ship in Nova', () => {
   assert.deepEqual([dom.tutorialNova.hidden, dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [true, true, false]);
 });
 
-const cup = (overrides = {}) => ({ race: 1, races: 5, name: 'Sunset Skyway', place: 6, points: 0, best: 0, newBest: false, ...overrides });
+const cup = (overrides = {}) => ({ race: 1, races: 5, name: 'Sunset Skyway', place: 6, points: 0, best: 0, newBest: false, craft: 'Kestrel', tickets: 0, earned: 0, ...overrides });
 const warpGame = (overrides = {}) => presentation({
   mode: 'warp',
   rules: { kind: 'warp', lives: 3 },
@@ -1887,6 +1892,47 @@ test('the menu says how many races there are and the best score', () => {
 
   view.render(warpGame({ warp: cup({ best: 1 }) }));
   assert.equal(dom.menuMeta.textContent, '5 races · Best 1 point');
+});
+
+test('in Warp the menu has the hangar\'s card: the craft the cup is flown in, and the tickets to spend', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+
+  // The rules of the cup stay the same whatever is bought: the card follows the craft and the tickets.
+  const rules = { kind: 'warp', lives: 3 };
+
+  assert.equal(dom.hangarCard.hidden, false);
+  view.render(warpGame({ rules, warp: cup({ craft: 'Manta', tickets: 2480 }) }));
+  assert.deepEqual([dom.hangarCraft.textContent, dom.hangarTickets.textContent], ['Manta', '2480 tickets']);
+
+  view.render(warpGame({ rules, warp: cup({ craft: 'Manta', tickets: 1 }) }));
+  assert.deepEqual([dom.hangarCraft.textContent, dom.hangarTickets.textContent], ['Manta', '1 ticket']);
+
+  view.render(warpGame({ rules, warp: cup({ tickets: 1 }) }));
+  assert.deepEqual([dom.hangarCraft.textContent, dom.hangarTickets.textContent], ['Kestrel', '1 ticket']);
+
+  // No other game has a hangar.
+  click(dom.solo);
+  assert.equal(dom.hangarCard.hidden, true);
+  view.render(presentation());
+  assert.equal(dom.hangarCraft.textContent, 'Kestrel', 'and its card is left as it was');
+});
+
+test('a cup\'s result says what it paid out for the hangar, and nothing when it paid nothing', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+  const over = (earned) => {
+    view.render(warpGame({ phase: GAME_PHASE.RUNNING }));
+    view.render(warpGame({ phase: GAME_PHASE.GAME_OVER, winner: 'opponent', lives: 0, warp: cup({ points: 7400, earned, tickets: 500 + earned }) }));
+    return [dom.overTickets.hidden, dom.overTickets.textContent];
+  };
+
+  assert.deepEqual(over(296), [false, '+296 tickets for the hangar']);
+  assert.deepEqual(over(1), [false, '+1 ticket for the hangar']);
+  assert.equal(over(0)[0], true);
+
+  // A match has nothing of the kind.
+  view.render(presentation({ phase: GAME_PHASE.RUNNING }));
+  view.render(presentation({ phase: GAME_PHASE.GAME_OVER, winner: 'player' }));
+  assert.equal(dom.overTickets.hidden, true);
 });
 
 test('a cup out of credits is told by its points and the race it reached, at once, and asks to continue', () => {
@@ -1941,4 +1987,14 @@ test('How to play tells of the race in Warp', () => {
 
   click(dom.solo);
   assert.deepEqual([dom.tutorialWarp.hidden, dom.tutorialNova.hidden, dom.tutorialMatch.hidden], [true, true, false]);
+});
+
+test('How to play tells of curving and angling the ball only where there is one', () => {
+  const { dom } = setup();
+  const told = (mode) => {
+    click(dom[mode]);
+    return !dom.tutorialBall.hidden;
+  };
+
+  assert.deepEqual(['solo', 'rush', 'duo', 'career', 'bricks', 'nova', 'warp'].map(told), [true, true, true, true, true, false, false]);
 });

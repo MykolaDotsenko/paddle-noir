@@ -325,6 +325,36 @@ export class SoundBoard {
       case 'takedown':
         this.tone({ frequency: 160, endFrequency: 35, duration: 0.42, type: 'sawtooth', volume: 0.3 });
         this.tone({ frequency: 900, endFrequency: 150, duration: 0.2, type: 'square', volume: 0.14, delay: 0.02 });
+
+        if (event.by === 'ram') {
+          // Metal on metal.
+          this.tone({ frequency: 260, endFrequency: 70, duration: 0.14, type: 'square', volume: 0.26 });
+        }
+        return true;
+      case 'nitro':
+        // The tank lets go: a rush up, over a thump.
+        this.tone({ frequency: 70, endFrequency: 1900, duration: 0.55, type: 'sawtooth', volume: 0.2 });
+        this.tone({ frequency: 60, endFrequency: 34, duration: 0.3, type: 'square', volume: 0.24 });
+        this.tone({ frequency: NOTE.G6, duration: 0.2, type: 'triangle', volume: 0.12, delay: 0.38 });
+        return true;
+      case 'gun-fire':
+        // Several a second: short and quiet.
+        this.tone({ frequency: 760, endFrequency: 240, duration: 0.045, type: 'square', volume: 0.05 });
+        return true;
+      case 'rocket-launch':
+        this.tone({ frequency: 260, endFrequency: 1300, duration: 0.34, type: 'sawtooth', volume: 0.16 });
+        this.tone({ frequency: NOTE.E6, duration: 0.08, type: 'square', volume: 0.08 });
+        return true;
+      case 'explosion':
+        this.tone({ frequency: 130, endFrequency: 28, duration: 0.6, type: 'sawtooth', volume: 0.38 });
+        this.tone({ frequency: 700, endFrequency: 70, duration: 0.3, type: 'square', volume: 0.2, delay: 0.01 });
+        return true;
+      case 'ammo':
+        this.arpeggio(event.kind === 'rocket' ? [NOTE.C6, NOTE.G6] : [NOTE.E6, NOTE.G6, NOTE.C6 * 2], 0.05, 'triangle', 0.16);
+        return true;
+      case 'shield-hit':
+        this.tone({ frequency: 1100, endFrequency: 260, duration: 0.3, type: 'sine', volume: 0.24 });
+        this.tone({ frequency: 200, endFrequency: 90, duration: 0.14, type: 'triangle', volume: 0.2 });
         return true;
       case 'smash':
         this.tone({ frequency: 420, endFrequency: 90, duration: 0.16, type: 'sawtooth', volume: 0.18 });

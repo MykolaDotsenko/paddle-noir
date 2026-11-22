@@ -1,5 +1,7 @@
 import { curveAt, heightAt, ITEM_RADIUS, itemX, laneX, onRumble } from '../../domain/warp.js';
 import { FONT, mixRgb, roundedRect, SUPER_STYLE, THEME } from './theme.js';
+import { drawCell, drawCrate, drawHullBar, weapons } from './warp-combat.js';
+import { CRAFT_SCALE, drawHull, drawShield, drawUnderglow } from './warp-craft.js';
 import { CORE_LIGHT, drawDust, drawSky, fogLevel, hash, HORIZON, LOOKS, PAD, paletteOf, roadside } from './warp-scenery.js';
 
 /**
@@ -8,8 +10,9 @@ import { CORE_LIGHT, drawDust, drawSky, fogLevel, hash, HORIZON, LOOKS, PAD, pal
  * would be. The course is projected a stretch at a time, as the arcade racers did: each
  * stretch nearer is lower on the board and wider, and everything is painted from the farthest
  * to the nearest, so a hill hides what is behind it. The camera leans into a bend. What
- * surrounds the course is in `canvas/warp-scenery.js`, and what is written over it in
- * `canvas/warp-hud.js`. Each function draws onto a context already scaled to board
+ * surrounds the course is in `canvas/warp-scenery.js`, the craft themselves in
+ * `canvas/warp-craft.js`, their weapons in `canvas/warp-combat.js`, and what is written over
+ * it all in `canvas/warp-hud.js`. Each function draws onto a context already scaled to board
  * coordinates, and does nothing in any other game. Nothing here is the pure white kept for the
  * ball.
  *
@@ -36,10 +39,10 @@ const MAX_LEAN = 0.045;
 /** How high a jump lifts a craft at its top, and where the rings in the air hang, in half lanes. */
 const JUMP_LIFT = 0.42;
 const AIR_RING_LIFT = 0.4;
-/** The player's craft is drawn a little larger than a rival as near, so it reads at a glance. */
-const CRAFT_SCALE = 1.2;
 /** A rival's name shows above its craft while it is this near. */
 const NAME_TAG_METERS = 40;
+/** The blue of nitro: its fire, its light on the lane and its streaks. */
+const NITRO_LIGHT = '125, 211, 252';
 /** Lines on the ground beside the lane, in half lanes from its middle. */
 const GRID_LINES = Object.freeze([-9, -6.5, -4.5, -3, -2, 2, 3, 4.5, 6.5, 9]);
 const STRIP_DARK = 'rgba(5, 6, 15, 0.9)';
@@ -374,7 +377,7 @@ function liftOf(air, rules) {
 
 /**
  * Everything on the lane: what the course has on it, the mines dropped on it, the finish
- * gantry, the rivals and the player's craft.
+ * gantry, the rivals, the player's craft, and its weapons at work.
  *
  * @param {Scene} scene
  * @param {GameState} state
@@ -417,7 +420,7 @@ function field(scene, state) {
   }
 
   sprites.push({ depth: EYE_BEHIND, draw: () => drawCraft(scene, state) });
-  return sprites;
+  return [...sprites, ...weapons(scene, state)];
 }
 
 /**
@@ -452,6 +455,12 @@ function drawItem(scene, item, spot) {
       break;
     case 'debris':
       drawDebris(scene, item, spot, unit);
+      break;
+    case 'crate':
+      drawCrate(scene, spot, unit);
+      break;
+    case 'cell':
+      drawCell(scene, spot, unit);
       break;
     case 'cargo':
     default:
@@ -862,140 +871,8 @@ function drawGantry({ ctx, look, view, now, still }, { x, y, scale }) {
 }
 
 /**
- * @typedef {object} Shape a craft seen from behind, in its own units, its engines toward the eye
- * @property {readonly (readonly [number, number])[]} wings
- * @property {readonly (readonly [number, number])[]} body
- * @property {readonly number[]} engines where across its tail each engine is
- * @property {readonly (readonly [number, number, number, number])[]} fins
- */
-
-/** @type {Readonly<Record<Exclude<Pilot['craft'], 'saucer'>, Shape>>} */
-const SHAPES = Object.freeze({
-  jet: { wings: [[-32, 6], [-11, -1], [-6, -10], [6, -10], [11, -1], [32, 6], [12, 9], [-12, 9]], body: [[0, -19], [6, -8], [7, 8], [-7, 8], [-6, -8]], engines: [-5, 5], fins: [[-7, -5, -11, -17], [7, -5, 11, -17]] },
-  wing: { wings: [[-38, 7], [-13, -6], [0, -10], [13, -6], [38, 7], [16, 10], [0, 7], [-16, 10]], body: [[0, -14], [6, -5], [6, 7], [-6, 7], [-6, -5]], engines: [-13, 13], fins: [] },
-  dart: { wings: [[0, -21], [8, 1], [25, 9], [8, 8], [-8, 8], [-25, 9], [-8, 1]], body: [[0, -21], [5, -5], [5, 8], [-5, 8], [-5, -5]], engines: [-4, 4], fins: [[0, -8, 0, -24]] },
-  heavy: { wings: [[-34, 8], [-14, -4], [-8, -12], [8, -12], [14, -4], [34, 8], [14, 10], [-14, 10]], body: [[0, -17], [9, -9], [10, 9], [-10, 9], [-9, -9]], engines: [-8, 0, 8], fins: [[-9, -6, -13, -16], [9, -6, 13, -16]] },
-});
-
-/**
- * @param {CanvasRenderingContext2D} ctx
- * @param {readonly (readonly [number, number])[]} corners
- */
-function polygon(ctx, corners) {
-  ctx.beginPath();
-  corners.forEach(([x, y], index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-  ctx.closePath();
-}
-
-/**
- * @typedef {object} HullStyle
- * @property {Pilot['craft']} craft
- * @property {string} rgb
- * @property {string} cockpit a color
- * @property {number} x
- * @property {number} y
- * @property {number} scale
- * @property {number} bank radians it leans, or turns while it spins
- * @property {number} flame 0 to 1 and a little more
- * @property {GlowSprites} glows
- */
-
-/**
- * A racing craft seen from behind, its engines toward the eye: a jet, a flying wing, a saucer
- * or a dart, each in its pilot's color, with flames out of its engines, lights on its wing
- * tips and its cockpit lit.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {HullStyle} style
- */
-function hull(ctx, { craft, rgb, cockpit, x, y, scale, bank, flame, glows }) {
-  const shape = craft === 'saucer' ? null : SHAPES[craft];
-  const engines = shape ? shape.engines : [0];
-
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-  ctx.rotate(bank);
-
-  // Engine glow and flames, toward the eye. Only the glow adds its light to what is under it:
-  // flames that did would burn out to the white kept for the ball.
-  for (const at of engines) {
-    const wide = shape ? 4 : 9;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.drawImage(glows.get(rgb), at - 17, -9, 34, 34);
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgba(${THEME.amber}, ${0.5 + Math.min(1, flame) * 0.35})`;
-    polygon(ctx, [[at - wide, 6], [at, 9 + flame * 22], [at + wide, 6]]);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(254, 240, 138, 0.9)';
-    polygon(ctx, [[at - wide / 2, 6], [at, 8 + flame * 11], [at + wide / 2, 6]]);
-    ctx.fill();
-  }
-
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = `rgb(${rgb})`;
-
-  if (shape) {
-    polygon(ctx, shape.wings);
-    ctx.fillStyle = THEME.background;
-    ctx.fill();
-    ctx.fillStyle = `rgba(${rgb}, 0.3)`;
-    ctx.fill();
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-    polygon(ctx, shape.body);
-    ctx.fillStyle = THEME.background;
-    ctx.fill();
-    ctx.fillStyle = `rgba(${rgb}, 0.6)`;
-    ctx.fill();
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-    ctx.beginPath();
-
-    for (const [fromX, fromY, toX, toY] of shape.fins) {
-      ctx.moveTo(fromX, fromY);
-      ctx.lineTo(toX, toY);
-    }
-
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-
-    // Lights on the wing tips.
-    const span = Math.max(...shape.wings.map(([wingX]) => wingX));
-    ctx.fillStyle = `rgb(${mixRgb(rgb, CORE_LIGHT, 0.55)})`;
-    ctx.fillRect(-span - 1, 4, 3, 3);
-    ctx.fillRect(span - 2, 4, 3, 3);
-    ctx.fillStyle = cockpit;
-    roundedRect(ctx, -3.4, -11, 6.8, 13, 3.4);
-    ctx.fill();
-  } else {
-    // The saucer: a disc with lights round its rim, under a dome.
-    ctx.beginPath();
-    ctx.ellipse(0, 2, 30, 9, 0, 0, Math.PI * 2);
-    ctx.fillStyle = THEME.background;
-    ctx.fill();
-    ctx.fillStyle = `rgba(${rgb}, 0.35)`;
-    ctx.fill();
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-    ctx.fillStyle = `rgb(${mixRgb(rgb, CORE_LIGHT, 0.55)})`;
-
-    for (const at of [-22, -11, 0, 11, 22]) {
-      ctx.fillRect(at - 1.5, 3 + Math.abs(at) * 0.06, 3, 3);
-    }
-
-    ctx.fillStyle = cockpit;
-    ctx.beginPath();
-    ctx.ellipse(0, -3, 10, 8, 0, Math.PI, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-/**
- * A rival: its shadow on the lane, its craft over it, higher while it jumps, and its name while
- * it is near ahead.
+ * A rival: its shadow and its light on the lane, its craft over them, higher while it jumps,
+ * how much of its hull is left once the guns have worn it, and its name while it is near ahead.
  *
  * @param {Scene} scene
  * @param {Racer} rival
@@ -1003,23 +880,35 @@ function hull(ctx, { craft, rgb, cockpit, x, y, scale, bank, flame, glows }) {
  * @param {Spot} spot where the craft is
  * @param {Spot} ground where the lane is under it
  */
-function drawRival({ ctx, glows, now, still }, rival, pilot, spot, ground) {
+function drawRival({ ctx, config, glows, now, still }, rival, pilot, spot, ground) {
+  const rules = /** @type {WarpConfig} */ (config.warp);
   const turn = rival.spin > 0 ? (rival.spin / 1.2) * Math.PI * 3 : clamp((rival.line - rival.x) * 1.4, -0.35, 0.35);
 
   ctx.save();
   ctx.globalAlpha = Math.min(1, spot.scale * 4) * (spot.depth < EYE_BEHIND ? Math.max(0.2, spot.depth / EYE_BEHIND) : 1);
   shadow(ctx, ground.x, ground.y + 12 * ground.scale, 30 * ground.scale, ground.scale);
-  hull(ctx, {
-    craft: pilot.craft,
-    rgb: pilot.rgb,
+  drawUnderglow(ctx, pilot.rgb, ground.x, ground.y + 12 * ground.scale, 40 * ground.scale, 0.8);
+  drawHull(ctx, {
+    kind: pilot.craft,
+    paint: pilot.rgb,
+    decal: 'none',
+    glow: pilot.rgb,
     cockpit: `rgb(${mixRgb(pilot.rgb, CORE_LIGHT, 0.55)})`,
     x: spot.x,
     y: spot.y,
     scale: spot.scale,
     bank: turn,
     flame: rival.boost > 0 ? 1 : 0.45 + (still ? 0 : 0.1 * Math.sin(now / 50 + rival.id)),
+    nitro: false,
+    rockets: 0,
+    now: still ? 0 : now + rival.id * 130,
     glows,
   });
+
+  // Under fire, it shows how much of its hull is left.
+  if (rival.hull < rules.rivalHull && rival.spin === 0 && rival.finish === 0) {
+    drawHullBar(ctx, rival.hull / rules.rivalHull, spot);
+  }
 
   if (spot.depth < NAME_TAG_METERS && spot.depth > EYE_BEHIND + 1 && rival.finish === 0) {
     ctx.font = `800 ${Math.round(clamp(11 * spot.scale, 9, 13))}px ${FONT}`;
@@ -1033,11 +922,13 @@ function drawRival({ ctx, glows, now, still }, rival, pilot, spot, ground) {
 }
 
 /**
- * The player's craft where the paddle would be. It leans as it steers and spins when it is
- * hit; it rises off a ramp, leaving its shadow on the lane; it blazes with an afterburner,
- * fades with a phantom, streams the air when it rides a slipstream, and throws sparks from
- * its inside wing while a drift charges, amber once it is charged. Its cockpit is the color of
- * a paddle's core, where a paddle's core would be.
+ * The player's craft where the paddle would be: the one chosen in the hangar, in its paint,
+ * with the rockets it has aboard under its wings and a bubble round it while a shield is up.
+ * It leans as it steers and spins when it is hit; it rises off a ramp, leaving its shadow and
+ * its light on the lane; it blazes with an afterburner, burns blue with nitro, fades with a
+ * phantom, streams the air when it rides a slipstream, and throws sparks from its inside wing
+ * while a drift charges, amber once it is charged. The light on its canopy is the color of a
+ * paddle's core, where a paddle's core would be.
  *
  * @param {Scene} scene
  * @param {GameState} state
@@ -1055,10 +946,13 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
   const bank = spinning || clamp(state.player.vx / 1500, -0.38, 0.38);
   const rush = clamp((race.speed - rules.topSpeed) / (rules.boostSpeed - rules.topSpeed), 0, 1.2);
   const high = (ground - y) / (JUMP_LIFT * view.reach);
+  const { loadout } = rules;
+  const nitro = race.nitroBurn > 0;
 
   ctx.save();
-  // Its shadow stays on the lane, smaller the higher the craft is.
+  // Its shadow stays on the lane, smaller the higher the craft is, and so does its light.
   shadow(ctx, x, ground + 15, 36 * (1 - high * 0.4), 1);
+  drawUnderglow(ctx, nitro ? NITRO_LIGHT : loadout.glow, x, ground + 15, 58 * (1 - high * 0.4), nitro ? 1 : 0.85);
 
   if (race.burn > 0) {
     ctx.globalCompositeOperation = 'lighter';
@@ -1124,17 +1018,26 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
   }
 
   ctx.globalAlpha = race.ghost > 0 ? 0.5 : race.safe > 0 && race.spin === 0 ? 0.55 + (still ? 0 : 0.25 * Math.sin(now / 120)) : 1;
-  hull(ctx, {
-    craft: 'jet',
-    rgb: colors.rgb,
+  drawHull(ctx, {
+    kind: loadout.kind,
+    paint: loadout.paint,
+    decal: loadout.decal,
+    glow: loadout.glow,
     cockpit: colors.core,
     x,
     y,
     scale: CRAFT_SCALE,
     bank,
-    flame: race.burn > 0 ? 1.4 : 0.5 + rush * 0.6 + (still ? 0 : 0.08 * Math.sin(now / 40)),
+    flame: race.burn > 0 || nitro ? 1.4 : 0.5 + rush * 0.6 + (still ? 0 : 0.08 * Math.sin(now / 40)),
+    nitro,
+    rockets: race.rockets,
+    now: still ? 0 : now,
     glows,
   });
+
+  if (race.shield > 0) {
+    drawShield(ctx, x, y, CRAFT_SCALE, race.shield, still ? 0 : now);
+  }
 
   if (race.ghost > 0) {
     ctx.strokeStyle = `rgba(${SUPER_STYLE.phantom.rgb}, ${still ? 0.7 : 0.5 + 0.3 * Math.sin(now / 90)})`;
@@ -1149,13 +1052,15 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
 
 /**
  * The rush of a boost, over the whole picture: lines that streak out from where the lane runs
- * out of sight, and the edges of the board closing in.
+ * out of sight, and the edges of the board closing in. Nitro streaks more of them, faster, and
+ * in its own blue.
  *
  * @param {Scene} scene
  */
 function drawRush({ ctx, look, view, race, config, now }) {
   const rules = /** @type {WarpConfig} */ (config.warp);
-  const rush = clamp((race.speed - rules.topSpeed - 2) / (rules.boostSpeed - rules.topSpeed), 0, 1);
+  const nitro = race.nitroBurn > 0;
+  const rush = nitro ? 1 : clamp((race.speed - rules.topSpeed - 2) / (rules.boostSpeed - rules.topSpeed), 0, 1);
 
   if (rush <= 0) {
     return;
@@ -1167,12 +1072,12 @@ function drawRush({ ctx, look, view, race, config, now }) {
   ctx.save();
   ctx.lineCap = 'round';
 
-  for (let line = 0; line < 26; line += 1) {
+  for (let line = 0; line < (nitro ? 40 : 26); line += 1) {
     const angle = hash(line, 50) * Math.PI * 2;
-    const along = (now / 420 + hash(line, 51)) % 1;
+    const along = (now / (nitro ? 300 : 420) + hash(line, 51)) % 1;
     const from = 60 + along * along * height;
-    const length = 30 + along * 90;
-    ctx.strokeStyle = `rgba(165, 243, 252, ${rush * along * 0.5})`;
+    const length = (nitro ? 50 : 30) + along * 90;
+    ctx.strokeStyle = `rgba(${nitro ? NITRO_LIGHT : '165, 243, 252'}, ${rush * along * (nitro ? 0.65 : 0.5)})`;
     ctx.lineWidth = 1 + along * 1.5;
     ctx.beginPath();
     ctx.moveTo(x + Math.cos(angle) * from, y + Math.sin(angle) * from * 0.8);
@@ -1181,8 +1086,8 @@ function drawRush({ ctx, look, view, race, config, now }) {
   }
 
   const edges = ctx.createRadialGradient(width / 2, height * 0.55, height * 0.3, width / 2, height * 0.55, height * 0.75);
-  edges.addColorStop(0, `rgba(${look.edge}, 0)`);
-  edges.addColorStop(1, `rgba(${look.edge}, ${0.22 * rush})`);
+  edges.addColorStop(0, `rgba(${nitro ? NITRO_LIGHT : look.edge}, 0)`);
+  edges.addColorStop(1, `rgba(${nitro ? NITRO_LIGHT : look.edge}, ${(nitro ? 0.3 : 0.22) * rush})`);
   ctx.fillStyle = edges;
   ctx.fillRect(0, 0, width, height);
   ctx.restore();

@@ -2,10 +2,11 @@ import { flowOf } from '../../domain/warp.js';
 import { FONT, roundedRect, THEME } from './theme.js';
 
 /**
- * What is written over a Warp race: the place, with the worst place that goes through; how
- * far along the course everyone is; the speed; and the flow, once tricks multiply. Before a
- * race the course's name and the start lights; after it, the order everyone came in and
- * whether the player goes through. Nothing here is the pure white kept for the ball.
+ * What is written over a Warp race: the place, with the worst place that goes through, and
+ * under it what the craft has to fight with (the nitro in its tank, the rockets aboard, the
+ * shields up); how far along the course everyone is; the speed; and the flow, once tricks
+ * multiply. Before a race the course's name and the start lights; after it, the order everyone
+ * came in and whether the player goes through. Nothing here is the pure white kept for the ball.
  *
  * @import { GameConfig, GameState, WarpConfig, WarpState } from '../../domain/types.js'
  */
@@ -15,6 +16,9 @@ const KMH = 16;
 /** How wide the place figure stands, P and a digit, at its size. */
 const PLACE_WIDTH = 54;
 const PAPER = 'rgba(248, 250, 252, 0.95)';
+const NITRO = '125, 211, 252';
+const ROCKET = '251, 146, 60';
+const SHIELD = '96, 165, 250';
 
 /**
  * @param {number} place
@@ -82,12 +86,78 @@ export function drawWarpHud(ctx, state, config, pop) {
 
   drawFlow(ctx, race, rules, config);
   drawProgress(ctx, race, rules, config);
+  drawArsenal(ctx, race, rules);
   ctx.restore();
 
   if (state.serveCountdown > 0 && state.serveNumber === 0) {
     drawStartLights(ctx, state, config, layout.name, layout.qualify);
   } else if (race.finished && race.calm > 0) {
     drawResults(ctx, race, rules, config);
+  }
+}
+
+/**
+ * What the craft has to fight with, under its place: a bar for each bar of nitro its tank
+ * holds, as full as it is, and a line under them that runs down while one burns; then a rocket
+ * for each it can carry, lit if it is aboard; and a diamond for each shield still up.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {WarpState} race
+ * @param {WarpConfig} rules
+ */
+function drawArsenal(ctx, race, rules) {
+  const { loadout } = rules;
+  const left = 18;
+  const top = 88;
+  const ready = race.nitro >= 1;
+
+  ctx.textAlign = 'left';
+  ctx.font = `800 9px ${FONT}`;
+  ctx.fillStyle = `rgba(${NITRO}, ${ready ? 1 : 0.6})`;
+  ctx.fillText('NITRO', left, top + 7);
+
+  for (let bar = 0; bar < loadout.nitroBars; bar += 1) {
+    const x = left + 36 + bar * 17;
+    const full = clamp(race.nitro - bar, 0, 1);
+
+    ctx.fillStyle = `rgba(${NITRO}, 0.2)`;
+    ctx.fillRect(x, top, 14, 7);
+    ctx.fillStyle = `rgba(${NITRO}, ${full >= 1 ? 1 : 0.55})`;
+    ctx.fillRect(x, top, 14 * full, 7);
+  }
+
+  if (race.nitroBurn > 0) {
+    ctx.fillStyle = `rgb(${THEME.amber})`;
+    ctx.fillRect(left + 36, top + 9, (loadout.nitroBars * 17 - 3) * clamp(race.nitroBurn / loadout.nitroSeconds, 0, 1), 2);
+  }
+
+  // The rockets: a body and a nose each.
+  for (let rocket = 0; rocket < loadout.rockets; rocket += 1) {
+    const x = left + rocket * 13;
+    const aboard = rocket < race.rockets;
+
+    ctx.fillStyle = aboard ? `rgb(${ROCKET})` : `rgba(${ROCKET}, 0.22)`;
+    ctx.beginPath();
+    ctx.moveTo(x, top + 30);
+    ctx.lineTo(x, top + 21);
+    ctx.lineTo(x + 3.5, top + 16);
+    ctx.lineTo(x + 7, top + 21);
+    ctx.lineTo(x + 7, top + 30);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  for (let shield = 0; shield < race.shield; shield += 1) {
+    const x = left + loadout.rockets * 13 + 10 + shield * 14;
+
+    ctx.fillStyle = `rgb(${SHIELD})`;
+    ctx.beginPath();
+    ctx.moveTo(x + 5, top + 16);
+    ctx.lineTo(x + 10, top + 23);
+    ctx.lineTo(x + 5, top + 30);
+    ctx.lineTo(x, top + 23);
+    ctx.closePath();
+    ctx.fill();
   }
 }
 
