@@ -340,6 +340,86 @@ canvas:focus-visible {
     0 0 80px rgba(var(--violet-rgb), 0.12);
 }
 
+/* THE LAST SIGNAL: concise, non-modal flight narrative. Every label sits
+   above the horizon and never intercepts steering or tactical controls. */
+.board .warp-mission {
+  position: absolute;
+  z-index: 2;
+  top: 12.2%;
+  left: 27%;
+  width: 46%;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: clamp(5px, 1.5cqw, 8px) 6px;
+  border: 1px solid rgba(165, 243, 252, 0.4);
+  border-radius: 9px;
+  background: linear-gradient(140deg, rgba(6, 18, 35, 0.85), rgba(18, 20, 45, 0.82));
+  color: #e0f2fe;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 0 17px rgba(14, 165, 233, 0.13);
+  pointer-events: none;
+  text-align: center;
+}
+.board .warp-mission__heading {
+  color: #a5f3fc;
+  font: 850 clamp(8px, 1.85cqw, 10px)/1.2 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+.board .warp-mission__task {
+  font: 750 clamp(9px, 2.3cqw, 12px)/1.25 system-ui, sans-serif;
+}
+.board .warp-mission[data-completed="true"] {
+  border-color: rgba(163, 230, 53, 0.62);
+  background: linear-gradient(140deg, rgba(27, 49, 28, 0.91), rgba(7, 25, 31, 0.88));
+}
+.board .warp-mission[data-completed="true"] .warp-mission__heading {
+  color: #bef264;
+}
+.board .warp-radio {
+  position: absolute;
+  z-index: 2;
+  top: 23%;
+  left: 17%;
+  width: 66%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: clamp(9px, 2.2cqw, 12px);
+  border: 1px solid rgba(167, 139, 250, 0.63);
+  border-left: 4px solid #c4b5fd;
+  border-radius: 6px 11px 11px 6px;
+  background: linear-gradient(135deg, rgba(7, 11, 31, 0.96), rgba(29, 21, 54, 0.93));
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.42), 0 0 24px rgba(167, 139, 250, 0.12);
+  pointer-events: none;
+}
+.board .warp-radio__sender {
+  color: #d8b4fe;
+  font: 900 clamp(9px, 2cqw, 11px)/1.25 system-ui, sans-serif;
+  letter-spacing: 0.08em;
+}
+.board .warp-radio__message {
+  color: #f8fafc;
+  font: 650 clamp(10px, 2.6cqw, 13px)/1.4 system-ui, sans-serif;
+  text-wrap: pretty;
+}
+.board .warp-mission[hidden],
+.board .warp-radio[hidden] { display: none; }
+.warp-ending {
+  margin: 0;
+  max-width: 33rem;
+  padding: 10px 14px;
+  border: 1px solid rgba(165, 243, 252, 0.42);
+  border-radius: 12px;
+  background: linear-gradient(120deg, rgba(14, 165, 233, 0.11), rgba(167, 139, 250, 0.14));
+  color: #e0f2fe;
+  font: 650 0.85rem/1.45 system-ui, sans-serif;
+  text-align: center;
+}
+.warp-ending[hidden] { display: none; }
+
 .board canvas {
   display: block;
   width: 100%;
