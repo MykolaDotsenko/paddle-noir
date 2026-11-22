@@ -331,6 +331,28 @@ export class SoundBoard {
           this.tone({ frequency: 260, endFrequency: 70, duration: 0.14, type: 'square', volume: 0.26 });
         }
         return true;
+      case 'warp-system':
+        if (event.system === 'shield') {
+          // A field humming up round the craft.
+          this.tone({ frequency: 180, endFrequency: 720, duration: 0.32, type: 'sine', volume: 0.2 });
+          this.tone({ frequency: NOTE.E6, duration: 0.16, type: 'triangle', volume: 0.1, delay: 0.2 });
+        } else {
+          // The guns spinning up to overdrive.
+          this.tone({ frequency: 300, endFrequency: 1400, duration: 0.22, type: 'square', volume: 0.08 });
+          this.arpeggio([NOTE.G5, NOTE.G6], 0.04, 'square', 0.08, 0.18);
+        }
+        return true;
+      case 'craft-ability':
+        // The warp drive: a deep swell that climbs and rings out.
+        this.tone({ frequency: 55, endFrequency: 880, duration: 0.6, type: 'sawtooth', volume: 0.2 });
+        this.tone({ frequency: 110, endFrequency: 1760, duration: 0.6, type: 'sine', volume: 0.12 });
+        this.arpeggio([NOTE.C6, NOTE.G6, NOTE.C6 * 2], 0.07, 'triangle', 0.14, 0.42);
+        return true;
+      case 'story-complete':
+        // A fragment of the signal decoded: a radio chirp, then a chime.
+        this.arpeggio([1320, 990, 1320], 0.035, 'square', 0.06);
+        this.arpeggio([NOTE.E5, NOTE.G5, NOTE.E6], 0.08, 'triangle', 0.2, 0.15);
+        return true;
       case 'nitro':
         // The tank lets go: a rush up, over a thump.
         this.tone({ frequency: 70, endFrequency: 1900, duration: 0.55, type: 'sawtooth', volume: 0.2 });

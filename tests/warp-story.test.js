@@ -9,41 +9,50 @@ import { raceState } from '../src/domain/warp.js';
 const rules = WARP_CONFIG.warp;
 const input = { horizontalAxis: 0, pointerX: null, opponentAxis: 0, opponentPointerX: null };
 
-const ring = () => ({ type: 'ring', grade: 'good', chain: 0, air: false, z: 110, x: 0, points: 20 });
-const boost = () => ({ type: 'boost', z: 110, x: 0, by: 'pad' });
-const jump = () => ({ type: 'jump', z: 110, x: 0 });
-const ammo = () => ({ type: 'ammo', kind: 'nitro', z: 110, x: 0 });
+const ring = (grade = 'perfect', air = false) => ({ type: 'ring', grade, chain: 1, air, z: 110, x: 0, points: 50 });
+const boost = (by = 'pad') => ({ type: 'boost', z: 110, x: 0, by });
+const ammo = (kind = 'nitro') => ({ type: 'ammo', kind, z: 110, x: 0 });
+const takedown = (by = 'guns') => ({ type: 'takedown', pilot: 1, z: 110, x: 0, points: 150, by });
 
 test('THE LAST SIGNAL provides five original chapters and different attainable optional goals', () => {
   assert.equal(WARP_STORY.length, rules.courses.length);
-  assert.deepEqual(WARP_STORY.map((chapter) => chapter.objective), ['ring', 'boost', 'jump', 'ammo', 'warp']);
+  assert.deepEqual(WARP_STORY.map((chapter) => chapter.objective), ['perfect', 'boost', 'air', 'ammo', 'takedown']);
   assert.ok(WARP_STORY.every((chapter) => chapter.title && chapter.intro && chapter.reveal && chapter.warning && chapter.secured));
   assert.equal(new Set(WARP_STORY.map((chapter) => chapter.title)).size, 5);
-  assert.ok(WARP_STORY.every((chapter) => chapter.target > 0 && chapter.mission.length < 60));
+  assert.ok(WARP_STORY.every((chapter) => chapter.target > 1 && chapter.mission.length < 32), 'a feat, said in a few words');
+  // Read at a glance, in flight.
+  for (const chapter of WARP_STORY) {
+    for (const line of [chapter.intro, chapter.reveal, chapter.warning, chapter.secured]) {
+      assert.ok(line.length <= 72, `${chapter.title}: ${line}`);
+    }
+  }
   assert.equal(startWarpStory(2).recovered, 2);
   assert.equal(startWarpStory().progress, 0);
 });
 
-test('Sunset signals require successful ring traversal, reject misses, then reward once', () => {
+const times = (count, make) => Array.from({ length: count }, make);
+
+test('the first chapter counts rings flown dead center, not merely through, then rewards once', () => {
   const race = raceState(WARP_CONFIG, 0);
+  const { target } = WARP_STORY[0];
   const beginning = race.points;
   race.nitro = 0;
-  const failed = [{ ...ring(), grade: 'miss' }];
-  advanceWarpStory(race, rules, failed, 0.1);
-  assert.equal(race.story.progress, 0, 'flying past a ring is not a rescued signal');
+  advanceWarpStory(race, rules, [ring('miss'), ring('good'), ring('good', true)], 0.1);
+  assert.equal(race.story.progress, 0, 'a ring off its middle is not a signal locked on');
 
-  const first = [ring()];
-  advanceWarpStory(race, rules, first, 0.1);
+  advanceWarpStory(race, rules, [ring()], 0.1);
   assert.equal(race.story.progress, 1);
+  advanceWarpStory(race, rules, times(target - 2, () => ring()), 0.1);
+  assert.equal(race.story.progress, target - 1);
   assert.equal(race.story.done, false);
 
-  const second = [ring(), ring()];
-  advanceWarpStory(race, rules, second, 0.1);
-  assert.equal(race.story.progress, 2);
+  const last = [ring('perfect', true)];
+  advanceWarpStory(race, rules, last, 0.1);
+  assert.equal(race.story.progress, target);
   assert.equal(race.story.done, true);
   assert.equal(race.nitro, 1);
   assert.equal(race.points, beginning + 180);
-  assert.deepEqual(second.filter((event) => event.type === 'story-complete').map((e) => e.reward), ['nitro']);
+  assert.deepEqual(last.filter((event) => event.type === 'story-complete').map((e) => e.reward), ['nitro']);
 
   const again = [ring()];
   advanceWarpStory(race, rules, again, 0.1);
@@ -51,25 +60,40 @@ test('Sunset signals require successful ring traversal, reject misses, then rewa
   assert.equal(again.filter((event) => event.type === 'story-complete').length, 0);
 });
 
-test('every later chapter tracks an action, protects ammo capacity and delivers its own message', () => {
-  const events = [[boost()], [jump()], [ammo()], []];
-  for (let chapter = 1; chapter < WARP_STORY.length; chapter += 1) {
-    const race = raceState(WARP_CONFIG, chapter, 0, 0, chapter - 1);
+test('every later chapter counts its own feat, and only that', () => {
+  // What counts, and what looks like it but does not.
+  const feats = [
+    [() => boost(), [boost('drift'), boost('slingshot'), boost('start')]],
+    [(_, index) => ring(index % 2 ? 'good' : 'perfect', true), [ring('perfect'), ring('miss', true)]],
+    [(_, index) => ammo(index % 2 ? 'rocket' : 'nitro'), [boost(), ring()]],
+    [(_, index) => takedown(['guns', 'rocket', 'ram', 'super'][index % 4]), [{ type: 'crash', z: 110, x: 0, kind: 'mine', pilot: 2 }, { type: 'bump', z: 110, x: 0 }]],
+  ];
+
+  feats.forEach(([make, ignored], index) => {
+    const chapter = index + 1;
+    const { target } = WARP_STORY[chapter];
+    const race = raceState(WARP_CONFIG, chapter, 0, 0, chapter);
     race.nitro = 0;
     race.shield = 0;
-    if (chapter === 4) race.abilityTime = 1.8;
-    const stepEvents = events[chapter - 1];
-    advanceWarpStory(race, rules, stepEvents, 0.02);
+
+    advanceWarpStory(race, rules, ignored, 0.02);
+    assert.equal(race.story.progress, 0, `${WARP_STORY[chapter].title}: ${ignored.map((event) => event.type).join(', ')} do not count`);
+
+    advanceWarpStory(race, rules, times(target - 1, make), 0.02);
+    assert.equal(race.story.done, false, 'one short');
+
+    const events = [make(null, target - 1)];
+    advanceWarpStory(race, rules, events, 0.02);
     assert.equal(race.story.done, true, WARP_STORY[chapter].title);
-    assert.equal(race.story.progress, 1);
-    assert.equal(race.story.recovered, chapter - 1);
-    assert.equal(stepEvents.filter((event) => event.type === 'story-complete').length, 1);
-    assert.ok(race.points >= 180);
+    assert.equal(race.story.progress, target);
+    assert.equal(race.story.recovered, chapter);
+    assert.equal(events.filter((event) => event.type === 'story-complete').length, 1);
+    assert.equal(race.points, 180 + chapter * 40);
     assert.equal(race.story.cue, 'secured');
     assert.ok(warpStoryView(race).message.includes('restored') || warpStoryView(race).message.includes('reinforced'));
     if (WARP_STORY[chapter].reward === 'shield') assert.equal(race.shield, 1);
     if (WARP_STORY[chapter].reward === 'nitro') assert.equal(race.nitro, 1);
-  }
+  });
 });
 
 test('radio messages appear after launch and at plot checkpoints without timers or RNG', () => {
@@ -81,6 +105,7 @@ test('radio messages appear after launch and at plot checkpoints without timers 
   assert.equal(race.story.beat, 1);
   assert.equal(warpStoryView(race).speaker, 'ECHO');
   assert.ok(warpStoryView(race).message.includes('HORIZON'));
+  assert.ok(race.story.cueTime <= 4.5, 'a line is up only for a glance');
   const first = race.story.cueTime;
   advanceWarpStory(race, rules, [], 0.2);
   assert.ok(race.story.cueTime < first);
@@ -117,9 +142,12 @@ test('story fragment counts survive race transitions but not a failed retry', ()
   assert.equal(replayed.warp.story.recovered, 0);
 });
 
-test('ending honors recovered chapters and never blocks players who skipped side quests', () => {
-  assert.match(warpStoryEnding(5), /HORIZON RESCUED/);
-  assert.match(warpStoryEnding(3), /SIGNAL SURVIVES/);
-  assert.match(warpStoryEnding(0), /Fly again/);
-  assert.ok(warpStoryEnding(5).length > 90);
+test('the ending rescues HORIZON only with every fragment, and otherwise says how many were found', () => {
+  assert.equal(warpStoryEnding(5).title, 'HORIZON RESCUED');
+  assert.match(warpStoryEnding(5).text, /All 5 fragments/);
+  assert.equal(warpStoryEnding(4).title, 'THE SIGNAL SURVIVES', 'four of five is not all of them');
+  assert.match(warpStoryEnding(4).text, /^4 of 5 fragments recovered/);
+  assert.match(warpStoryEnding(0).text, /^0 of 5 .*fly again/);
+  assert.match(warpStoryEnding(9).text, /All 5/, 'never more than there are');
+  assert.match(warpStoryEnding(-2).text, /^0 of 5/);
 });

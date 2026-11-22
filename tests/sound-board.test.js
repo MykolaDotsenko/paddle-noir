@@ -556,6 +556,10 @@ test('Warp\'s events each have their sound, and a rival\'s crash is only a dista
     { type: 'ammo', kind: 'rocket', z: 0, x: 0 },
     { type: 'ammo', kind: 'nitro', z: 0, x: 0 },
     { type: 'shield-hit', z: 0, x: 0, left: 0 },
+    { type: 'warp-system', system: 'guns', z: 0, x: 0 },
+    { type: 'warp-system', system: 'shield', z: 0, x: 0 },
+    { type: 'craft-ability', kind: 'jet', z: 0, x: 0 },
+    { type: 'story-complete', race: 0, points: 180, reward: 'nitro' },
     { type: 'smash', kind: 'cargo', z: 0, x: 0, points: 60 },
     { type: 'overtake', place: 2, pilot: 1, points: 50 },
     { type: 'overtaken', place: 3, pilot: 1 },
@@ -580,6 +584,7 @@ test('Warp\'s events each have their sound, and a rival\'s crash is only a dista
   const heard = events.map((event) => describe(sounds(event)));
 
   assert.ok(heard.every((sound) => sound.length > 0), heard.join(' | '));
+  assert.ok(heard.every((sound) => !sound.includes('NaN')), 'every note is a real pitch');
   assert.equal(new Set(heard).size, heard.length, 'each its own');
   assert.equal(describe(sounds({ type: 'ring', grade: 'miss', chain: 0, z: 0, x: 0, points: 0 })), '', 'a ring missed is silent');
   assert.equal(describe(sounds({ type: 'boost', z: 0, x: 0, by: 'super' })), '', 'a super\'s boost is the super\'s sound');

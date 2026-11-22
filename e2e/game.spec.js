@@ -1507,7 +1507,7 @@ test.describe('in Warp', () => {
     await page.clock.runFor(3500);
     await expect(chapter).toBeVisible();
     await expect(chapter).toContainText('THE GHOST SIGNAL');
-    await expect(chapter).toContainText('signal rings');
+    await expect(chapter).toContainText('rings dead center');
     await page.clock.runFor(1500);
     await expect(radio).toBeVisible();
     await expect(radio).toContainText('ECHO');
@@ -1560,8 +1560,8 @@ test.describe('in Warp', () => {
     await expect(panels.first()).toBeHidden();
   });
 
-  test('the craft races where the player steers and scores without immediately losing', async ({ page, hasTouch }) => {
-    test.setTimeout(240_000);
+  test('the craft races where the player steers and scores, and the rumble strips cost the credits', async ({ page, hasTouch }) => {
+    test.setTimeout(420_000);
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.addInitScript(() => {
@@ -1609,17 +1609,96 @@ test.describe('in Warp', () => {
     expect(Number(await points.textContent())).toBeGreaterThanOrEqual(100);
     await expect(status(page)).toHaveText(/^Race \d, [A-Za-z ]+: place \d, \d+ points, \d credits? left$/);
 
-    // The friendlier cup may advance further: validate steering, live scoring,
-    // pause and returning to the menu without rendering 600 seconds of forced losses.
-    // Domain and controller unit tests cover results, rewards and records.
-    await page.clock.runFor(2000);
+    // A pause hides the bridge and the steering, and the race picks up again.
     await page.keyboard.press('Escape');
     await expect(status(page)).toHaveText('Game paused.');
-    await page.locator('[data-overlay="pause"]').getByRole('button', { name: 'Menu' }).click();
-    await expect(playButton(page)).toBeVisible();
+    await expect(page.locator('[data-warp-console]').first()).toBeHidden();
+    await page.keyboard.press('Escape');
+
+    // Ride the rumble strips at the lane's edge: too slow to go through, so the credits go.
+    await steer(GAME_CONFIG.width);
+    const out = page.getByRole('heading', { name: 'Out of credits' });
+
+    for (let elapsed = 0; elapsed < 900_000 && !(await out.isVisible()); elapsed += 5000) {
+      await page.clock.runFor(5000);
+    }
+
+    await expect(out).toBeVisible();
+    const final = Number(await page.locator('[data-over-score]').textContent());
+    expect(final).toBeGreaterThanOrEqual(100);
+    await expect(page.locator('[data-over-wall]')).toHaveText(new RegExp(`^points · race \\d of ${courses.length} · `));
+    await expect(page.locator('[data-over-best-warp]')).toBeVisible();
+    // Lost or won, the cup pays out tickets for the hangar; the story's ending is for a cup won.
+    await expect(page.locator('[data-over-tickets]')).toHaveText(/^\+\d+ tickets for the hangar$/);
+    await expect(page.locator('[data-warp-ending]')).toBeHidden();
+    const paid = Number((await page.locator('[data-over-tickets]').textContent()).match(/\d+/)[0]);
+    expect(paid).toBeGreaterThanOrEqual(Math.floor(final / 25));
+
+    await page.getByRole('button', { name: 'Menu' }).click();
     await page.reload();
-    await expect(page.getByRole('button', { name: /Hangar/ })).toBeVisible();
+    await expect(page.locator('[data-menu-meta]').first()).toHaveText(`${courses.length} races · Best ${final} points`);
+    await expect(page.getByRole('button', { name: /Hangar/ })).toContainText(`${paid} tickets`);
     expect(errors).toEqual([]);
+  });
+
+  test('a bridge control answers a second finger while the first holds a steering button', async ({ page, hasTouch }) => {
+    test.skip(!hasTouch, 'two fingers need a touch screen');
+    // The steering buttons are what a touch screen starts with.
+    await freezeTime(page);
+    await playButton(page).tap();
+    await page.clock.runFor(3600);
+
+    const cdp = await page.context().newCDPSession(page);
+    const centre = async (selector) => {
+      const box = await page.locator(selector).boundingBox();
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+    const right = await centre('[data-warp-steer="right"]');
+    const shield = await centre('[data-warp-control="shield"]');
+    const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map((point, id) => ({ ...point, id: point.id ?? id })) });
+    const before = await readPlayerX(page);
+
+    // The thumb holds RIGHT; the other thumb taps SHIELD and lifts, RIGHT still held.
+    await touch('touchStart', [{ ...right, id: 1 }]);
+    await page.clock.runFor(300);
+    await touch('touchStart', [{ ...right, id: 1 }, { ...shield, id: 2 }]);
+    await touch('touchMove', [{ ...right, id: 1 }]);
+    await page.clock.runFor(100);
+    await expect(page.locator('[data-warp-control="shield"]')).toContainText('ONLINE');
+    await page.clock.runFor(300);
+    await touch('touchEnd', []);
+    expect(await readPlayerX(page)).toBeGreaterThan(before + 60);
+  });
+
+  test('on a small phone, upright or sideways, no control covers another or the lane', async ({ page, hasTouch }) => {
+    test.skip(!hasTouch, 'the touch layout');
+    const overlaps = (a, b) => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1
+      && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1;
+
+    for (const size of [{ width: 320, height: 568 }, { width: 568, height: 320 }]) {
+      await page.setViewportSize(size);
+      await freezeTime(page);
+      await playButton(page).tap();
+      await page.clock.runFor(3600);
+
+      const controls = await page.locator('[data-warp-control], [data-warp-steer], [data-warp-steering-switch]').evaluateAll((elements) => elements
+        .filter((element) => element.getClientRects().length > 0)
+        .map((element) => { const box = element.getBoundingClientRect(); return { name: element.getAttribute('aria-label'), x: box.x, y: box.y, width: box.width, height: box.height }; }));
+      const lane = await board(page).boundingBox();
+      // The lane runs up the middle third of the board, from the horizon to the craft.
+      const middle = { x: lane.x + lane.width / 3, y: lane.y + lane.height * 0.34, width: lane.width / 3, height: lane.height * 0.66 };
+
+      expect(controls.length, JSON.stringify(size)).toBe(8);
+
+      for (const [index, control] of controls.entries()) {
+        expect(control.width >= 43.5 && control.height >= 43.5, `${control.name} is large enough at ${size.width}x${size.height}`).toBe(true);
+        expect(overlaps(control, middle), `${control.name} clear of the lane at ${size.width}x${size.height}`).toBe(false);
+
+        for (const other of controls.slice(index + 1)) {
+          expect(overlaps(control, other), `${control.name} / ${other.name} at ${size.width}x${size.height}`).toBe(false);
+        }
+      }
+    }
   });
 
   test.describe('with tickets to spend', () => {

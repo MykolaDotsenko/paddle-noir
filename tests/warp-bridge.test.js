@@ -42,6 +42,7 @@ test('bridge exposes five independently usable controls, never outside a running
   assert.equal(status.shield.ready, true);
   assert.equal(status.warp.ready, true);
   assert.equal(status.rockets.ready, false, 'a guided rocket needs a rival in front');
+  assert.deepEqual(Object.values(status).map((control) => control.charge), [1, 1, 1, 1, 1], 'everything charged, two rockets aboard');
 
   for (const invalid of [
     { ...state, phase: GAME_PHASE.PAUSED },
@@ -75,8 +76,8 @@ test('GUNS enables a timed rapid-fire mode, visibly increases damage, then recha
   const plain = advanceGame(state, 0.15, INPUT, config);
   const armed = activateWarpControl(state, config, 'guns');
 
-  assert.equal(armed.warp.gunTime, 2.6);
-  assert.equal(armed.warp.gunCooldown, 8);
+  assert.equal(armed.warp.gunTime, config.warp.overdriveSeconds);
+  assert.equal(armed.warp.gunCooldown, config.warp.overdriveRecharge);
   assert.deepEqual(armed.events.map((event) => event.type), ['warp-system']);
   assert.equal(activateWarpControl(armed, config, 'guns'), armed, 'burst cannot be stacked');
   assert.equal(warpControlStatus(armed, config).guns.status, 'FIRING');
@@ -145,8 +146,8 @@ test('WARP drives every craft forward and briefly phases it while retaining its 
 });
 
 test('the intro races offer safe opening space, more rewards and fewer early hazards', () => {
-  assert.equal(WARP_LIVES, 4, 'four retries instead of three');
-  assert.deepEqual(WARP_COURSES.map((course) => course.qualify), [4, 4, 3, 3, 2]);
+  assert.equal(WARP_LIVES, 4, 'four credits to the cup');
+  assert.deepEqual(WARP_COURSES.map((course) => course.qualify), [3, 3, 3, 3, 2]);
 
   const course = buildCourse(WARP_CONFIG, 0);
   const hazards = course.items.filter((item) => ['mine', 'debris', 'cargo', 'gate'].includes(item.kind));
@@ -157,4 +158,26 @@ test('the intro races offer safe opening space, more rewards and fewer early haz
 
   const starter = createInitialState(WARP_CONFIG, 88);
   assert.equal(starter.warp.shield, WARP_CONFIG.warp.loadout.shields, 'passive shields still come from the selected hull');
+});
+
+test('each control says how far it has recharged, from nothing as it is pressed to full when it is ready again', () => {
+  const { config, state } = running({ changes: { nitro: 0.4, rockets: 0 } });
+  const rules = config.warp;
+  const before = warpControlStatus(state, config);
+
+  assert.equal(before.nitro.charge, 0.4, 'the tank on its way to a bar');
+  assert.equal(before.rockets.charge, 0, 'no rocket aboard');
+
+  let pressed = activateWarpControl(state, config, 'guns');
+  pressed = activateWarpControl(pressed, config, 'shield');
+  pressed = activateWarpControl(pressed, config, 'warp');
+  const used = warpControlStatus(pressed, config);
+  assert.deepEqual([used.guns.charge, used.shield.charge, used.warp.charge], [0, 0, 0]);
+
+  const later = advanceGame(pressed, 2, INPUT, config);
+  const charging = warpControlStatus(later, config);
+  assert.ok(Math.abs(charging.guns.charge - 2 / rules.overdriveRecharge) < 1e-9);
+  assert.ok(Math.abs(charging.shield.charge - 2 / rules.shieldRecharge) < 1e-9);
+  assert.ok(charging.warp.charge > 0 && charging.warp.charge < 1);
+  assert.ok(Object.values(charging).every((control) => control.charge >= 0 && control.charge <= 1));
 });

@@ -5,7 +5,7 @@
  * They use a handful of gradients for the whole scene, while the road's tiny specular
  * facets are polygons. Near-only details keep the full-width mobile renderer inexpensive.
  *
- * @import { Scene } from './warp-scenery.js'
+ * @import { Look, Scene } from './warp-scenery.js'
  */
 
 /** @typedef {{ x: number, y: number, scale: number, depth: number }} Point */
@@ -15,43 +15,88 @@
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 /**
+ * How far either way a course's light slides as the lane turns; past that it stays put. No
+ * bend of the five courses slides it that far.
+ */
+export const LIGHT_SWAY = 80;
+
+/** The light reaches down to here, a little under the horizon, and no further. */
+export const LIGHT_FLOOR = 310;
+
+/**
  * Each course has a different light source: a sunset, canyon aurora, sun above clouds,
- * reflected planetary glow or the pulsing core. It stays behind track geometry, so hills,
- * rivals and trackside buildings correctly occlude the light.
+ * reflected planetary glow or the pulsing core. Where it sits when the lane runs straight,
+ * how wide and strong it is, and how far it slides for each unit of the lane's heading.
+ *
+ * @param {Look} look
+ * @param {number} width
+ */
+function skyLight(look, width) {
+  const city = look.skyline === 'city';
+  return {
+    x: width * (city ? 0.72 : look.skyline === 'planet' ? 0.27 : 0.52),
+    y: city ? 232 : look.skyline === 'clouds' ? 133 : look.skyline === 'core' ? 257 : 177,
+    spread: city ? width * 0.57 : width * 0.43,
+    rgb: look.skyline === 'clouds' ? '216, 180, 254' : look.haze,
+    power: city ? 0.26 : look.skyline === 'core' ? 0.2 : 0.16,
+    slide: city ? 30 : 14,
+  };
+}
+
+/**
+ * How far the light has slid from where it sits on a straight.
+ *
+ * @param {Look} look
+ * @param {number} heading which way the lane runs under the craft
+ */
+export function lightShift(look, heading) {
+  return clamp(0 - heading * skyLight(look, 0).slide, -LIGHT_SWAY, LIGHT_SWAY);
+}
+
+/**
+ * The light's glow, where it sits on a straight. It is painted once into the sky's own kept
+ * picture, behind the skyline, which slides it as the lane turns: a glow over the whole sky,
+ * shaded anew each frame, cost a phone more than anything else that was added to the races.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Look} look
+ * @param {number} width
+ * @param {number} left the left edge of the picture
+ * @param {number} right its right edge
+ */
+export function paintSkyLight(ctx, look, width, left, right) {
+  const { x, y, spread, rgb, power } = skyLight(look, width);
+  const glow = ctx.createRadialGradient(x, y, 8, x, y, spread);
+  glow.addColorStop(0, 'rgba(' + rgb + ', ' + power + ')');
+  glow.addColorStop(0.42, 'rgba(' + rgb + ', ' + (power * 0.32) + ')');
+  glow.addColorStop(1, 'rgba(' + rgb + ', 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(left, -50, right - left, LIGHT_FLOOR + 50);
+}
+
+/**
+ * A few soft, wide shafts from the light, cheaper and cleaner than a full-screen per-pixel
+ * bloom. They sway a little with time, never in reduced-motion mode, and stay behind track
+ * geometry, so hills, rivals and trackside buildings correctly occlude them.
  *
  * @param {Scene} scene
  */
 export function drawSkyLighting({ ctx, config, view, look, still, now }) {
   const { width } = config;
-  const sourceX = width * (look.skyline === 'city' ? 0.72 : look.skyline === 'planet' ? 0.27 : 0.52)
-    - view.heading * (look.skyline === 'city' ? 30 : 14);
-  const sourceY = look.skyline === 'city' ? 232
-    : look.skyline === 'clouds' ? 133
-      : look.skyline === 'core' ? 257 : 177;
-  const spread = look.skyline === 'city' ? width * 0.57 : width * 0.43;
-  const light = look.skyline === 'clouds' ? '216, 180, 254' : look.haze;
-  const power = look.skyline === 'city' ? 0.26 : look.skyline === 'core' ? 0.2 : 0.16;
+  const { x, y, rgb } = skyLight(look, width);
+  const sourceX = x + lightShift(look, view.heading);
+  const phase = still ? 0 : Math.sin(now / 3600) * 0.035;
 
   ctx.save();
-  const glow = ctx.createRadialGradient(sourceX, sourceY, 8, sourceX, sourceY, spread);
-  glow.addColorStop(0, 'rgba(' + light + ', ' + power + ')');
-  glow.addColorStop(0.42, 'rgba(' + light + ', ' + (power * 0.32) + ')');
-  glow.addColorStop(1, 'rgba(' + light + ', 0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(-80, -50, width + 160, 360);
-
-  // A few soft, wide shafts are cheaper and cleaner than a full-screen per-pixel bloom.
-  // Time never affects them in reduced-motion mode.
-  const phase = still ? 0 : Math.sin(now / 3600) * 0.035;
   for (let index = 0; index < 4; index += 1) {
     const angle = (index - 1.5) * 0.29 + phase;
     const drift = Math.sin(angle) * width * 0.68;
     ctx.beginPath();
-    ctx.moveTo(sourceX - 7, sourceY);
+    ctx.moveTo(sourceX - 7, y);
     ctx.lineTo(sourceX + drift - width * 0.065, -60);
     ctx.lineTo(sourceX + drift + width * 0.065, -60);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(' + light + ', ' + (0.016 + index * 0.003) + ')';
+    ctx.fillStyle = 'rgba(' + rgb + ', ' + (0.016 + index * 0.003) + ')';
     ctx.fill();
   }
   ctx.restore();

@@ -69,10 +69,14 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   │   ├── nova.js
 │   │   │   ├── scene.js
 │   │   │   ├── theme.js
+│   │   │   ├── warp-airframe-details.js
+│   │   │   ├── warp-backdrop.js
 │   │   │   ├── warp-combat.js
 │   │   │   ├── warp-craft.js
 │   │   │   ├── warp-effects.js
 │   │   │   ├── warp-hud.js
+│   │   │   ├── warp-lighting.js
+│   │   │   ├── warp-materials.js
 │   │   │   ├── warp-scenery.js
 │   │   │   └── warp.js
 │   │   ├── audio-output.js
@@ -84,6 +88,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── dom-hangar.js
 │   │   ├── effects.js
 │   │   ├── finisher.js
+│   │   ├── frame-pace.js
 │   │   ├── haptics.js
 │   │   ├── input-controller.js
 │   │   ├── local-preferences.js
@@ -111,6 +116,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── random.js
 │   │   ├── supers.js
 │   │   ├── types.js
+│   │   ├── warp-story.js       the story of the Warp cup, its missions and radio lines
 │   │   └── warp.js
 │   ├── catalog.js              the matches a player can choose, the career ladder and the high-score table included
 │   ├── config.js
@@ -181,7 +187,7 @@ Playwright runs the real application in desktop and mobile Chromium. It reads th
 - the computer's nickname follows the Fun switch; a won match ends with a Pongality before the result screen, which a tap or a key brings at once without starting the next match
 - the career opens as far as the rivals beaten and starts a match under a versus card, which leaves the paddle steerable and is gone before the serve; the first boss's drip shrinks a paddle that stands still, the landlord waits at the top as the final boss, and a lost match counts down to game over under the winner's line
 - losing window focus pauses the match, and idle screens request no animation frames
-- the canvas matches device pixels up to twice the CSS size, and the app is installable
+- the canvas matches device pixels up to twice the CSS size, and the app is installable (a device that cannot keep up during a match drops to one and a half, once: `tests/canvas-renderer.test.js`)
 
 ## Architecture trade-offs
 

@@ -20,6 +20,8 @@ class FakeElement extends EventTarget {
     this.offsetWidth = 100;
     this.children = [];
     this.focusCalls = [];
+    this.writes = 0;
+    this.style = { properties: {}, setProperty: (name, value) => { this.style.properties[name] = value; } };
     this.ownerDocument = { createElement: () => new FakeElement() };
     this.classes = new Set();
     this.classList = {
@@ -54,6 +56,7 @@ class FakeElement extends EventTarget {
   }
 
   setAttribute(name, value) {
+    this.writes += 1;
     this.attributes.set(name, value);
   }
 
@@ -81,6 +84,10 @@ class FakeElement extends EventTarget {
   matches(selector) {
     const [, name, value] = selector.match(/^\[([\w-]+)(?:="([^"]*)")?\]$/) ?? [];
     return this.attributes.has(name) && (value === undefined || this.attributes.get(name) === value);
+  }
+
+  querySelector(selector) {
+    return this.children.find((child) => child.matches?.(selector)) ?? null;
   }
 }
 
@@ -136,6 +143,7 @@ function createRoot({ modalDialogs = true } = {}) {
     ['tutorialNova', { 'data-nova-only': '' }],
     ['warp', { 'data-mode': 'warp' }],
     ['tutorialWarp', { 'data-warp-only': '' }],
+    ['bridgeShield', { 'data-warp-control': 'shield', 'data-command': 'warp-shield' }],
     ['hangarCard', { 'data-warp-only': '', 'data-show-hangar': '' }],
     ['hangarCraft', { 'data-hangar-craft': '' }],
     ['hangarTickets', { 'data-hangar-tickets': '' }],
@@ -220,6 +228,7 @@ function createRoot({ modalDialogs = true } = {}) {
     ['tutorial', 'settings', 'scores'].includes(name) && modalDialogs ? new FakeDialog(attributes) : new FakeElement(attributes),
   ]);
   const byName = Object.fromEntries(elements);
+  byName.bridgeShield.children.push(new FakeElement({ 'data-warp-status': '' }));
   const all = elements.map(([, element]) => element);
   const board = new FakeElement({ 'data-game-canvas': '' });
   const document = { body: new FakeElement(), activeElement: null };
@@ -334,6 +343,14 @@ function setup({ canVibrate = true, preferences = createPreferences(), device = 
 }
 
 const click = (element) => element.dispatchEvent(new Event('click'));
+
+/** An event of a type with the fields a pointer or the keyboard would give it. */
+function fire(element, type, fields = {}) {
+  const event = new Event(type, { cancelable: true });
+  Object.assign(event, fields);
+  element.dispatchEvent(event);
+  return event;
+}
 const noModifiers = { wide: 0, tiny: 0, ghost: 0 };
 
 function presentation(overrides = {}) {
@@ -1861,7 +1878,13 @@ test('How to play tells of the ship in Nova', () => {
   assert.deepEqual([dom.tutorialNova.hidden, dom.tutorialBricks.hidden, dom.tutorialMatch.hidden], [true, true, false]);
 });
 
-const cup = (overrides = {}) => ({ race: 1, races: 5, name: 'Sunset Skyway', place: 6, points: 0, best: 0, newBest: false, craft: 'Kestrel', tickets: 0, earned: 0, ...overrides });
+const READY = { ready: true, status: 'READY', charge: 1 };
+const cup = (overrides = {}) => ({
+  race: 1, races: 5, name: 'Sunset Skyway', place: 6, points: 0, best: 0, newBest: false, craft: 'Kestrel', tickets: 0, earned: 0,
+  steering: 'buttons',
+  controls: { nitro: READY, guns: READY, rockets: READY, shield: READY, warp: READY },
+  ...overrides,
+});
 const warpGame = (overrides = {}) => presentation({
   mode: 'warp',
   rules: { kind: 'warp', lives: 3 },
@@ -1977,6 +2000,58 @@ test('a Warp cup is shared with its points, and how far it got', async () => {
 
   assert.equal(await shared({ winner: 'opponent', warp: cup({ points: 7400, race: 3 }) }), 'I made 7400 points in the Warp cup of Paddle Noir, up to race 3 of 5. Beat that!');
   assert.equal(await shared({ winner: 'player', warp: cup({ points: 17020, race: 5 }) }), 'I won all 5 races of the Warp cup in Paddle Noir: 17020 points. Beat that!');
+});
+
+test('a bridge control acts the moment a finger lands on it, so a second finger can press it while the first steers', () => {
+  const { dom, commands, board } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+  const sent = () => commands.map(({ command }) => command);
+
+  // A thumb lands on it: a phone makes no click of a second finger's tap, so the press is what counts.
+  const press = fire(dom.bridgeShield, 'pointerdown', { pointerType: 'touch', button: 0 });
+  assert.deepEqual(sent(), [GAME_COMMAND.WARP_SHIELD]);
+  assert.equal(press.defaultPrevented, true);
+  assert.equal(board.focusCalls.length, 1, 'the board keeps the keys');
+
+  // A click a pointer makes after its press is not a second press: it only hands the focus back.
+  fire(dom.bridgeShield, 'click', { detail: 1 });
+  assert.deepEqual(sent(), [GAME_COMMAND.WARP_SHIELD]);
+  assert.equal(board.focusCalls.length, 2);
+
+  // The left mouse button presses it; the others do not.
+  fire(dom.bridgeShield, 'pointerdown', { pointerType: 'mouse', button: 0 });
+  fire(dom.bridgeShield, 'pointerdown', { pointerType: 'mouse', button: 2 });
+  assert.deepEqual(sent(), [GAME_COMMAND.WARP_SHIELD, GAME_COMMAND.WARP_SHIELD]);
+
+  // The keyboard, and assistive technology, press it with a click of no pointer.
+  fire(dom.bridgeShield, 'click', { detail: 0 });
+  assert.deepEqual(sent(), [GAME_COMMAND.WARP_SHIELD, GAME_COMMAND.WARP_SHIELD, GAME_COMMAND.WARP_SHIELD]);
+});
+
+test('a bridge control shows what its system is doing and how far it has recharged, and is written only when that changes', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+  const shield = (system) => warpGame({ phase: GAME_PHASE.RUNNING, warp: cup({ controls: { ...cup().controls, shield: system } }) });
+  const caption = dom.bridgeShield.children[0];
+
+  view.render(shield({ ready: false, status: '12s', charge: 0.14 }));
+  assert.deepEqual([caption.textContent, dom.bridgeShield.disabled, dom.bridgeShield.getAttribute('aria-label')], ['12s', true, 'SHIELD: 12s']);
+  assert.equal(dom.bridgeShield.style.properties['--charge'], '0.15', 'in twentieths');
+  assert.equal(dom.bridgeShield.dataset.active, 'false');
+
+  // Frame after frame of the same, nothing is written again.
+  const writes = dom.bridgeShield.writes;
+  view.render(shield({ ready: false, status: '12s', charge: 0.15 }));
+  view.render(shield({ ready: false, status: '12s', charge: 0.16 }));
+  assert.equal(dom.bridgeShield.writes, writes);
+
+  view.render(shield({ ready: false, status: 'ONLINE', charge: 0 }));
+  assert.deepEqual([caption.textContent, dom.bridgeShield.dataset.active], ['ONLINE', 'true']);
+
+  view.render(shield({ ready: true, status: 'READY', charge: 1 }));
+  assert.deepEqual([caption.textContent, dom.bridgeShield.disabled, dom.bridgeShield.style.properties['--charge']], ['READY', false, '1']);
+
+  // Ready or not, nothing on the bridge can be pressed while the game is paused.
+  view.render(warpGame({ phase: GAME_PHASE.PAUSED, warp: cup() }));
+  assert.equal(dom.bridgeShield.disabled, true);
 });
 
 test('How to play tells of the race in Warp', () => {

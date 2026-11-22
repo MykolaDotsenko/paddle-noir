@@ -11,7 +11,7 @@
  * @import { GameEvent, WarpConfig, WarpState } from './types.js'
  */
 
-/** @typedef {'ring' | 'boost' | 'jump' | 'ammo' | 'warp'} StoryObjective */
+/** @typedef {'perfect' | 'boost' | 'air' | 'ammo' | 'takedown'} StoryObjective */
 /** @typedef {'nitro' | 'shield' | 'rocket'} StoryReward */
 
 /**
@@ -28,69 +28,80 @@
  * @property {string} secured
  */
 
-/** @type {readonly WarpChapter[]} */
+/**
+ * Each chapter's mission is a feat of the race it is set in: rings dead center on the first,
+ * boost pads through the canyon's jamming, the rings that hang past the ramps of Cloud Nine,
+ * the supply caches round the station, and the Landlord's escorts in the Warp Core. Flying
+ * well completes most of them; flying past everything completes none. The radio's lines are
+ * short, so they can be read at a glance without taking the eyes off the lane for long.
+ *
+ * @type {readonly WarpChapter[]}
+ */
 export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
   {
     title: '01 · THE GHOST SIGNAL',
-    mission: 'Fly through 2 signal rings',
-    objective: 'ring',
-    target: 2,
+    mission: 'Fly 12 rings dead center',
+    objective: 'perfect',
+    target: 12,
     reward: 'nitro',
     commander: 'ECHO',
-    intro: 'Pilot, the lost ship HORIZON is transmitting from inside the dead zone. Follow those signal rings.',
-    reveal: 'These coordinates were erased from every public chart. Somebody wanted Horizon forgotten.',
-    warning: 'The signal is moving toward Neon Canyon. We are not the only ones tracking it.',
-    secured: 'First fragment decoded. HORIZON says: "We are still here." Nitro restored.',
+    intro: 'HORIZON is calling from the dead zone. Fly the rings dead center.',
+    reveal: 'Those coordinates were wiped from every chart. Someone wants it gone.',
+    warning: 'The signal is moving toward Neon Canyon. We are not alone.',
+    secured: 'Fragment decoded: “We are still here.” Nitro restored.',
   },
   {
     title: '02 · DUST & DECOYS',
-    mission: 'Hit 1 acceleration pad',
+    mission: 'Hit 9 boost pads',
     objective: 'boost',
-    target: 1,
+    target: 9,
     reward: 'shield',
     commander: 'ECHO',
-    intro: 'The canyon is full of false beacons. Use a boost pad to slip past the jamming field.',
-    reveal: 'A bounty has been placed on anyone following HORIZON. The sender is called LANDLORD.',
-    warning: 'Keep your shields close. The real transmission is hidden behind the dust.',
-    secured: 'Jammer bypassed. HORIZON did not crash: it was forced to disappear. Shield restored.',
+    intro: 'False beacons everywhere. Boost pads punch through the jamming.',
+    reveal: 'A bounty on anyone tracking HORIZON. The sender: LANDLORD.',
+    warning: 'Keep your shields close. The real signal hides in the dust.',
+    secured: 'Jammer down. HORIZON did not crash: it was hidden. Shield restored.',
   },
   {
     title: '03 · ABOVE THE STORM',
-    mission: 'Launch off 1 jump ramp',
-    objective: 'jump',
-    target: 1,
+    mission: 'Fly through 5 air rings',
+    objective: 'air',
+    target: 5,
     reward: 'nitro',
     commander: 'CAPTAIN LYRA',
-    intro: 'If you hear this, our ship is alive. Reach the cloud relay; the lower lanes are being watched.',
-    reveal: 'We discovered a reactor that could power an entire city. LANDLORD locked us inside it.',
-    warning: 'The relay is breaking up. One clean jump will get you above the interference.',
-    secured: 'Cloud relay connected. Lyra sent the reactor schematics. Nitro restored.',
+    intro: 'This is Lyra, HORIZON. Climb to the relay: take the rings in the air.',
+    reveal: 'We found a reactor that could power a city. LANDLORD locked us in.',
+    warning: 'The relay is fading. Stay high, pilot.',
+    secured: 'Relay linked. Reactor schematics received. Nitro restored.',
   },
   {
     title: '04 · THE STOLEN MAP',
-    mission: 'Collect 1 supply cache',
+    mission: 'Collect 3 supply caches',
     objective: 'ammo',
-    target: 1,
+    target: 3,
     reward: 'shield',
     commander: 'ECHO',
-    intro: 'The orbital supply pods carry the last piece of Horizon’s flight map. Recover one.',
-    reveal: 'LANDLORD sold rescue coordinates to keep the reactor secret. Now he is coming for the core.',
-    warning: 'His ships have sealed the outer ring. Stay in the race; we can still reach HORIZON.',
-    secured: 'Map decrypted. We have a route through the reactor’s defense grid. Shield restored.',
+    intro: 'The supply pods carry HORIZON’s flight map. Grab every cache.',
+    reveal: 'LANDLORD sold the rescue coordinates. Now he wants the core.',
+    warning: 'His ships have sealed the outer ring. Keep racing.',
+    secured: 'Map decrypted: a route through the reactor grid. Shield restored.',
   },
   {
     title: '05 · HEART OF THE RIFT',
-    mission: 'Engage Warp drive 1 time',
-    objective: 'warp',
-    target: 1,
+    mission: 'Take down 8 rivals',
+    objective: 'takedown',
+    target: 8,
     reward: 'shield',
     commander: 'CAPTAIN LYRA',
-    intro: 'Pilot, I can see your engine flare. LANDLORD is guarding our last escape route.',
-    reveal: 'The reactor is destabilizing. Your Warp drive can reopen the corridor, but you must keep racing.',
-    warning: 'The gate is almost shut. Reach the finish and get us out of here!',
-    secured: 'WARP CORRIDOR OPEN. Horizon’s evacuation route is clear. Shields reinforced.',
+    intro: 'I see your engine flare! LANDLORD’s escorts block the way out.',
+    reveal: 'The reactor is failing. Break the blockade: fire, ram, warp!',
+    warning: 'The gate is almost shut. Reach the finish!',
+    secured: 'Blockade broken. HORIZON’s way home is open. Shields reinforced.',
   },
 ]).map((chapter) => Object.freeze(chapter)));
+
+/** How long each line of the radio stays up, in seconds of the race. */
+const CUE_SECONDS = Object.freeze({ intro: 4.5, reveal: 4.5, warning: 4, secured: 4.5 });
 
 /**
  * @typedef {object} WarpStoryState
@@ -123,11 +134,11 @@ export function startWarpStory(previousRecovered = 0) {
  */
 function objectiveMatches(objective, event) {
   switch (objective) {
-    case 'ring': return event.type === 'ring' && event.grade !== 'miss';
+    case 'perfect': return event.type === 'ring' && event.grade === 'perfect';
     case 'boost': return event.type === 'boost' && event.by === 'pad';
-    case 'jump': return event.type === 'jump' && event.pilot === undefined;
+    case 'air': return event.type === 'ring' && event.air && event.grade !== 'miss';
     case 'ammo': return event.type === 'ammo';
-    default: return false;
+    default: return event.type === 'takedown';
   }
 }
 
@@ -156,9 +167,7 @@ export function advanceWarpStory(race, rules, events, seconds) {
   story.cueTime = Math.max(0, story.cueTime - seconds);
 
   if (!story.done) {
-    const gained = chapter.objective === 'warp'
-      ? Number(race.abilityTime > 0)
-      : events.reduce((count, event) => count + Number(objectiveMatches(chapter.objective, event)), 0);
+    const gained = events.reduce((count, event) => count + Number(objectiveMatches(chapter.objective, event)), 0);
 
     if (gained > 0) {
       story.progress = Math.min(chapter.target, story.progress + gained);
@@ -167,7 +176,7 @@ export function advanceWarpStory(race, rules, events, seconds) {
         race.points += 180 + race.race * 40;
         grantReward(race, rules, chapter.reward);
         story.cue = 'secured';
-        story.cueTime = 5.8;
+        story.cueTime = CUE_SECONDS.secured;
         events.push({
           type: 'story-complete',
           race: race.race,
@@ -184,15 +193,15 @@ export function advanceWarpStory(race, rules, events, seconds) {
   const share = race.z / race.course.length;
   if (story.beat === 0) {
     story.cue = 'intro';
-    story.cueTime = 6.5;
+    story.cueTime = CUE_SECONDS.intro;
     story.beat = 1;
   } else if (story.beat === 1 && share >= 0.34) {
     story.cue = 'reveal';
-    story.cueTime = 6.2;
+    story.cueTime = CUE_SECONDS.reveal;
     story.beat = 2;
   } else if (story.beat === 2 && share >= 0.69) {
     story.cue = 'warning';
-    story.cueTime = 5.4;
+    story.cueTime = CUE_SECONDS.warning;
     story.beat = 3;
   } else {
     story.cue = '';
@@ -223,10 +232,17 @@ export function warpStoryView(race) {
 }
 
 /**
- * @param {number} recovered fragments rescued in a successfully finished cup
+ * How the story ends, for a cup won: HORIZON is rescued once every chapter's fragment has
+ * been recovered, and otherwise the signal survives, with how many were.
+ *
+ * @param {number} recovered fragments recovered in a won cup
+ * @returns {{ title: string, text: string }}
  */
 export function warpStoryEnding(recovered) {
-  return recovered >= 4
-    ? 'HORIZON RESCUED — Five routes, one brave pilot. Captain Lyra and her crew made it home. The last signal is no longer a distress call; it is a thank-you.'
-    : 'THE SIGNAL SURVIVES — You reached HORIZON and opened the way home. Some fragments remain lost among the stars. Fly again to uncover the full story.';
+  const all = WARP_STORY.length;
+  const found = Math.min(all, Math.max(0, Math.floor(recovered)));
+
+  return found >= all
+    ? { title: 'HORIZON RESCUED', text: `All ${all} fragments recovered. Captain Lyra and her crew are home: the last signal is a thank-you.` }
+    : { title: 'THE SIGNAL SURVIVES', text: `${found} of ${all} fragments recovered. HORIZON is still out there: fly again to bring it home.` };
 }

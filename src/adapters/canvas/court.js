@@ -109,6 +109,8 @@ export class GlowSprites {
     this.createCanvas = createCanvas;
     /** @type {Map<string, HTMLCanvasElement>} */
     this.cache = new Map();
+    /** @type {Map<string, { key: string, canvas: HTMLCanvasElement }>} */
+    this.layers = new Map();
   }
 
   /** @param {string} rgb "r, g, b" */
@@ -133,5 +135,32 @@ export class GlowSprites {
     ctx.fillRect(0, 0, size, size);
     this.cache.set(rgb, sprite);
     return sprite;
+  }
+
+  /**
+   * A picture painted once and kept until what it shows changes, so a frame pays for copying
+   * it instead of for shading it. Each slot keeps one picture: one the game has moved on from
+   * is painted over, never piled up.
+   *
+   * @param {string} slot what the picture is for
+   * @param {string} key what it shows: a new key paints it anew
+   * @param {number} width
+   * @param {number} height
+   * @param {(ctx: CanvasRenderingContext2D) => void} paint
+   */
+  layer(slot, key, width, height, paint) {
+    const kept = this.layers.get(slot);
+
+    if (kept && kept.key === key) {
+      return kept.canvas;
+    }
+
+    const canvas = kept?.canvas ?? this.createCanvas();
+    // Sizing a canvas clears it, even to the size it had.
+    canvas.width = Math.ceil(width);
+    canvas.height = Math.ceil(height);
+    paint(/** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d')));
+    this.layers.set(slot, { key, canvas });
+    return canvas;
   }
 }

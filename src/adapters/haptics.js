@@ -61,6 +61,12 @@ function patternFor(event) {
     // The guns fire several times a second and are not felt; what the craft does once is.
     case 'nitro':
       return [15, 20, 40];
+    case 'craft-ability':
+      return [20, 30, 20, 30, 50];
+    case 'warp-system':
+      return 18;
+    case 'story-complete':
+      return [15, 40, 15];
     case 'rocket-launch':
       return 15;
     case 'explosion':

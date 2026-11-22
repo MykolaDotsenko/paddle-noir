@@ -340,39 +340,38 @@ canvas:focus-visible {
     0 0 80px rgba(var(--violet-rgb), 0.12);
 }
 
-/* THE LAST SIGNAL: concise, non-modal flight narrative. Every label sits
-   above the horizon and never intercepts steering or tactical controls. */
+/* THE LAST SIGNAL: a compact mission line under the race's name, and the radio in the sky
+   band between the race's display and the horizon, where nothing races. Neither takes a
+   touch, and neither covers the lane, the rivals ahead or a control. */
 .board .warp-mission {
   position: absolute;
   z-index: 2;
-  top: 12.2%;
+  top: 8.3%;
   left: 27%;
   width: 46%;
-  max-width: 260px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: clamp(5px, 1.5cqw, 8px) 6px;
-  border: 1px solid rgba(165, 243, 252, 0.4);
-  border-radius: 9px;
-  background: linear-gradient(140deg, rgba(6, 18, 35, 0.85), rgba(18, 20, 45, 0.82));
+  gap: 1px;
+  padding: clamp(2px, 0.8cqw, 5px) clamp(4px, 1.2cqw, 7px);
+  border: 1px solid rgba(var(--player-rgb), 0.35);
+  border-radius: 8px;
+  background: rgba(6, 14, 30, 0.72);
   color: #e0f2fe;
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 0 17px rgba(14, 165, 233, 0.13);
   pointer-events: none;
   text-align: center;
 }
 .board .warp-mission__heading {
-  color: #a5f3fc;
-  font: 850 clamp(8px, 1.85cqw, 10px)/1.2 system-ui, sans-serif;
-  letter-spacing: 0.04em;
+  color: rgb(var(--player-rgb));
+  font: 850 clamp(7px, 1.65cqw, 9px)/1.15 system-ui, sans-serif;
+  letter-spacing: 0.05em;
 }
 .board .warp-mission__task {
-  font: 750 clamp(9px, 2.3cqw, 12px)/1.25 system-ui, sans-serif;
+  font: 750 clamp(8px, 1.95cqw, 11px)/1.2 system-ui, sans-serif;
 }
 .board .warp-mission[data-completed="true"] {
-  border-color: rgba(163, 230, 53, 0.62);
-  background: linear-gradient(140deg, rgba(27, 49, 28, 0.91), rgba(7, 25, 31, 0.88));
+  border-color: rgba(163, 230, 53, 0.6);
+  background: rgba(20, 40, 22, 0.78);
 }
 .board .warp-mission[data-completed="true"] .warp-mission__heading {
   color: #bef264;
@@ -380,45 +379,62 @@ canvas:focus-visible {
 .board .warp-radio {
   position: absolute;
   z-index: 2;
-  top: 23%;
-  left: 17%;
-  width: 66%;
+  top: 18.6%;
+  left: 12%;
+  width: 76%;
+  max-height: 15%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding: clamp(9px, 2.2cqw, 12px);
-  border: 1px solid rgba(167, 139, 250, 0.63);
-  border-left: 4px solid #c4b5fd;
-  border-radius: 6px 11px 11px 6px;
-  background: linear-gradient(135deg, rgba(7, 11, 31, 0.96), rgba(29, 21, 54, 0.93));
-  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.42), 0 0 24px rgba(167, 139, 250, 0.12);
+  gap: 1px;
+  padding: clamp(3px, 1cqw, 6px) clamp(6px, 1.6cqw, 9px);
+  border-left: 3px solid #c4b5fd;
+  border-radius: 4px 9px 9px 4px;
+  background: rgba(10, 10, 32, 0.74);
   pointer-events: none;
 }
 .board .warp-radio__sender {
   color: #d8b4fe;
-  font: 900 clamp(9px, 2cqw, 11px)/1.25 system-ui, sans-serif;
+  font: 900 clamp(7px, 1.65cqw, 9px)/1.2 system-ui, sans-serif;
   letter-spacing: 0.08em;
 }
 .board .warp-radio__message {
-  color: #f8fafc;
-  font: 650 clamp(10px, 2.6cqw, 13px)/1.4 system-ui, sans-serif;
-  text-wrap: pretty;
+  display: -webkit-box;
+  overflow: hidden;
+  color: #f1f5f9;
+  font: 650 clamp(8px, 2.15cqw, 12px)/1.28 system-ui, sans-serif;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 .board .warp-mission[hidden],
 .board .warp-radio[hidden] { display: none; }
 .warp-ending {
   margin: 0;
   max-width: 33rem;
-  padding: 10px 14px;
-  border: 1px solid rgba(165, 243, 252, 0.42);
+  padding: 8px 14px;
+  border: 1px solid rgba(var(--player-rgb), 0.4);
   border-radius: 12px;
   background: linear-gradient(120deg, rgba(14, 165, 233, 0.11), rgba(167, 139, 250, 0.14));
   color: #e0f2fe;
-  font: 650 0.85rem/1.45 system-ui, sans-serif;
+  font: 650 0.8rem/1.4 system-ui, sans-serif;
   text-align: center;
 }
+.warp-ending__title {
+  display: block;
+  color: rgb(var(--player-rgb));
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.warp-ending__text {
+  display: block;
+}
 .warp-ending[hidden] { display: none; }
+@media (max-height: 640px) {
+  .warp-ending { padding: 5px 12px; }
+  .warp-ending__text { display: none; }
+}
 
 .board canvas {
   display: block;
@@ -439,10 +455,11 @@ canvas:focus-visible {
 .board .warp-console {
   position: absolute;
   z-index: 3;
-  top: 50%;
+  /* Between the race's display above and the craft's row below, clear of both. */
+  top: 56%;
   display: flex;
   flex-direction: column;
-  width: clamp(43px, 11.2cqw, 58px);
+  width: clamp(44px, 11.2cqw, 58px);
   gap: clamp(7px, 1.8cqw, 11px);
   transform: translateY(-50%);
   pointer-events: auto;
@@ -513,10 +530,45 @@ canvas:focus-visible {
   box-shadow: inset 0 0 14px rgba(var(--system-ink), 0.2), 0 0 18px rgba(var(--system-ink), 0.3);
 }
 .board .warp-control:active:not(:disabled) { transform: scale(0.91); }
+
+/* How far a system has recharged: a fill along the foot of its button, full when ready. */
+.board .warp-control::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 3px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(var(--system-ink));
+  box-shadow: 0 0 6px rgba(var(--system-ink), 0.7);
+  transform: scaleX(var(--charge, 1));
+  transform-origin: left center;
+  transition: transform 160ms linear;
+}
+
+/* With a keyboard to hand, each control wears the key that presses it. */
+@media (hover: hover) and (pointer: fine) {
+  .board .warp-control::after,
+  .board .warp-turn::after {
+    content: attr(data-key);
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    min-width: 12px;
+    padding: 0 2px;
+    border: 1px solid rgba(226, 232, 240, 0.4);
+    border-radius: 3px;
+    color: rgba(226, 232, 240, 0.85);
+    font: 800 8px/11px system-ui, sans-serif;
+    text-align: center;
+  }
+}
 .board .warp-control:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .board .warp-control { transition: none; }
+  .board .warp-control,
+  .board .warp-control::before { transition: none; }
 }
 
 /* Flight controls are independent from combat consoles. The steering selector
@@ -525,10 +577,15 @@ canvas:focus-visible {
 .rail .warp-steering-switch {
   position: relative;
   z-index: 2;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 1px;
   width: max-content;
-  min-width: 134px;
-  min-height: 42px;
-  padding: 6px 13px;
+  max-width: calc(34% - 8px);
+  min-width: 88px;
+  min-height: 44px;
+  padding: 4px 10px;
   border: 1px solid rgba(125, 211, 252, 0.55);
   border-radius: 14px;
   background: linear-gradient(130deg, rgba(8, 15, 35, 0.93), rgba(35, 21, 58, 0.88));
@@ -539,26 +596,31 @@ canvas:focus-visible {
   touch-action: manipulation;
   cursor: pointer;
 }
-.rail .warp-steering-switch__cycle {
-  margin-left: 5px;
+.rail .warp-steering-switch__kicker {
   color: #d8b4fe;
+  font-size: 0.82em;
+  letter-spacing: 0.14em;
+}
+.rail .warp-steering-switch__name {
+  line-height: 1.1;
+  text-align: center;
 }
 .rail .warp-steering-switch:active { filter: brightness(1.22); }
 
 .board .warp-turn {
   position: absolute;
   z-index: 4;
-  bottom: 10.5%;
+  top: calc(100% + var(--gap));
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  width: clamp(55px, 16cqw, 78px);
-  min-height: clamp(82px, 22cqw, 110px);
-  padding: 7px 4px;
+  gap: 6px;
+  width: calc(33% - 4px);
+  height: var(--rail-h);
+  min-height: 44px;
+  padding: 0 8px;
   border: 2px solid rgba(125, 211, 252, 0.68);
-  background: linear-gradient(145deg, rgba(11, 28, 51, 0.86), rgba(16, 19, 46, 0.90));
+  background: linear-gradient(145deg, rgba(11, 28, 51, 0.92), rgba(16, 19, 46, 0.94));
   color: #b5f3ff;
   box-shadow: 0 0 16px rgba(34, 211, 238, 0.18), inset 0 1px rgba(255, 255, 255, 0.15);
   cursor: pointer;
@@ -567,19 +629,20 @@ canvas:focus-visible {
   user-select: none;
 }
 .board .warp-turn--left {
-  left: 1.6%;
-  border-radius: 22px 8px 8px 22px;
+  left: 0;
+  border-radius: 18px 8px 8px 18px;
 }
 .board .warp-turn--right {
-  right: 1.6%;
-  border-radius: 8px 22px 22px 8px;
+  right: 0;
+  flex-direction: row-reverse;
+  border-radius: 8px 18px 18px 8px;
 }
 .board .warp-turn__arrow {
-  font: 500 clamp(46px, 13cqw, 66px)/0.95 system-ui, sans-serif;
-  text-shadow: 0 0 18px rgba(125, 211, 252, 0.70);
+  font: 500 clamp(26px, 7cqw, 36px)/0.9 system-ui, sans-serif;
+  text-shadow: 0 0 14px rgba(125, 211, 252, 0.7);
 }
 .board .warp-turn__label {
-  font: 850 clamp(9px, 2.4cqw, 11px) system-ui, sans-serif;
+  font: 850 clamp(9px, 2.4cqw, 12px) system-ui, sans-serif;
   letter-spacing: 0.1em;
 }
 .board .warp-turn:active {
@@ -2695,7 +2758,41 @@ kbd {
     line-height: 1;
     color: #d5f4ff;
   }
-  [data-mode="warp"] .rail .warp-steering-switch__cycle { display: none; }
+  [data-mode="warp"] .rail .warp-steering-switch__kicker,
+  [data-mode="warp"] .rail .warp-steering-switch__name { display: none; }
+
+  /* The board takes the screen's full height, and there is room either side of it: the
+     bridge consoles and the steering buttons stand there, under the thumbs, and nothing
+     but the race itself is drawn over the lane. */
+  .board .warp-console {
+    top: 0;
+    width: clamp(48px, 13vh, 62px);
+    gap: 8px;
+    transform: none;
+  }
+  .board .warp-console--port { left: auto; right: calc(100% + 10px); }
+  .board .warp-console--starboard { right: auto; left: calc(100% + 10px); }
+  .board .warp-control { min-height: clamp(46px, 15vh, 60px); }
+  .board .warp-turn {
+    top: auto;
+    bottom: 0;
+    flex-direction: column;
+    gap: 2px;
+    width: clamp(56px, 16vh, 76px);
+    height: 33%;
+  }
+  .board .warp-turn--left { left: auto; right: calc(100% + 10px); }
+  .board .warp-turn--right { right: auto; left: calc(100% + 10px); flex-direction: column; }
+  .board .warp-turn__arrow { font-size: clamp(34px, 11vh, 48px); }
+  .board .warp-radio { left: 4%; width: 92%; }
+  .board .warp-radio__message { -webkit-line-clamp: 2; line-clamp: 2; }
+  /* The board is small here: the mission says only what to do, between the race's display
+     on either side. */
+  .board .warp-mission { top: 8.6%; left: 28%; width: 46%; padding: 2px 4px; }
+  .board .warp-mission__heading { display: none; }
+  .board .warp-mission__task { font-size: clamp(7px, 2.2vh, 9px); }
+  .warp-ending { padding: 1px 10px; font-size: 0.72rem; }
+  .warp-ending__text { display: none; }
 
   .stage {
     display: grid;

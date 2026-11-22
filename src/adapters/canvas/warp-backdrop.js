@@ -53,46 +53,53 @@ function sunset(scene) {
   ctx.save();
   ctx.lineCap = 'round';
 
+  // Each band of cirrus is one stroke, and the finer sunlit edges of all of them another:
+  // a stroke apiece cost a phone far more than the few pixels they cover.
+  /** @type {{ x: number, y: number, length: number }[]} */
+  const wisps = [];
   for (let layer = 0; layer < 3; layer += 1) {
     const shift = offsetOf(scene, layer / 2) + time * (still ? 0 : (layer + 1) * 0.00035);
+    ctx.beginPath();
     for (let index = 0; index < 6; index += 1) {
       const span = width + PAD * 2;
       const x = wrap(index * 139 + sample(index, layer + 2) * 95 + shift, span) - PAD;
       const y = 57 + layer * 38 + sample(index, layer + 21) * 43;
       const length = 40 + sample(index, layer + 32) * 115;
 
-      ctx.beginPath();
       ctx.moveTo(x - length * 0.55, y + 3);
       ctx.bezierCurveTo(x - length * 0.24, y - 4, x + length * 0.12, y - 9, x + length * 0.56, y - 3);
-      ctx.strokeStyle = layer === 0 ? 'rgba(251, 146, 160, 0.17)'
-        : layer === 1 ? 'rgba(251, 170, 117, 0.19)' : 'rgba(244, 114, 182, 0.12)';
-      ctx.lineWidth = 1.8 + layer * 2;
-      ctx.stroke();
-
-      // A second, finer sunlight edge suggests wispy cloud volume.
-      ctx.strokeStyle = 'rgba(254, 202, 172, 0.14)';
-      ctx.lineWidth = 0.75;
-      ctx.beginPath();
-      ctx.moveTo(x - length * 0.4, y - 1);
-      ctx.quadraticCurveTo(x, y - 10, x + length * 0.43, y - 6);
-      ctx.stroke();
+      wisps.push({ x, y, length });
     }
+    ctx.strokeStyle = layer === 0 ? 'rgba(251, 146, 160, 0.17)'
+      : layer === 1 ? 'rgba(251, 170, 117, 0.19)' : 'rgba(244, 114, 182, 0.12)';
+    ctx.lineWidth = 1.8 + layer * 2;
+    ctx.stroke();
   }
+
+  // A second, finer sunlight edge suggests wispy cloud volume.
+  ctx.strokeStyle = 'rgba(254, 202, 172, 0.14)';
+  ctx.lineWidth = 0.75;
+  ctx.beginPath();
+  for (const { x, y, length } of wisps) {
+    ctx.moveTo(x - length * 0.4, y - 1);
+    ctx.quadraticCurveTo(x, y - 10, x + length * 0.43, y - 6);
+  }
+  ctx.stroke();
 
   // Air traffic moves against the skyline at a much slower parallax rate.
   // Tiny chevrons give scale without creating targets that resemble pickups.
+  ctx.strokeStyle = 'rgba(251, 191, 136, 0.34)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
   for (let index = 0; index < 5; index += 1) {
     const x = wrap(index * 170 + 27 + offsetOf(scene, 0.08) * 0.6, width + PAD * 2) - PAD;
     const y = 92 + sample(index, 71) * 93;
     const s = 1.5 + sample(index, 72) * 2.8;
-    ctx.strokeStyle = 'rgba(251, 191, 136, 0.34)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
     ctx.moveTo(x - s, y + s * 0.3);
     ctx.lineTo(x, y);
     ctx.lineTo(x + s, y + s * 0.3);
-    ctx.stroke();
   }
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -140,14 +147,14 @@ function canyon(scene) {
     // Sedimentary ledges have a common slope but alternate lengths and elevation.
     ctx.strokeStyle = 'rgba(134, 239, 172, 0.15)';
     ctx.lineWidth = 1;
+    ctx.beginPath();
     for (let stratum = 0; stratum < 8; stratum += 1) {
       const x = -PAD + wrap(stratum * 117 + sample(stratum, layer + 83) * 31 + drift, span);
       const y = HORIZON - (layer === 0 ? 33 : 49) + (stratum % 3) * 12;
-      ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x + 20 + sample(stratum, 91) * 32, y + 2);
-      ctx.stroke();
     }
+    ctx.stroke();
   }
 
   // A fine sheet of dust across the canyon floor, behind the roadside cliffs.
@@ -182,23 +189,36 @@ function clouds(scene) {
     light.addColorStop(1, 'rgba(67, 56, 130, 0.13)');
     ctx.fillStyle = light;
 
+    // A layer's clouds are one shape, and their sunlit crowns one stroke.
+    /** @type {{ center: number, height: number, r: number }[]} */
+    const puffs = [];
+    ctx.beginPath();
     for (let index = 0; index < 6; index += 1) {
       const center = wrap(index * 134 + sample(index, layer + 41) * 73 + drifting, span) - PAD;
       const height = upper + sample(index, layer + 45) * 43;
       const r = 23 + sample(index, layer + 56) * 24;
 
-      ctx.beginPath();
+      ctx.moveTo(center - r * 0.55 + r, height);
       ctx.ellipse(center - r * 0.55, height, r, r * 0.48, 0, 0, TAU);
+      ctx.moveTo(center + r * 0.72, height - r * 0.31);
       ctx.ellipse(center, height - r * 0.31, r * 0.72, r * 0.8, 0, 0, TAU);
+      ctx.moveTo(center + r * 0.6 + r * 0.85, height);
       ctx.ellipse(center + r * 0.6, height, r * 0.85, r * 0.5, 0, 0, TAU);
-      ctx.fill();
-
-      ctx.strokeStyle = 'rgba(243, 232, 255, 0.12)';
-      ctx.lineWidth = 0.9;
-      ctx.beginPath();
-      ctx.ellipse(center - r * 0.14, height - r * 0.59, r * 0.48, r * 0.21, -0.2, Math.PI, TAU);
-      ctx.stroke();
+      puffs.push({ center, height, r });
     }
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(243, 232, 255, 0.12)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    for (const { center, height, r } of puffs) {
+      const x = center - r * 0.14;
+      const y = height - r * 0.59;
+      // Where the arc starts, so no line joins one crown to the next.
+      ctx.moveTo(x - r * 0.48 * Math.cos(0.2), y + r * 0.48 * Math.sin(0.2));
+      ctx.ellipse(x, y, r * 0.48, r * 0.21, -0.2, Math.PI, TAU);
+    }
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -226,14 +246,18 @@ function orbit(scene) {
   ctx.fillRect(-width, -58, width * 2, 148);
   ctx.restore();
 
-  for (let index = 0; index < 38; index += 1) {
-    const x = wrap(sample(index, 104) * (width + PAD * 2) + offsetOf(scene, 0.12) * (0.3 + sample(index, 105)), width + PAD * 2) - PAD;
-    const y = 18 + sample(index, 106) * (height * 0.59);
-    const radius = 0.45 + sample(index, 107) * 1.5;
-    const transparency = 0.2 + sample(index, 108) * 0.37;
-    ctx.fillStyle = 'rgba(199, 210, 254, ' + transparency + ')';
+  // The stars come in four brightnesses, each painted at once.
+  for (let band = 0; band < 4; band += 1) {
+    ctx.fillStyle = 'rgba(199, 210, 254, ' + (0.2 + (band + 0.5) / 4 * 0.37) + ')';
     ctx.beginPath();
-    ctx.arc(x, y, radius, 0, TAU);
+    for (let index = 0; index < 38; index += 1) {
+      if (Math.min(3, Math.floor(sample(index, 108) * 4)) !== band) continue;
+      const x = wrap(sample(index, 104) * (width + PAD * 2) + offsetOf(scene, 0.12) * (0.3 + sample(index, 105)), width + PAD * 2) - PAD;
+      const y = 18 + sample(index, 106) * (height * 0.59);
+      const radius = 0.45 + sample(index, 107) * 1.5;
+      ctx.moveTo(x + radius, y);
+      ctx.arc(x, y, radius, 0, TAU);
+    }
     ctx.fill();
   }
 
@@ -248,11 +272,11 @@ function orbit(scene) {
   }
 
   // Four irregular distant asteroid silhouettes keep the orbit from feeling empty.
+  ctx.beginPath();
   for (let index = 0; index < 4; index += 1) {
     const x = wrap(index * 214 + 77 + offsetOf(scene, 0.75) * 1.5, width + PAD * 2) - PAD;
     const y = 145 + sample(index, 119) * 90;
     const r = 3 + sample(index, 120) * 6;
-    ctx.beginPath();
     for (let corner = 0; corner < 6; corner += 1) {
       const angle = corner / 6 * TAU;
       const length = r * (0.74 + sample(index * 6 + corner, 121) * 0.45);
@@ -262,12 +286,12 @@ function orbit(scene) {
       else ctx.lineTo(px, py);
     }
     ctx.closePath();
-    ctx.fillStyle = 'rgba(49, 46, 102, 0.6)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(165, 180, 252, 0.24)';
-    ctx.lineWidth = 0.75;
-    ctx.stroke();
   }
+  ctx.fillStyle = 'rgba(49, 46, 102, 0.6)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(165, 180, 252, 0.24)';
+  ctx.lineWidth = 0.75;
+  ctx.stroke();
   ctx.restore();
 }
 

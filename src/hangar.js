@@ -17,11 +17,11 @@
  */
 export const HANGAR = Object.freeze({
   crafts: Object.freeze([
-    Object.freeze({ id: 'kestrel', name: 'Kestrel', kind: 'jet', price: 0, paint: 'cyan', blurb: 'Target Link · E: better guns and faster rocket lock for 4s.', stats: Object.freeze({ engine: 3, nitro: 3, grip: 3, armor: 3, guns: 3 }) }),
-    Object.freeze({ id: 'hornet', name: 'Hornet', kind: 'dart', price: 2500, paint: 'lime', blurb: 'Vector Dodge · E: phase through hazards for 2s.', stats: Object.freeze({ engine: 3, nitro: 4, grip: 5, armor: 1, guns: 2 }) }),
-    Object.freeze({ id: 'manta', name: 'Manta', kind: 'wing', price: 4000, paint: 'violet', blurb: 'Aero Surge · E: extended high-speed boost for 3s.', stats: Object.freeze({ engine: 5, nitro: 2, grip: 2, armor: 3, guns: 3 }) }),
-    Object.freeze({ id: 'bulwark', name: 'Bulwark', kind: 'heavy', price: 6000, paint: 'amber', blurb: 'Fortress · E: emergency shield and turret overdrive.', stats: Object.freeze({ engine: 2, nitro: 2, grip: 2, armor: 5, guns: 5 }) }),
-    Object.freeze({ id: 'halo', name: 'Halo', kind: 'saucer', price: 8000, paint: 'pink', blurb: 'Flux Drive · E: regenerate one nitro bar and phase briefly.', stats: Object.freeze({ engine: 4, nitro: 5, grip: 4, armor: 2, guns: 1 }) }),
+    Object.freeze({ id: 'kestrel', name: 'Kestrel', kind: 'jet', price: 0, paint: 'cyan', blurb: 'Warp: Target Link, sharper guns and a faster rocket lock.', stats: Object.freeze({ engine: 3, nitro: 3, grip: 3, armor: 3, guns: 3 }) }),
+    Object.freeze({ id: 'hornet', name: 'Hornet', kind: 'dart', price: 2500, paint: 'lime', blurb: 'Warp: Vector Dodge, phasing through hazards.', stats: Object.freeze({ engine: 3, nitro: 4, grip: 5, armor: 1, guns: 2 }) }),
+    Object.freeze({ id: 'manta', name: 'Manta', kind: 'wing', price: 4000, paint: 'violet', blurb: 'Warp: Aero Surge, a long high-speed boost.', stats: Object.freeze({ engine: 5, nitro: 2, grip: 2, armor: 3, guns: 3 }) }),
+    Object.freeze({ id: 'bulwark', name: 'Bulwark', kind: 'heavy', price: 6000, paint: 'amber', blurb: 'Warp: Fortress, an armor plate and turret overdrive.', stats: Object.freeze({ engine: 2, nitro: 2, grip: 2, armor: 5, guns: 5 }) }),
+    Object.freeze({ id: 'halo', name: 'Halo', kind: 'saucer', price: 8000, paint: 'pink', blurb: 'Warp: Flux Drive, a bar of nitro and a brief phase.', stats: Object.freeze({ engine: 4, nitro: 5, grip: 4, armor: 2, guns: 1 }) }),
   ]),
   systems: Object.freeze({ engine: 'Engine', nitro: 'Nitro', grip: 'Grip', armor: 'Armor', guns: 'Guns' }),
   prices: Object.freeze([500, 1200, 2500]),

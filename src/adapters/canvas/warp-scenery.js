@@ -1,5 +1,5 @@
 import { mixRgb, THEME } from './theme.js';
-import { drawSkyLighting } from './warp-lighting.js';
+import { drawSkyLighting, LIGHT_FLOOR, LIGHT_SWAY, lightShift, paintSkyLight } from './warp-lighting.js';
 import { drawBackdrop } from './warp-backdrop.js';
 import { drawWorldArchitecture } from './warp-materials.js';
 
@@ -224,26 +224,54 @@ export function fogLevel(depth) {
 }
 
 /**
+ * The sky's colors down to the horizon, and under it the ground's own color, or the depths
+ * the lane hangs over, between two lines.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Look} look
+ * @param {number} height the board's height
+ * @param {number} left
+ * @param {number} right
+ * @param {number} top
+ * @param {number} bottom
+ */
+function paintSkyColors(ctx, look, height, left, right, top, bottom) {
+  if (top < HORIZON) {
+    const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
+    look.sky.forEach((color, index) => sky.addColorStop(index / (look.sky.length - 1), color));
+    ctx.fillStyle = sky;
+    ctx.fillRect(left, top, right - left, HORIZON + 1 - top);
+  }
+
+  const under = ctx.createLinearGradient(0, HORIZON, 0, height);
+  under.addColorStop(0, `rgb(${look.ground ? mixRgb(look.ground[0], look.haze, 0.25) : look.depths})`);
+  under.addColorStop(look.ground ? 0.5 : 0.7, look.ground ? `rgb(${look.ground[1]})` : `rgb(${NIGHT})`);
+  under.addColorStop(1, `rgb(${NIGHT})`);
+  ctx.fillStyle = under;
+  ctx.fillRect(left, Math.max(top, HORIZON), right - left, bottom - Math.max(top, HORIZON));
+}
+
+/**
  * The sky, down to the horizon and a little under it, and what stands on the horizon. It
  * slides sideways as the lane turns, the far things less than the near.
  *
  * @param {Scene} scene
  */
 export function drawSky(scene) {
-  const { ctx, look, view, config, now, still } = scene;
+  const { ctx, look, view, config, now, still, glows } = scene;
   const { width, height } = config;
-  const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
-  look.sky.forEach((color, index) => sky.addColorStop(index / (look.sky.length - 1), color));
-  ctx.fillStyle = sky;
-  ctx.fillRect(-PAD, -PAD, width + PAD * 2, HORIZON + PAD + 1);
 
-  // Under the horizon: the ground's own color, or the depths the lane hangs over.
-  const under = ctx.createLinearGradient(0, HORIZON, 0, height);
-  under.addColorStop(0, `rgb(${look.ground ? mixRgb(look.ground[0], look.haze, 0.25) : look.depths})`);
-  under.addColorStop(look.ground ? 0.5 : 0.7, look.ground ? `rgb(${look.ground[1]})` : `rgb(${NIGHT})`);
-  under.addColorStop(1, `rgb(${NIGHT})`);
-  ctx.fillStyle = under;
-  ctx.fillRect(-PAD, HORIZON, width + PAD * 2, height - HORIZON + PAD);
+  // The sky, the top of the ground and the course's light glowing in it never change during a
+  // race, so they are painted once and copied each frame, slid with the light as the lane turns.
+  const left = -PAD - LIGHT_SWAY;
+  const right = width + PAD + LIGHT_SWAY;
+  const kept = glows.layer('warp-sky', `${look.skyline} ${width} ${height}`, right - left, LIGHT_FLOOR + PAD, (layer) => {
+    layer.translate(-left, PAD);
+    paintSkyColors(layer, look, height, left, right, -PAD, LIGHT_FLOOR);
+    paintSkyLight(layer, look, width, left, right);
+  });
+  ctx.drawImage(kept, left + lightShift(look, view.heading), -PAD);
+  paintSkyColors(ctx, look, height, -PAD, width + PAD, LIGHT_FLOOR, height + PAD);
 
   const slide = -view.heading * 70;
   const time = still ? 0 : now;

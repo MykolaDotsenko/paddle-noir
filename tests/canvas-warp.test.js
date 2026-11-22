@@ -4,19 +4,20 @@ import assert from 'node:assert/strict';
 import { drawWarp, viewOf } from '../src/adapters/canvas/warp.js';
 import { drawWarpHud, ordinal, standings } from '../src/adapters/canvas/warp-hud.js';
 import { fogLevel, hash, HORIZON, LOOKS, PAD, paletteOf } from '../src/adapters/canvas/warp-scenery.js';
+import { LIGHT_FLOOR, LIGHT_SWAY, lightShift } from '../src/adapters/canvas/warp-lighting.js';
 import { SUPER_STYLE, THEME } from '../src/adapters/canvas/theme.js';
 import { GAME_CONFIG, WARP_CONFIG } from '../src/config.js';
 import { WARP_COURSES } from '../src/courses.js';
 import { createInitialState, GAME_PHASE } from '../src/domain/game.js';
 import { buildCourse, heightAt, raceState } from '../src/domain/warp.js';
-import { callsNamed, createRecordingContext } from './support/fake-canvas.js';
+import { callsNamed, createRecordingContext, fakeGlows } from './support/fake-canvas.js';
 
 // The Warp game on the canvas: the course in perspective, over its hills, what is on it and
 // round it, the craft, and the race's own display.
 
 const config = WARP_CONFIG;
 const rules = config.warp;
-const glows = { get: (rgb) => ({ glow: rgb }) };
+const glows = fakeGlows;
 const CRAFT_Y = config.height - config.paddle.inset - config.paddle.height / 2;
 const REACH = (config.width - config.paddle.width) / 2;
 
@@ -134,6 +135,27 @@ test('every course paints a frame of its own, with nothing in the pure white kep
     // The sky, what is under it and the haze are painted past the board's edges; so is the ground, a strip a stretch.
     assert.equal(strips > 3, look.ground !== null, `${course.name}: ground under the lane, or none`);
     assert.equal(stroked(ctx, look.edge) > 50, true, `${course.name}: the lane's edges, a piece a stretch`);
+  });
+});
+
+test('the sky, the top of the ground and the course\'s light are painted once, and slid with the light as the lane turns', () => {
+  const sky = (state) => callsNamed(frame(state), 'drawImage').find((call) => call.args[0].layer === 'warp-sky');
+  const straight = sky(game({ z: 60, course: flat() }));
+  const layer = straight.args[0];
+
+  assert.equal(layer.key, `${LOOKS.sunset.skyline} ${config.width} ${config.height}`, 'kept for the course and the board');
+  assert.deepEqual([layer.width, layer.height], [config.width + (PAD + LIGHT_SWAY) * 2, LIGHT_FLOOR + PAD]);
+  assert.deepEqual(straight.args.slice(1), [-PAD - LIGHT_SWAY, -PAD], 'on a straight the light sits where it belongs');
+  const held = (name) => layer.calls.filter((call) => call.name === name).length;
+  assert.equal(held('createRadialGradient'), 1, 'the light');
+  assert.equal(held('createLinearGradient'), 2, 'the sky, and the ground just under the horizon');
+
+  WARP_COURSES.forEach((course, index) => {
+    const turning = game({ race: index, z: 300 });
+    const { heading } = viewOf(turning.warp, config);
+    const look = LOOKS[course.theme];
+    assert.equal(sky(turning).args[1], -PAD - LIGHT_SWAY + lightShift(look, heading), course.name);
+    assert.ok(Math.abs(lightShift(look, heading)) < LIGHT_SWAY, `${course.name}: the light never runs out of sky`);
   });
 });
 
@@ -325,7 +347,7 @@ test('over the race: the place out of the field, how well to place, the speed an
   const said = texts(ctx);
 
   assert.ok(said.includes('P3') && said.includes('/6'));
-  assert.ok(said.includes('TOP 4 GO THROUGH'));
+  assert.ok(said.includes(`TOP ${WARP_COURSES[0].qualify} GO THROUGH`));
   assert.ok(said.includes(String(Math.round(42 * 16))) && said.includes('KM/H'));
   assert.ok(said.includes(`RACE 1/5 · ${WARP_COURSES[0].name.toUpperCase()}`));
   assert.equal(callsNamed(ctx, 'arc').length, 5, 'a dot for each rival');
@@ -360,7 +382,7 @@ test('before a race the course is named and the start lights come on one a secon
   };
 
   assert.ok(lit(2.9).said.includes(WARP_COURSES[0].name.toUpperCase()));
-  assert.ok(lit(2.9).said.includes('FINISH IN THE TOP 4 TO GO THROUGH'));
+  assert.ok(lit(2.9).said.includes(`FINISH IN THE TOP ${WARP_COURSES[0].qualify} TO GO THROUGH`));
   assert.deepEqual([lit(2.9).on, lit(1.9).on, lit(0.5).on], [1, 2, 3]);
   assert.equal(lit(0).said.includes(WARP_COURSES[0].name.toUpperCase()), false, 'gone once they go green');
   assert.ok(texts(hud(game({ race: 4 }, { serveCountdown: 2, serveNumber: 0 }))).includes('FINISH IN THE TOP 2 TO GO THROUGH'));
