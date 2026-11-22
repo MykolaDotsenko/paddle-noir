@@ -325,11 +325,11 @@ test('over the race: the place out of the field, how well to place, the speed an
   const said = texts(ctx);
 
   assert.ok(said.includes('P3') && said.includes('/6'));
-  assert.ok(said.includes('TOP 3 GO THROUGH'));
+  assert.ok(said.includes('TOP 4 GO THROUGH'));
   assert.ok(said.includes(String(Math.round(42 * 16))) && said.includes('KM/H'));
   assert.ok(said.includes(`RACE 1/5 · ${WARP_COURSES[0].name.toUpperCase()}`));
   assert.equal(callsNamed(ctx, 'arc').length, 5, 'a dot for each rival');
-  assert.ok(texts(hud(game({ race: 4, place: 1 }))).includes('WIN TO GO THROUGH'));
+  assert.ok(texts(hud(game({ race: 4, place: 1 }))).includes('TOP 2 GO THROUGH'));
 });
 
 test('the place is amber in front, the player\'s color in a place that goes through, and rose out of one', () => {
@@ -337,7 +337,7 @@ test('the place is amber in front, the player\'s color in a place that goes thro
 
   assert.equal(placeColor(1), `rgb(${THEME.amber})`);
   assert.equal(placeColor(3), `rgb(${THEME.side.player.rgb})`);
-  assert.equal(placeColor(4), `rgb(${THEME.rose})`);
+  assert.equal(placeColor(5), `rgb(${THEME.rose})`);
 });
 
 test('the flow shows once tricks multiply, with a pip for each trick toward the next step, and turns amber at its highest', () => {
@@ -360,10 +360,10 @@ test('before a race the course is named and the start lights come on one a secon
   };
 
   assert.ok(lit(2.9).said.includes(WARP_COURSES[0].name.toUpperCase()));
-  assert.ok(lit(2.9).said.includes('FINISH IN THE TOP 3 TO GO THROUGH'));
+  assert.ok(lit(2.9).said.includes('FINISH IN THE TOP 4 TO GO THROUGH'));
   assert.deepEqual([lit(2.9).on, lit(1.9).on, lit(0.5).on], [1, 2, 3]);
   assert.equal(lit(0).said.includes(WARP_COURSES[0].name.toUpperCase()), false, 'gone once they go green');
-  assert.ok(texts(hud(game({ race: 4 }, { serveCountdown: 2, serveNumber: 0 }))).includes('WIN IT TO TAKE THE CUP'));
+  assert.ok(texts(hud(game({ race: 4 }, { serveCountdown: 2, serveNumber: 0 }))).includes('FINISH IN THE TOP 2 TO GO THROUGH'));
 });
 
 test('after the line everyone is listed in the order they came in, those still racing by how far along they are', () => {
