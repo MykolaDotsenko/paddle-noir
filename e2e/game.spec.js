@@ -1455,6 +1455,15 @@ test.describe('in Warp', () => {
     const stick = page.locator('[data-flight-stick]');
 
     await expect(switcher).toBeVisible();
+    // Regression: the mode switch must live BELOW the track, not cover the
+    // visible craft near the bottom center of the canvas.
+    await expect(page.locator('.board [data-warp-steering-switch]')).toHaveCount(0);
+    await expect(page.locator('.rail [data-warp-steering-switch]')).toBeVisible();
+    const trackBox = await page.locator('.board').boundingBox();
+    const selectorBox = await switcher.boundingBox();
+    expect(trackBox).not.toBeNull();
+    expect(selectorBox).not.toBeNull();
+    expect(selectorBox.y).toBeGreaterThanOrEqual(trackBox.y + trackBox.height - 1);
     await expect(switcher).toContainText('LEFT / RIGHT');
     await expect(left).toBeVisible();
     await expect(right).toBeVisible();
