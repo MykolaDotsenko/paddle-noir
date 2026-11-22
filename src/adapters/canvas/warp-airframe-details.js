@@ -22,7 +22,7 @@ import { mixRgb } from './theme.js';
  * @property {readonly (readonly [number, number, number])[]} engines engine positions
  */
 
-const STEEL = '148, 163, 184';
+const STEEL = '151, 162, 184';
 const HIGHLIGHT = '226, 232, 240';
 const GRAPHITE = '15, 23, 42';
 const SHADOW = '5, 6, 15';
