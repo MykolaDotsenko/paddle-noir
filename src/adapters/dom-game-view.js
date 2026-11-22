@@ -107,9 +107,9 @@ export class DomGameView {
     this.steeringSwitch = /** @type {HTMLButtonElement | null} */ (this.root.querySelector('[data-warp-steering-switch]'));
     this.steeringButtons = this.findAll('[data-warp-steer]');
     this.flightStickIndicator = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-flight-stick]'));
-    this.storyMission = this.root.querySelector('[data-warp-mission]');
-    this.storyRadio = this.root.querySelector('[data-warp-radio]');
-    this.storyEnding = this.root.querySelector('[data-warp-ending]');
+    this.storyMission = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-warp-mission]'));
+    this.storyRadio = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-warp-radio]'));
+    this.storyEnding = /** @type {HTMLElement | null} */ (this.root.querySelector('[data-warp-ending]'));
     this.lives = this.find('[data-lives]');
     this.matchPoint = this.find('[data-match-point]');
     this.continueLine = this.find('[data-continue]');
