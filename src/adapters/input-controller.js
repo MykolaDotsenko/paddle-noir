@@ -19,6 +19,27 @@ const BRIDGE_KEYS = Object.freeze(new Map([
 ]));
 const ABILITY_KEYS = new Set(['KeyE']);
 const SWIPE_UP_PIXELS = 34;
+const STICK_DEAD_ZONE = 0.12;
+const STICK_RADIUS_MIN = 45;
+const STICK_RADIUS_MAX = 88;
+
+/**
+ * Expo-style relative flight stick: a forgiving neutral zone avoids jitter,
+ * a progressive response curve offers precision near center and full steering
+ * at the edge. The flight remains horizontally constrained, like an arcade racer.
+ * @param {number} travel horizontal thumb displacement in CSS pixels
+ * @param {number} radius maximum displacement for full lock in CSS pixels
+ */
+export function analogFlightAxis(travel, radius) {
+  if (!Number.isFinite(travel) || !Number.isFinite(radius) || radius <= 0) return 0;
+  const magnitude = Math.min(1, Math.abs(travel) / radius);
+  if (magnitude <= STICK_DEAD_ZONE) return 0;
+  const t = (magnitude - STICK_DEAD_ZONE) / (1 - STICK_DEAD_ZONE);
+  return Math.sign(travel) * (0.15 * t + 0.85 * Math.pow(t, 1.55));
+}
+
+/** @param {PointerEvent} event */
+const touchPointer = (event) => event.pointerType === 'touch' || event.pointerType === 'pen';
 const INTERACTIVE_TAGS = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'];
 const INTERACTIVE_SELECTOR = INTERACTIVE_TAGS.join(',').toLowerCase();
 
@@ -90,6 +111,17 @@ export class InputController {
     this.document = document;
     this.config = config;
     this.players = 1;
+    /** @type {import('../application/ports.js').WarpSteeringMode} */
+    this.warpSteering = 'drag';
+    /** @type {Map<number, -1 | 1>} Independent left and right touch-button fingers. */
+    this.turnTouches = new Map();
+    /** @type {{ pointerId: number, x: number, y: number, radius: number } | null} */
+    this.stick = null;
+    this.stickAxis = 0;
+    /** @type {HTMLElement | null} */
+    this.stickIndicator = this.surface.querySelector?.('[data-flight-stick]') ?? null;
+    /** @type {HTMLElement | null} */
+    this.stickKnob = this.stickIndicator?.querySelector?.('[data-flight-knob]') ?? null;
     this.player = new PaddleInput();
     this.opponent = new PaddleInput();
     /** Whether the player has asked for their extra since the last snapshot. */
@@ -109,11 +141,24 @@ export class InputController {
    * With two players, touches on the top half of the board steer the top paddle and the
    * rest steer the bottom one; with one, every touch steers the bottom paddle.
    *
-   * @param {{ players: 1 | 2 }} layout
+   * @param {{ players: 1 | 2, warpSteering?: import('../application/ports.js').WarpSteeringMode }} layout
    */
-  configure({ players }) {
+  configure({ players, warpSteering = 'drag' }) {
+    if (players !== this.players || warpSteering !== this.warpSteering) {
+      this.player.release();
+      this.clearFlightTouch();
+    }
     this.players = players;
+    this.warpSteering = warpSteering;
     this.opponent.release();
+  }
+
+  clearFlightTouch() {
+    this.turnTouches.clear();
+    this.stick = null;
+    this.stickAxis = 0;
+    if (this.stickIndicator) this.stickIndicator.hidden = true;
+    if (this.stickKnob) this.stickKnob.style.transform = '';
   }
 
   connect() {
@@ -136,6 +181,7 @@ export class InputController {
       target.removeEventListener(type, listener);
     }
     this.listeners = [];
+    this.clearFlightTouch();
   }
 
   /**
@@ -256,6 +302,7 @@ export class InputController {
     this.player.release();
     this.opponent.release();
     this.action = false;
+    this.clearFlightTouch();
     this.commandHandler(GAME_COMMAND.PAUSE);
   }
 
@@ -287,6 +334,28 @@ export class InputController {
    * @param {boolean} isPress a press (click or tap) always takes over steering
    */
   handlePointer(event, isPress) {
+    // Touch modes are reserved for Warp. The rest of the cabinet retains its
+    // original absolute drag, hover-mouse and keyboard controls.
+    if (this.warpSteering !== 'drag' && this.players === 1) {
+      const target = /** @type {{ closest?: (selector: string) => Element | null, dataset?: DOMStringMap } | null} */ (event.target);
+      const turnButton = target?.closest?.('[data-warp-steer]')
+        ?? (target?.dataset?.warpSteer ? /** @type {unknown} */ (target) : null);
+      if (turnButton) {
+        if (isPress && this.warpSteering === 'buttons') {
+          const side = /** @type {{ dataset: { warpSteer?: string }, setPointerCapture?: (id: number) => void }} */ (turnButton);
+          this.turnTouches.set(event.pointerId, side.dataset.warpSteer === 'left' ? -1 : 1);
+          side.setPointerCapture?.(event.pointerId);
+          event.preventDefault?.();
+        }
+        return;
+      }
+      if (touchPointer(event)) {
+        if (this.warpSteering === 'stick') this.handleFlightStick(event, isPress);
+        // In buttons mode touch on empty road never accidentally shifts the ship.
+        return;
+      }
+    }
+
     if (isInteractiveTarget(event.target) || this.dialogOpen()) {
       return; // Buttons on the surface, and any open dialog, keep their own meaning.
     }
@@ -315,6 +384,41 @@ export class InputController {
 
     paddle.lastClientX = event.clientX;
     paddle.pointerX = ((event.clientX - rect.left) / rect.width) * this.config.width;
+  }
+
+  /**
+   * A virtual stick can start from any free point in the lower half of the
+   * canvas, without instantly moving the craft there. Only the owning pointer
+   * can move it. A second finger can still operate the bridge's five systems.
+   * @param {PointerEvent} event
+   * @param {boolean} isPress
+   */
+  handleFlightStick(event, isPress) {
+    if (this.dialogOpen() || isInteractiveTarget(event.target)) return;
+    const rect = this.board.getBoundingClientRect();
+    if (isPress) {
+      if (this.stick || event.clientY < rect.top + rect.height * 0.47) return;
+      this.stick = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        radius: Math.max(STICK_RADIUS_MIN, Math.min(STICK_RADIUS_MAX, rect.width * 0.24)),
+      };
+      this.player.pointerX = null;
+      this.player.pointerId = null;
+      this.stickAxis = 0;
+      if (this.stickIndicator) {
+        this.stickIndicator.style.left = `${event.clientX - rect.left}px`;
+        this.stickIndicator.style.top = `${event.clientY - rect.top}px`;
+        this.stickIndicator.hidden = false;
+      }
+      event.preventDefault?.();
+    }
+    if (!this.stick || event.pointerId !== this.stick.pointerId) return;
+    const dx = Math.max(-this.stick.radius, Math.min(this.stick.radius, event.clientX - this.stick.x));
+    const dy = Math.max(-this.stick.radius, Math.min(this.stick.radius, event.clientY - this.stick.y));
+    this.stickAxis = analogFlightAxis(dx, this.stick.radius);
+    if (this.stickKnob) this.stickKnob.style.transform = `translate3d(${dx * 0.53}px, ${dy * 0.53}px, 0)`;
   }
 
   /**
@@ -348,6 +452,13 @@ export class InputController {
 
   /** @param {PointerEvent} event */
   releasePointer(event) {
+    this.turnTouches.delete(event.pointerId);
+    if (this.stick?.pointerId === event.pointerId) {
+      this.stick = null;
+      this.stickAxis = 0;
+      if (this.stickIndicator) this.stickIndicator.hidden = true;
+      if (this.stickKnob) this.stickKnob.style.transform = '';
+    }
     for (const paddle of [this.player, this.opponent]) {
       if (paddle.pointerId === event.pointerId) {
         // The paddle stays where the finger left it; only the binding is dropped.
@@ -365,8 +476,9 @@ export class InputController {
    */
   snapshot() {
     const snapshot = {
-      horizontalAxis: this.player.axis,
-      pointerX: this.player.pointerX,
+      horizontalAxis: this.stick ? this.stickAxis
+        : Math.max(-1, Math.min(1, this.player.axis + [...this.turnTouches.values()].reduce((a, b) => a + b, 0))),
+      pointerX: this.stick || this.turnTouches.size ? null : this.player.pointerX,
       opponentAxis: this.opponent.axis,
       opponentPointerX: this.opponent.pointerX,
     };
