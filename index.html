@@ -124,7 +124,37 @@
               aria-describedby="controls-help"
             ></canvas>
 
-            <button type="button" class="warp-ability" data-warp-ability data-command="ability" aria-label="Activate aircraft special ability" hidden>✦ SPECIAL</button>
+            <!-- Bridge consoles: independent tactical controls, kept clear of the central
+                 flight path and ignored by pointer steering. -->
+            <div class="warp-console warp-console--port" data-warp-console role="group" aria-label="Port bridge controls" hidden>
+              <button type="button" class="warp-control warp-control--nitro" data-warp-control="nitro" data-command="warp-nitro" aria-label="Nitro boost" disabled>
+                <span class="warp-control__glyph" aria-hidden="true">ϟ</span>
+                <span class="warp-control__name">NITRO</span>
+                <span class="warp-control__status" data-warp-status>READY</span>
+              </button>
+              <button type="button" class="warp-control warp-control--guns" data-warp-control="guns" data-command="warp-guns" aria-label="Rapid-fire guns" disabled>
+                <span class="warp-control__glyph" aria-hidden="true">▥</span>
+                <span class="warp-control__name">GUNS</span>
+                <span class="warp-control__status" data-warp-status>READY</span>
+              </button>
+              <button type="button" class="warp-control warp-control--rockets" data-warp-control="rockets" data-command="warp-rockets" aria-label="Launch guided rocket" disabled>
+                <span class="warp-control__glyph" aria-hidden="true">➤</span>
+                <span class="warp-control__name">ROCKET</span>
+                <span class="warp-control__status" data-warp-status>LOCK</span>
+              </button>
+            </div>
+            <div class="warp-console warp-console--starboard" data-warp-console role="group" aria-label="Starboard bridge controls" hidden>
+              <button type="button" class="warp-control warp-control--shield" data-warp-control="shield" data-command="warp-shield" aria-label="Engage energy shield" disabled>
+                <span class="warp-control__glyph" aria-hidden="true">⬡</span>
+                <span class="warp-control__name">SHIELD</span>
+                <span class="warp-control__status" data-warp-status>READY</span>
+              </button>
+              <button type="button" class="warp-control warp-control--warp" data-warp-ability data-warp-control="warp" data-command="ability" aria-label="Engage warp drive" disabled>
+                <span class="warp-control__glyph" aria-hidden="true">✦</span>
+                <span class="warp-control__name">WARP</span>
+                <span class="warp-control__status" data-warp-status>READY</span>
+              </button>
+            </div>
 
             <p class="match-point" data-match-point hidden>Match point</p>
             <div class="versus" data-versus aria-hidden="true" hidden>
@@ -287,8 +317,8 @@
                   <li data-match-only><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Grab power-ups</strong> with the ball: Wide, Shrink, Turbo, Ghost and Multiball. Whoever hit last gets it.</span></li>
                   <li data-nova-only hidden><span class="tutorial__icon" aria-hidden="true">✈</span><span><strong>Your paddle is a starship.</strong> It fires by itself: steer out of the way of rocks and fire, and under what you want shot down.</span></li>
                   <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">➤</span><span><strong>Your paddle is a racing craft.</strong> It flies by itself: thread rings and gates, jump ramps, drift on the inside of bends, and slipstream rivals to slingshot past.</span></li>
-                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">◎</span><span><strong>Fight for your place.</strong> Swipe up, click or press ↑ to burn nitro, and ram at that speed. Guns fire at a rival dead ahead; rockets lock on by themselves.</span></li>
-                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Signature system:</strong> press <kbd>E</kbd> or tap <strong>Special</strong> on the court. Every craft has its own powered ability with a cooldown.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">◎</span><span><strong>Fly your own ship.</strong> Boost with nitro, activate rapid guns, launch guided rockets when a rival is in range, protect yourself with shields and engage warp drive for a speed surge.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Bridge controls:</strong> tap the side panels or use <kbd>W</kbd> nitro, <kbd>G</kbd> guns, <kbd>R</kbd> rockets, <kbd>F</kbd> shield, <kbd>E</kbd> warp. Rockets need a target lock; other systems recharge. Each craft has a unique warp effect.</span></li>
                   <li data-bricks-only hidden><span class="tutorial__icon" aria-hidden="true">▦</span><span><strong>Break every wall.</strong> Catch what falls with your paddle. A super goes through bricks, or takes a whole row.</span></li>
                 </ol>
                 <button type="button" class="cta" data-dismiss-tutorial autofocus>Got it</button>
