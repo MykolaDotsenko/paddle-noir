@@ -203,8 +203,9 @@ export class GameController {
 
   /** @param {GameCommand} command */
   handleCommand(command) {
-    if ([GAME_COMMAND.ABILITY, GAME_COMMAND.WARP_NITRO, GAME_COMMAND.WARP_GUNS,
-      GAME_COMMAND.WARP_ROCKETS, GAME_COMMAND.WARP_SHIELD].includes(command)) {
+    if (command === GAME_COMMAND.ABILITY || command === GAME_COMMAND.WARP_NITRO
+      || command === GAME_COMMAND.WARP_GUNS || command === GAME_COMMAND.WARP_ROCKETS
+      || command === GAME_COMMAND.WARP_SHIELD) {
       const control = command === GAME_COMMAND.ABILITY ? 'warp'
         : command === GAME_COMMAND.WARP_NITRO ? 'nitro'
           : command === GAME_COMMAND.WARP_GUNS ? 'guns'
