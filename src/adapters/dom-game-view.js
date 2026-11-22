@@ -100,8 +100,9 @@ export class DomGameView {
       over: this.find('[data-overlay="over"]'),
     };
     this.pauseButton = this.find('[data-hud-pause]');
-    /** Optional for stripped-down embedded layouts. */
-    this.abilityButton = /** @type {HTMLButtonElement | null} */ (this.root.querySelector('[data-warp-ability]'));
+    /** The starship bridge is only present in layouts that support Warp. */
+    this.bridgeButtons = /** @type {HTMLButtonElement[]} */ (this.findAll('[data-warp-control]'));
+    this.bridgePanels = this.findAll('[data-warp-console]');
     this.lives = this.find('[data-lives]');
     this.matchPoint = this.find('[data-match-point]');
     this.continueLine = this.find('[data-continue]');
@@ -698,11 +699,20 @@ export class DomGameView {
       this.showHighScores(presentation.highScores);
     }
 
-    if (this.abilityButton && presentation.warp) {
-      const cooldown = Math.ceil(presentation.warp.abilityCooldown);
-      const label = cooldown > 0 ? `✦ ${cooldown}s` : '✦ SPECIAL';
-      if (this.abilityButton.textContent !== label) this.abilityButton.textContent = label;
-      this.abilityButton.disabled = cooldown > 0 || presentation.phase !== GAME_PHASE.RUNNING;
+    // Update tiny status captions only when their value changes. This runs each
+    // frame, so avoid replacing the icon/label markup or spamming live regions.
+    if (presentation.warp) {
+      for (const button of this.bridgeButtons) {
+        const id = /** @type {'nitro' | 'guns' | 'rockets' | 'shield' | 'warp'} */ (button.dataset.warpControl);
+        const system = presentation.warp.controls[id];
+        if (!system) continue;
+        const caption = button.querySelector('[data-warp-status]');
+        if (caption && caption.textContent !== system.status) caption.textContent = system.status;
+        button.disabled = !system.ready || presentation.phase !== GAME_PHASE.RUNNING;
+        const label = `${id.toUpperCase()}: ${system.status}`;
+        if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+        button.dataset.active = String(['BURNING', 'FIRING', 'ONLINE', 'ENGAGED'].includes(system.status));
+      }
     }
 
     if (presentation.phase === GAME_PHASE.GAME_OVER && previous?.phase !== GAME_PHASE.GAME_OVER) {
@@ -803,7 +813,7 @@ export class DomGameView {
     } else if (phaseChanged && this.rendered !== null) {
       this.guideFocus(phase);
     }
-    if (this.abilityButton) this.abilityButton.hidden = mode !== 'warp' || phase !== GAME_PHASE.RUNNING;
+    for (const panel of this.bridgePanels) panel.hidden = mode !== 'warp' || phase !== GAME_PHASE.RUNNING;
     this.pauseButton.toggleAttribute('disabled', !inMatch);
     this.pauseButton.setAttribute('aria-label', phase === GAME_PHASE.PAUSED ? 'Resume' : 'Pause');
 

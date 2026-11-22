@@ -273,7 +273,7 @@
     }
   },
   "warp": {
-    "digest": "5dfb487126d9bbe71e5dec8ea1254a506ac3db32f248ac4c5016395e29c87de6",
+    "digest": "f11147165e0b26d37c7cc353fe5663900b2c3cfc463e5b1ced830a9279d8ce9c",
     "summary": {
       "steps": 28800,
       "score": {
@@ -287,34 +287,36 @@
       "longestRally": 0,
       "phase": "running",
       "events": {
-        "ammo": 11,
-        "boost": 10,
-        "bump": 20,
+        "ammo": 27,
+        "boost": 36,
+        "bump": 48,
         "countdown": 12,
-        "crash": 73,
-        "explosion": 11,
+        "crash": 44,
+        "explosion": 18,
         "final-stretch": 3,
-        "flow": 14,
-        "gun-fire": 266,
-        "jump": 34,
-        "land": 7,
-        "life-lost": 3,
+        "flow": 28,
+        "gate": 7,
+        "gun-fire": 481,
+        "jump": 59,
+        "land": 4,
+        "life-lost": 1,
         "lightning": 2,
-        "near-miss": 10,
-        "overtake": 26,
-        "overtaken": 24,
+        "near-miss": 16,
+        "overtake": 51,
+        "overtaken": 36,
         "race-finish": 3,
-        "ring": 71,
-        "rocket-launch": 11,
+        "ring": 80,
+        "rocket-launch": 19,
         "serve": 4,
-        "slipstream": 31,
-        "super-fire": 3,
-        "super-ready": 3,
-        "takedown": 18
+        "shockwave": 1,
+        "slipstream": 51,
+        "super-fire": 5,
+        "super-ready": 5,
+        "takedown": 36
       },
-      "race": 0,
-      "points": 1100,
-      "lives": 37
+      "race": 2,
+      "points": 16850,
+      "lives": 39
     }
   }
 }

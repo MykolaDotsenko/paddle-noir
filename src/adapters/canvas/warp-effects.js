@@ -191,6 +191,23 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       }
       return true;
     }
+    case 'warp-system': {
+      const shielding = event.system === 'shield';
+      const rgb = shielding ? SHIELD : THEME.amber;
+      effects.ring({ x: craft.x, y: craft.y, color: `rgba(${rgb}, 0.85)`, radius: 25, growth: shielding ? 320 : 210, life: 0.4, width: 3 });
+      effects.label({ text: shielding ? 'SHIELDS ONLINE' : 'RAPID FIRE!', x: width / 2, y: height * 0.44, color: `rgb(${rgb})`, life: 0.6, size: 22 });
+      effects.pulse(0.35);
+      return true;
+    }
+    case 'craft-ability': {
+      const rgb = '216, 180, 254';
+      effects.ring({ x: craft.x, y: craft.y, color: `rgba(${rgb}, 0.9)`, radius: 20, growth: 530, life: 0.6, width: 5 });
+      effects.burst({ x: craft.x, y: craft.y + 14, color: `rgb(${rgb})`, count: 25, speed: 330, direction: Math.PI / 2, spread: 0.95, life: 0.38, size: 2 });
+      effects.label({ text: 'WARP ENGAGED!', x: width / 2, y: height * 0.42, color: `rgb(${rgb})`, life: 0.8, size: 29 });
+      effects.flashSparingly(`rgb(${rgb})`, 0.12);
+      effects.pulse(0.65);
+      return true;
+    }
     case 'nitro':
       // The tank lets go: fire out of the engines, a ring off the craft, and the word.
       effects.burst({ x: craft.x, y: craft.y + 14, color: `rgb(${NITRO})`, count: 26, speed: 320, direction: Math.PI / 2, spread: 1.1, life: 0.4, size: 2.2 });

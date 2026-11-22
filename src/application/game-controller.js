@@ -16,7 +16,7 @@ import { highScores } from './high-scores.js';
 import { interpolateState } from './interpolation.js';
 import { nicknameFor } from './nicknames.js';
 import { GAME_COMMAND } from './ports.js';
-import { activateWarpAbility } from '../domain/warp.js';
+import { activateWarpControl, warpControlStatus } from '../domain/warp.js';
 
 /**
  * @import { GameConfig, GameState } from '../domain/types.js'
@@ -203,8 +203,14 @@ export class GameController {
 
   /** @param {GameCommand} command */
   handleCommand(command) {
-    if (command === GAME_COMMAND.ABILITY) {
-      const next = activateWarpAbility(this.state, this.config);
+    if (command === GAME_COMMAND.ABILITY || command === GAME_COMMAND.WARP_NITRO
+      || command === GAME_COMMAND.WARP_GUNS || command === GAME_COMMAND.WARP_ROCKETS
+      || command === GAME_COMMAND.WARP_SHIELD) {
+      const control = command === GAME_COMMAND.ABILITY ? 'warp'
+        : command === GAME_COMMAND.WARP_NITRO ? 'nitro'
+          : command === GAME_COMMAND.WARP_GUNS ? 'guns'
+            : command === GAME_COMMAND.WARP_ROCKETS ? 'rockets' : 'shield';
+      const next = activateWarpControl(this.state, this.config, control);
       if (next !== this.state) {
         this.state = next;
         this.previousState = next;
@@ -611,6 +617,7 @@ export class GameController {
       craft: chosenCraft(this.catalog.hangar, this.preferences.get().hangar).name,
       abilityCooldown: race.abilityCooldown,
       abilityTime: race.abilityTime,
+      controls: warpControlStatus(this.state, this.config),
       tickets: this.preferences.get().tickets,
       earned: this.warpEarned,
     };

@@ -87,7 +87,7 @@ test('every other game has no race in it', () => {
   assert.equal(GAME_CONFIG.warp, null);
 });
 
-test('a Warp cup starts at the first race, with three credits, the player at the back of the grid and no ball in play', () => {
+test('a Warp cup starts at the first race, with extra credits, the player at the back of the grid and no ball in play', () => {
   const state = createInitialState(WARP_CONFIG, 1);
   const { rivals } = state.warp;
 
@@ -173,7 +173,7 @@ test('a hazard flown into spins the craft and costs it speed, its chain and a mo
   const [crash] = named(events, 'crash');
 
   assert.equal(crash.kind, 'mine');
-  assert.ok(hit.warp.speed < RULES.topSpeed * 0.6);
+  assert.ok(hit.warp.speed < RULES.topSpeed * 0.8, 'a crash is noticeable but no longer stalls the craft');
   assert.equal(hit.warp.chain, 0);
   assert.ok(hit.warp.spin > 0 && hit.warp.safe > 0);
 
@@ -450,13 +450,13 @@ test('the game\'s own cup is well made: five courses, named, faster fields and t
 
   for (const course of WARP_COURSES) {
     assert.equal(course.pilots.length, 5, course.name);
-    assert.ok(course.qualify >= 1 && course.qualify <= 3, course.name);
+    assert.ok(course.qualify >= 1 && course.qualify <= 4, course.name);
   }
 
   const pace = WARP_COURSES.map((course) => Math.max(...course.pilots.map((pilot) => pilot.pace)));
   assert.ok(pace.every((fastest, index) => index === 0 || fastest >= pace[index - 1]));
   assert.equal(WARP_COURSES.at(-1).pilots.at(-1).name, 'Landlord');
-  assert.equal(WARP_COURSES.at(-1).qualify, 1, 'the last race must be won');
+  assert.equal(WARP_COURSES.at(-1).qualify, 2, 'the finale still demands a top-two finish');
 });
 
 test('the start of a race and a few hashes are as they should be', () => {

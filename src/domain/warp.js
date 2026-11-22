@@ -28,6 +28,7 @@ import { chargeMeter, isLoaded } from './supers.js';
  *   GameConfig,
  *   GameEvent,
  *   GameState,
+ *   Loadout,
  *   Missile,
  *   Racer,
  *   SuperKind,
@@ -145,6 +146,10 @@ export function activateWarpAbility(state, config) {
     ...current,
     abilityTime: system.duration,
     abilityCooldown: system.cooldown,
+    // The shared warp coil gives every hull a cinematic speed surge and a brief
+    // phase window. Individual craft systems below keep their own identities.
+    boost: Math.max(current.boost, 1.7),
+    ghost: Math.max(current.ghost, 0.85),
   };
 
   switch (kind) {
@@ -176,6 +181,138 @@ export function activateWarpAbility(state, config) {
     ...state,
     warp: race,
     events: [{ type: 'craft-ability', kind, z: race.z, x: laneX(state, config) }],
+  };
+}
+
+
+/** The bridge's five tactile controls, in their physical panel order. */
+export const WARP_CONTROLS = Object.freeze(['nitro', 'guns', 'rockets', 'shield', 'warp']);
+
+/** @typedef {'nitro' | 'guns' | 'rockets' | 'shield' | 'warp'} WarpControl */
+
+/** Cooldowns are simulation seconds: pausing the game pauses every system. */
+const GUN_BURST_SECONDS = 2.6;
+const GUN_RECHARGE_SECONDS = 8;
+const SHIELD_SECONDS = 3.2;
+const SHIELD_RECHARGE_SECONDS = 14;
+const MANUAL_ROCKET_RANGE = 150;
+
+/**
+ * @param {WarpState} race
+ * @param {WarpConfig} rules
+ * @param {number} x
+ * @returns {Racer | undefined}
+ */
+function manualTarget(race, rules, x) {
+  return race.rivals
+    .filter((rival) => rival.finish === 0 && rival.spin === 0 && rival.air === 0
+      && rival.z - race.z > ROCKET_NEAR
+      && rival.z - race.z <= Math.max(rules.rocketRange, MANUAL_ROCKET_RANGE)
+      && Math.abs(rival.x - x) <= 1.05)
+    .sort((a, b) => a.z - b.z)[0];
+}
+
+/**
+ * @param {WarpState} race
+ * @param {Loadout} loadout
+ * @param {number} x
+ * @param {GameEvent[]} events
+ */
+function igniteNitro(race, loadout, x, events) {
+  if (race.nitro < 1 || race.nitroBurn > 0 || race.spin > 0) return false;
+  race.nitro -= 1;
+  race.nitroBurn = loadout.nitroSeconds;
+  events.push({ type: 'nitro', z: race.z, x });
+  return true;
+}
+
+/**
+ * Activates a bridge control immediately from touch or keyboard. Guns have an
+ * on-demand overdrive, missiles can be manually launched at an acquired target,
+ * and the shield is a renewable emergency energy field. Existing auto-aim keeps
+ * the game accessible: these controls offer more agency without requiring spam.
+ *
+ * @param {GameState} state
+ * @param {GameConfig} config
+ * @param {WarpControl} control
+ * @returns {GameState}
+ */
+export function activateWarpControl(state, config, control) {
+  const current = state.warp;
+  const rules = config.warp;
+  if (control === 'warp') return activateWarpAbility(state, config);
+  if (state.phase !== 'running' || !current || !rules || state.serveCountdown > 0
+      || current.finished || current.calm > 0 || current.spin > 0) return state;
+
+  const race = { ...current };
+  const x = laneX(state, config);
+  /** @type {GameEvent[]} */
+  const events = [];
+
+  switch (control) {
+    case 'nitro':
+      if (!igniteNitro(race, rules.loadout, x, events)) return state;
+      break;
+    case 'guns':
+      if (race.gunCooldown > 0) return state;
+      race.gunCooldown = GUN_RECHARGE_SECONDS;
+      race.gunTime = GUN_BURST_SECONDS;
+      race.gunIn = 0;
+      events.push({ type: 'warp-system', system: 'guns', z: race.z, x });
+      break;
+    case 'rockets': {
+      if (race.rockets < 1 || race.air > 0) return state;
+      const target = manualTarget(race, rules, x);
+      if (!target) return state;
+      race.rockets -= 1;
+      race.fired += 1;
+      race.missiles = [...race.missiles, { id: race.fired, z: race.z + 2, x, target: target.id }];
+      race.lock = 0;
+      race.lockOn = 0;
+      events.push({ type: 'rocket-launch', pilot: target.pilot, z: race.z, x });
+      break;
+    }
+    case 'shield':
+      if (race.shieldCooldown > 0) return state;
+      race.shieldTime = SHIELD_SECONDS;
+      race.shieldCooldown = SHIELD_RECHARGE_SECONDS;
+      events.push({ type: 'warp-system', system: 'shield', z: race.z, x });
+      break;
+    default:
+      return state;
+  }
+  return { ...state, warp: race, events };
+}
+
+/**
+ * Every control has explicit state so the touch bridge says WHY a press cannot
+ * work (cooldown, no ammunition, no lock, or still engaged).
+ *
+ * @param {GameState} state
+ * @param {GameConfig} config
+ */
+export function warpControlStatus(state, config) {
+  const race = /** @type {WarpState} */ (state.warp);
+  const rules = /** @type {WarpConfig} */ (config.warp);
+  const active = state.phase === 'running' && state.serveCountdown === 0
+    && !race.finished && race.calm === 0 && race.spin === 0;
+  /** @param {number} seconds */
+  const clock = (seconds) => Math.ceil(Math.max(0, seconds)) + 's';
+  const target = manualTarget(race, rules, laneX(state, config));
+  /** @param {boolean} enabled @param {string} text */
+  const ready = (enabled, text) => ({ ready: active && enabled, status: text });
+
+  return {
+    nitro: ready(race.nitro >= 1 && race.nitroBurn === 0,
+      race.nitroBurn > 0 ? 'BURNING' : race.nitro >= 1 ? Math.floor(race.nitro) + ' READY' : 'EMPTY'),
+    guns: ready(race.gunCooldown === 0,
+      race.gunTime > 0 ? 'FIRING' : race.gunCooldown > 0 ? clock(race.gunCooldown) : 'READY'),
+    rockets: ready(race.air === 0 && race.rockets > 0 && Boolean(target),
+      race.rockets === 0 ? 'EMPTY' : target ? race.rockets + ' LOCK' : 'SCANNING'),
+    shield: ready(race.shieldCooldown === 0,
+      race.shieldTime > 0 ? 'ONLINE' : race.shieldCooldown > 0 ? clock(race.shieldCooldown) : 'READY'),
+    warp: ready(race.abilityCooldown === 0,
+      race.abilityTime > 0 ? 'ENGAGED' : race.abilityCooldown > 0 ? clock(race.abilityCooldown) : 'READY'),
   };
 }
 
@@ -323,6 +460,10 @@ export function buildCourse(config, race) {
   /** @type {TrackItem[]} */
   const laid = [];
   const { every } = layout;
+  // A gentle opening gives the player time to understand steering and the bridge.
+  // Later courses bring danger earlier, but never immediately off the starting grid.
+  const opening = [480, 320, 260, 210, 190][Math.min(race, 4)];
+  const hazards = new Set(['mine', 'debris', 'cargo', 'gate']);
   /** @type {[TrackItemKind, number, number, number][]} what, how far apart, how far across, how far it drifts */
   const kinds = [['ring', every.rings, 0.6, 0], ['pad', every.pads, 0.7, 0], ['mine', every.mines, 0.8, 0], ['debris', every.debris, 0.7, 0.3], ['cargo', every.cargo, 0.55, 0], ['ramp', every.ramps, 0.5, 0], ['gate', every.gates, 0.45, 0], ['crate', every.crates, 0.6, 0], ['cell', every.cells, 0.6, 0]];
 
@@ -332,6 +473,7 @@ export function buildCourse(config, race) {
     }
 
     for (let z = CLEAR_START + apart * draw(0.2, 0.8); z < layout.length - CLEAR_END; z += apart * draw(0.75, 1.25)) {
+      if (hazards.has(kind) && z < opening) continue;
       const x = draw(-across, across);
       laid.push({ id: laid.length + 1, kind, z, x, sway: sway * draw(0.5, 1), air: false });
 
@@ -421,6 +563,10 @@ export function raceState(config, race, points = 0, lost = 0) {
     // A race starts with a bar in the tank and a rocket aboard, if the craft carries any.
     nitro: Math.min(1, rules.loadout.nitroBars),
     nitroBurn: 0,
+    gunTime: 0,
+    gunCooldown: 0,
+    shieldTime: 0,
+    shieldCooldown: 0,
     abilityCooldown: 0,
     abilityTime: 0,
     shield: rules.loadout.shields,
@@ -622,6 +768,13 @@ function pass(lap, item, x) {
 function crash(lap, kind, z, x) {
   const { race } = lap;
   const rules = rulesOf(lap.config);
+
+  if (race.shieldTime > 0) {
+    race.shieldTime = 0;
+    race.safe = rules.safeSeconds;
+    lap.events.push({ type: 'shield-hit', z, x, left: race.shield });
+    return;
+  }
 
   if (race.shield > 0) {
     race.shield -= 1;
@@ -904,16 +1057,17 @@ function fight(lap, x, deltaSeconds) {
   // The guns.
   const targeting = rules.loadout.kind === 'jet' && race.abilityTime > 0;
   const fortress = rules.loadout.kind === 'heavy' && race.abilityTime > 0;
-  const mark = ahead.find((rival) => rival.z - race.z <= rules.gunRange * (targeting ? 1.3 : 1)
-    && Math.abs(rival.x - x) <= rules.gunAim * (targeting ? 1.65 : 1));
+  const overdrive = race.gunTime > 0;
+  const mark = ahead.find((rival) => rival.z - race.z <= rules.gunRange * (targeting ? 1.3 : overdrive ? 1.18 : 1)
+    && Math.abs(rival.x - x) <= rules.gunAim * (targeting ? 1.65 : overdrive ? 1.4 : 1));
   race.aim = mark ? mark.id : 0;
   race.gunIn = Math.max(0, race.gunIn - deltaSeconds);
 
   if (mark) {
-    mark.hull -= rules.loadout.damage * (fortress ? 1.55 : 1) * deltaSeconds;
+    mark.hull -= rules.loadout.damage * (fortress ? 1.55 : 1) * (overdrive ? 2.25 : 1) * deltaSeconds;
 
     if (race.gunIn === 0) {
-      race.gunIn = GUN_EVERY;
+      race.gunIn = overdrive ? GUN_EVERY * 0.65 : GUN_EVERY;
       events.push({ type: 'gun-fire', z: mark.z, x: mark.x });
     }
 
@@ -1051,13 +1205,13 @@ export function advanceWarp(state, deltaSeconds, config, events, action = false)
   race.nitroBurn = Math.max(0, race.nitroBurn - deltaSeconds);
   race.abilityCooldown = Math.max(0, (race.abilityCooldown ?? 0) - deltaSeconds);
   race.abilityTime = Math.max(0, (race.abilityTime ?? 0) - deltaSeconds);
+  race.gunTime = Math.max(0, (race.gunTime ?? 0) - deltaSeconds);
+  race.gunCooldown = Math.max(0, (race.gunCooldown ?? 0) - deltaSeconds);
+  race.shieldTime = Math.max(0, (race.shieldTime ?? 0) - deltaSeconds);
+  race.shieldCooldown = Math.max(0, (race.shieldCooldown ?? 0) - deltaSeconds);
 
   // A bar of nitro, when the player asks and there is one.
-  if (action && race.nitro >= 1 && race.nitroBurn === 0 && race.spin === 0) {
-    race.nitro -= 1;
-    race.nitroBurn = loadout.nitroSeconds;
-    events.push({ type: 'nitro', z: race.z, x });
-  }
+  if (action) igniteNitro(race, loadout, x, events);
 
   // Down from a jump.
   if (race.air > 0) {
