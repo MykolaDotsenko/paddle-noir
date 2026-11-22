@@ -1,4 +1,5 @@
 import { mixRgb, THEME } from './theme.js';
+import { drawSkyLighting } from './warp-lighting.js';
 
 /**
  * What surrounds a Warp course: the look of each of the five, its sky and what stands on its
@@ -282,6 +283,9 @@ export function drawSky(scene) {
     default:
       drawCore(scene, time);
   }
+
+  // Atmospheric scatter sits behind the track, but over the distant skyline.
+  drawSkyLighting(scene);
 
   // A glow along the horizon.
   const haze = ctx.createLinearGradient(0, HORIZON - 18, 0, HORIZON + 30);

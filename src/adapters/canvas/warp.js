@@ -2,6 +2,7 @@ import { curveAt, heightAt, ITEM_RADIUS, itemX, laneX, onRumble } from '../../do
 import { FONT, mixRgb, roundedRect, SUPER_STYLE, THEME } from './theme.js';
 import { drawCell, drawCrate, drawHullBar, weapons } from './warp-combat.js';
 import { CRAFT_SCALE, drawHull, drawShield, drawUnderglow } from './warp-craft.js';
+import { drawEngineWake, drawJumpLighting, drawTrackLighting } from './warp-lighting.js';
 import { CORE_LIGHT, drawDust, drawSky, fogLevel, hash, HORIZON, LOOKS, PAD, paletteOf, roadside } from './warp-scenery.js';
 
 /**
@@ -257,7 +258,8 @@ function lanePieces(scene) {
  * @param {Row} near
  * @param {Row} far
  */
-function drawPiece({ ctx, palette, race, view, config }, near, far) {
+function drawPiece(scene, near, far) {
+  const { ctx, palette, race, view, config } = scene;
   if (far.left.y >= near.left.y) {
     return;
   }
@@ -302,6 +304,7 @@ function drawPiece({ ctx, palette, race, view, config }, near, far) {
 
   // The surface.
   quad(ctx, near.left, near.right, far.right, far.left, palette.lane[band ? 0 : 1][level]);
+  drawTrackLighting(scene, near, far);
 
   // Rumble strips.
   const strip = band ? palette.stripe : STRIP_DARK;
@@ -955,6 +958,7 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
   // Its shadow stays on the lane, smaller the higher the craft is, and so does its light.
   shadow(ctx, x, ground + 15, 36 * (1 - high * 0.4), 1);
   drawUnderglow(ctx, nitro ? NITRO_LIGHT : loadout.glow, x, ground + 15, 58 * (1 - high * 0.4), nitro ? 1 : 0.85);
+  drawJumpLighting(ctx, { x, y, groundY: ground + 15, glow: nitro ? NITRO_LIGHT : loadout.glow });
 
   if (race.burn > 0) {
     ctx.globalCompositeOperation = 'lighter';
@@ -1018,6 +1022,8 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     ctx.arc(x, y + 2, 50, Math.PI * 0.2, Math.PI * (0.2 + 0.6 * race.drift));
     ctx.stroke();
   }
+
+  drawEngineWake(ctx, { x, y, glow: nitro ? NITRO_LIGHT : loadout.glow, speed: race.speed, boost: nitro || race.burn > 0, now, still });
 
   ctx.globalAlpha = race.ghost > 0 ? 0.5 : race.safe > 0 && race.spin === 0 ? 0.55 + (still ? 0 : 0.25 * Math.sin(now / 120)) : 1;
   drawHull(ctx, {
