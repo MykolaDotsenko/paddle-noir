@@ -1,3 +1,5 @@
+/** @import { WarpStoryState } from './warp-story.js' */
+
 /**
  * Shapes shared by the game domain. This module is type-only: it exports no runtime values.
  *
@@ -223,6 +225,7 @@
  *
  * @typedef {object} WarpState A Warp race and the cup it is part of.
  * @property {number} race the race being flown, from 0
+ * @property {WarpStoryState} story the optional chapter mission, transmissions and prior recovered signal fragments
  * @property {Course} course
  * @property {number} time seconds since the start lights went green
  * @property {number} z how far the player has flown, in meters
@@ -322,6 +325,7 @@
  *   | { type: 'nitro', z: number, x: number }
  *   | { type: 'warp-system', system: 'guns' | 'shield', z: number, x: number }
  *   | { type: 'craft-ability', kind: CraftKind, z: number, x: number }
+ *   | { type: 'story-complete', race: number, points: number, reward: 'nitro' | 'shield' | 'rocket' }
  *   | { type: 'gun-fire', z: number, x: number }
  *   | { type: 'rocket-launch', pilot: number, z: number, x: number }
  *   | { type: 'explosion', z: number, x: number }
