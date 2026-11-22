@@ -296,7 +296,9 @@ export function warpControlStatus(state, config) {
   const rules = /** @type {WarpConfig} */ (config.warp);
   const active = state.phase === 'running' && state.serveCountdown === 0
     && !race.finished && race.calm === 0 && race.spin === 0;
+  /** @param {number} seconds */
   const clock = (seconds) => Math.ceil(Math.max(0, seconds)) + 's';
+  /** @param {boolean} enabled @param {string} text */
   const ready = (enabled, text) => ({ ready: active && enabled, status: text });
 
   return {
