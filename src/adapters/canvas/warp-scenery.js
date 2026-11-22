@@ -69,6 +69,14 @@ import { drawWorldArchitecture } from './warp-materials.js';
  * @property {number} now milliseconds
  * @property {GlowSprites} glows
  * @property {boolean} still whether motion is reduced
+ * @property {Trail[]} [trails] the rivals' slipstreams on the lane
+ *
+ * @typedef {object} Trail a rival's slipstream, as it lies on the lane behind the rival
+ * @property {number} x across the lane, in half lanes
+ * @property {number} from where it ends, farthest behind the rival, in meters along the course
+ * @property {number} to where it starts, just behind the rival
+ * @property {string} rgb the pilot's color
+ * @property {number} lit 0 unless the player is in it, then from 0.4 to 1 as the slingshot charges
  *
  * @typedef {{ depth: number, draw: () => void }} Sprite something to paint, and how far it is
  */

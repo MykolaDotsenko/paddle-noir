@@ -227,18 +227,48 @@ export function tuneCraft(catalog, { tickets, hangar }, id, system) {
 }
 
 /**
+ * How many fragments of the Warp story's signal the player has recovered, from the chapters
+ * recovered, a bit a chapter.
+ *
+ * @param {number} signal
+ */
+export function fragmentsIn(signal) {
+  let count = 0;
+
+  for (let rest = Math.max(0, Math.floor(signal)); rest > 0; rest = Math.floor(rest / 2)) {
+    count += rest % 2;
+  }
+
+  return count;
+}
+
+/**
+ * Whether the player may wear a decal: any of them, but one earned from the story only once
+ * they have recovered its fragments.
+ *
+ * @param {{ fragments?: number }} decal
+ * @param {number} fragments recovered
+ */
+export function decalOpen(decal, fragments) {
+  return decal.fragments === undefined || fragments >= decal.fragments;
+}
+
+/**
  * Paints a craft the player has: its paint, how the paint is marked, or the light under it.
  *
  * @param {HangarCatalog} catalog
  * @param {Wallet} wallet
  * @param {string} id
  * @param {Partial<Pick<CraftSetup, 'paint' | 'decal' | 'glow'>>} look
- * @returns {Wallet | null} null if the player does not have the craft, or the hangar has no such paint
+ * @param {number} [fragments] fragments of the story's signal recovered, which earn a decal
+ * @returns {Wallet | null} null if the player does not have the craft, the hangar has no such paint, or
+ *   the decal is not yet earned
  */
-export function paintCraft(catalog, { tickets, hangar }, id, look) {
+export function paintCraft(catalog, { tickets, hangar }, id, look, fragments = 0) {
   const spec = catalog.crafts.find((craft) => craft.id === id);
+  const decal = catalog.decals.find((entry) => entry.id === look.decal);
   const known = [look.paint, look.glow].every((paint) => paint === undefined || catalog.paints.some((entry) => entry.id === paint))
-    && (look.decal === undefined || catalog.decals.some((entry) => entry.id === look.decal));
+    && (look.decal === undefined || (decal !== undefined && decalOpen(decal, fragments)));
 
   if (!spec || !owns(catalog, hangar, id) || !known) {
     return null;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { drawWarp, viewOf } from '../src/adapters/canvas/warp.js';
+import { drawWarp, stretchOf, trailsOf, viewOf } from '../src/adapters/canvas/warp.js';
 import { drawWarpHud, ordinal, standings } from '../src/adapters/canvas/warp-hud.js';
 import { fogLevel, hash, HORIZON, LOOKS, PAD, paletteOf } from '../src/adapters/canvas/warp-scenery.js';
 import { LIGHT_FLOOR, LIGHT_SWAY, lightShift } from '../src/adapters/canvas/warp-lighting.js';
@@ -157,6 +157,42 @@ test('the sky, the top of the ground and the course\'s light are painted once, a
     assert.equal(sky(turning).args[1], -PAD - LIGHT_SWAY + lightShift(look, heading), course.name);
     assert.ok(Math.abs(lightShift(look, heading)) < LIGHT_SWAY, `${course.name}: the light never runs out of sky`);
   });
+});
+
+test('each rival near ahead leaves its slipstream on the lane, lit up while the player sits in it', () => {
+  const pilots = WARP_COURSES[0].pilots;
+  const racers = raceState(config, 0).rivals.map((rival, at) => ({ ...rival, z: [306, 330, 290, 500, 320][at], x: [0, 0.6, 0, 0, -0.5][at] }));
+  const state = game({ z: 300, rivals: [...racers.slice(0, 4), { ...racers[4], spin: 0.4 }], slip: 0.5 });
+  const trails = trailsOf(state, config);
+
+  assert.deepEqual(trails.map((trail) => trail.rgb), [pilots[racers[0].pilot].rgb, pilots[racers[1].pilot].rgb], 'behind, too far ahead and spun out leave none');
+  assert.deepEqual([trails[0].from, trails[0].to], [306 - rules.draft, 305], 'as long as the slipstream');
+  assert.equal(trails[0].lit, 0.4 + 0.6 * 0.5, 'right behind it, charging');
+  assert.equal(trails[1].lit, 0, 'off to the side');
+  assert.equal(trailsOf(game({ z: 300, rivals: racers, air: 0.3 }), config)[0].lit, 0, 'and none in the air');
+
+  const color = (rgb) => painted(frame(state)).filter(({ brush }) => String(brush.fillStyle).startsWith(`rgba(${rgb}, `)).length;
+  const plain = painted(frame(game({ z: 300, rivals: racers.map((rival) => ({ ...rival, z: 900 })) })));
+  assert.ok(color(trails[0].rgb) > 2, 'painted a stretch at a time, on the lane');
+  assert.ok(!plain.some(({ brush }) => String(brush.fillStyle).startsWith(`rgba(${pilots[racers[1].pilot].rgb}, 0.2`)), 'no trail where no rival is');
+});
+
+test('at speed the view stretches out ahead of the craft, never at the craft, and never with motion reduced', () => {
+  const cruising = game({ z: 300, speed: rules.topSpeed });
+  const flooring = game({ z: 300, speed: rules.nitroSpeed });
+
+  assert.equal(stretchOf(cruising.warp, rules, false), 1);
+  assert.ok(Math.abs(stretchOf(flooring.warp, rules, false) - 1.2) < 1e-9);
+  assert.equal(stretchOf(flooring.warp, rules, true), 1);
+  assert.equal(stretchOf(game({ z: 300, speed: rules.nitroSpeed * 2 }).warp, rules, false), stretchOf(flooring.warp, rules, false), 'and no further');
+
+  const calm = viewOf(cruising.warp, config);
+  const fast = viewOf(flooring.warp, config);
+  const craftRow = (view) => view.project(view.eye + 7, 0.5);
+  assert.deepEqual(craftRow(fast), craftRow(calm), 'the craft and the lane under it stay put');
+  assert.ok(fast.project(360, 0).y < calm.project(360, 0).y, 'far things look farther');
+  assert.ok(fast.project(360, 0).scale < calm.project(360, 0).scale);
+  assert.deepEqual(viewOf(flooring.warp, config, true).project(360, 0), calm.project(360, 0));
 });
 
 test('each look\'s colors are mixed once, and fade with the distance in a few steps', () => {
@@ -401,8 +437,34 @@ test('after the line everyone is listed in the order they came in, those still r
   assert.deepEqual(said.slice(said.indexOf('2ND')), [
     '2ND', `+${rules.placePoints[1]} POINTS`,
     '1', 'ROMA', '50.5s', '2', 'YOU', '+0.50', '3', 'TARAS', '+1.75', '4', 'HALYNA', '…', '5', 'JANITOR', '…', '6', 'HRYTS', '…',
+    '★ NEW COURSE RECORD 51.00s',
+    '◇ FRAGMENT 01 LOST',
     `THROUGH · NEXT: ${WARP_COURSES[1].name.toUpperCase()}`,
   ]);
+});
+
+test('each course keeps the player\'s best time: shown before the race, and beaten or not after it', () => {
+  const finished = (time, race = 0) => game({ race, finished: true, finishTime: time, calm: 2, place: 1 });
+  const board = (state, records) => texts(draw((context) => drawWarpHud(context, state, config, 0, records)));
+  const line = (state, records) => board(state, records).find((text) => text.includes('RECORD'));
+
+  assert.equal(line(finished(48.257), []), '★ NEW COURSE RECORD 48.26s', 'the first time on a course is its record');
+  assert.equal(line(finished(48.2), [49.5]), '★ NEW COURSE RECORD 48.20s');
+  assert.equal(line(finished(50.75), [49.5]), 'RECORD 49.50s · +1.25');
+  assert.equal(line(finished(52, 2), [40, 41, 47.123]), 'RECORD 47.12s · +4.88', 'each course its own');
+
+  const grid = (records) => board(game({ race: 1 }, { serveCountdown: 2, serveNumber: 0 }), records);
+  assert.ok(grid([45, 51.333]).includes('COURSE RECORD 51.33s'), 'the time to beat, on the grid');
+  assert.ok(!grid([45]).some((text) => text.includes('RECORD')), 'none before the player has one');
+});
+
+test('the board after the line says whether the race recovered its chapter\'s fragment of the signal', () => {
+  const fragment = (changes) => texts(hud(game({ finished: true, finishTime: 50, calm: 2, place: 1, ...changes }))).find((text) => text.includes('FRAGMENT'));
+  const story = (done) => ({ progress: done ? 12 : 4, done, recovered: 0, beat: 4, cue: '', cueTime: 0 });
+
+  assert.equal(fragment({ story: story(true) }), '◆ FRAGMENT 01 RECOVERED');
+  assert.equal(fragment({ race: 3, story: story(false) }), '◇ FRAGMENT 04 LOST');
+  assert.equal(fragment({ story: undefined }), '◇ FRAGMENT 01 LOST', 'a race without a story yet has recovered nothing');
 });
 
 test('the board after the line says whether the player goes through', () => {

@@ -43,8 +43,8 @@ export class CanvasRenderer {
    * @param {Window & typeof globalThis} options.window
    * @param {FrameScheduler} options.scheduler runs effects after a match ends, when the game loop is idle
    * @param {GameConfig} options.config the court geometry; the match config arrives with each frame
-   * @param {{ get: () => { jokes: boolean, bestRush?: number } }} [options.preferences] the preferences, for the fun
-   *   extras switch and the best Rush run
+   * @param {{ get: () => { jokes: boolean, bestRush?: number, warpTimes?: readonly number[] } }} [options.preferences] the
+   *   preferences, for the fun extras switch, the best Rush run and the Warp course records
    * @param {readonly HighScore[]} [options.highScores] the Rush high-score table, whose rows a run passes
    * @param {() => number} [options.random]
    */
@@ -428,7 +428,8 @@ export class CanvasRenderer {
     // The course is painted a way past the board's edges, so a shake never shows them.
     drawWarp(ctx, state, config, now, glows, effects.reducedMotion);
     effects.draw(ctx);
-    drawWarpHud(ctx, state, config, effects.popAmount);
+    // A race's time is saved once its results are off the board, so these are the records before it.
+    drawWarpHud(ctx, state, config, effects.popAmount, this.preferences.get().warpTimes ?? []);
     drawMeters(ctx, state, config, now);
     drawCameo(ctx, effects.cameo, config, effects.reducedMotion);
     drawLabels(ctx, effects.labels);

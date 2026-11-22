@@ -31,6 +31,8 @@ const DEFAULTS = Object.freeze({
   bestWarp: 0,
   tickets: 0,
   hangar: NO_HANGAR,
+  warpTimes: Object.freeze([]),
+  signal: 0,
   initials: '',
   stats: NO_STATS,
   rival: 0,
@@ -61,6 +63,25 @@ const MAX_LADDER = 32;
  */
 const counts = (value, max = Infinity) => (
   Array.isArray(value) ? value.slice(0, MAX_LADDER).map((entry) => Math.min(count(entry), max)) : []
+);
+
+// Five Warp courses and five chapters; the caps only keep a corrupted entry small.
+const MAX_COURSES = 16;
+const MAX_SIGNAL = 2 ** MAX_COURSES - 1;
+// No course takes an hour: a longer time is not one.
+const MAX_SECONDS = 3600;
+
+/**
+ * The best time on each course, in seconds; anything that is not a sensible time is no time,
+ * 0, so a corrupted entry can never stand as a record nobody can beat.
+ *
+ * @param {unknown} value
+ * @returns {number[]}
+ */
+const times = (value) => (
+  Array.isArray(value)
+    ? value.slice(0, MAX_COURSES).map((entry) => (typeof entry === 'number' && entry > 0 && entry < MAX_SECONDS ? entry : 0))
+    : []
 );
 
 /**
@@ -142,6 +163,8 @@ function sanitize(stored) {
     bestWarp: count(stored.bestWarp),
     tickets: count(stored.tickets),
     hangar: sanitizeHangar(stored.hangar),
+    warpTimes: times(stored.warpTimes),
+    signal: Math.min(count(stored.signal), MAX_SIGNAL),
     initials: validInitials(stored.initials),
     stats: sanitizeStats(stored.stats),
     rival: count(stored.rival),

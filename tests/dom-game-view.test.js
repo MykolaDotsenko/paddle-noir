@@ -144,6 +144,10 @@ function createRoot({ modalDialogs = true } = {}) {
     ['warp', { 'data-mode': 'warp' }],
     ['tutorialWarp', { 'data-warp-only': '' }],
     ['bridgeShield', { 'data-warp-control': 'shield', 'data-command': 'warp-shield' }],
+    ['storyRadio', { 'data-warp-radio': '' }],
+    ['signalCard', { 'data-show-signal': '' }],
+    ['signalCount', { 'data-signal-count': '' }],
+    ['signalDots', { 'data-signal-dots': '' }],
     ['hangarCard', { 'data-warp-only': '', 'data-show-hangar': '' }],
     ['hangarCraft', { 'data-hangar-craft': '' }],
     ['hangarTickets', { 'data-hangar-tickets': '' }],
@@ -229,6 +233,7 @@ function createRoot({ modalDialogs = true } = {}) {
   ]);
   const byName = Object.fromEntries(elements);
   byName.bridgeShield.children.push(new FakeElement({ 'data-warp-status': '' }));
+  byName.storyRadio.children.push(new FakeElement({ 'data-warp-sender': '' }), new FakeElement({ 'data-warp-message': '' }));
   const all = elements.map(([, element]) => element);
   const board = new FakeElement({ 'data-game-canvas': '' });
   const document = { body: new FakeElement(), activeElement: null };
@@ -1893,6 +1898,39 @@ const warpGame = (overrides = {}) => presentation({
   maxLives: 3,
   warp: cup(),
   ...overrides,
+});
+
+test('the Signal Log\'s card in the Warp menu shows the fragments ever recovered, a diamond a chapter', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+
+  view.render(warpGame({ warp: cup({ signal: 0b10010, chapters: 5 }) }));
+  assert.deepEqual([dom.signalCount.textContent, dom.signalDots.textContent], ['2/5', '◇◆◇◇◆']);
+  assert.equal(dom.signalCard.getAttribute('aria-label'), 'Signal Log: 2 of 5 fragments recovered');
+
+  dom.signalCount.textContent = 'untouched';
+  view.render(warpGame({ warp: cup({ signal: 0b10010, chapters: 5, points: 10 }) }));
+  assert.equal(dom.signalCount.textContent, 'untouched', 'written only when it changes');
+
+  view.render(warpGame({ warp: cup({ signal: 0b11111, chapters: 5 }) }));
+  assert.deepEqual([dom.signalCount.textContent, dom.signalDots.textContent], ['5/5', '◆◆◆◆◆']);
+});
+
+test('the radio names who is speaking, and the villain breaking in reads as an intercept', () => {
+  const { view, dom } = setup({ preferences: createPreferences({ mode: 'warp' }) });
+  const story = (changes) => ({
+    chapter: 1, title: '01 · THE GHOST SIGNAL', mission: 'Fly 12 rings dead center', progress: 0, target: 12,
+    completed: false, recovered: 0, speaker: 'ECHO', hostile: false, message: 'HORIZON is calling.', active: true, ...changes,
+  });
+  const [sender, message] = dom.storyRadio.children;
+
+  view.render(warpGame({ phase: GAME_PHASE.RUNNING, warp: cup({ story: story() }) }));
+  assert.deepEqual([dom.storyRadio.hidden, sender.textContent, message.textContent, dom.storyRadio.dataset.hostile], [false, 'ECHO · INCOMING', 'HORIZON is calling.', 'false']);
+
+  view.render(warpGame({ phase: GAME_PHASE.RUNNING, warp: cup({ story: story({ speaker: 'LANDLORD', hostile: true, message: 'Turn back.' }) }) }));
+  assert.deepEqual([sender.textContent, message.textContent, dom.storyRadio.dataset.hostile], ['LANDLORD · INTERCEPT', 'Turn back.', 'true']);
+
+  view.render(warpGame({ phase: GAME_PHASE.RUNNING, warp: cup({ story: story({ speaker: '', message: '' }) }) }));
+  assert.equal(dom.storyRadio.hidden, true, 'off the air between lines');
 });
 
 test('in Warp the scoreboard shows the points and the race, and points tick up without a pop', () => {

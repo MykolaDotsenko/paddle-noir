@@ -31,7 +31,7 @@ import { drawAirframeDetails } from './warp-airframe-details.js';
  * @typedef {object} CraftStyle
  * @property {CraftKind} kind
  * @property {string} paint "r, g, b"
- * @property {string} decal none, stripes, chevrons or flames
+ * @property {string} decal none, stripes, chevrons, flames or the earned signal
  * @property {string} glow "r, g, b": the light under it and in its engines
  * @property {string} cockpit a color: the light on its canopy
  * @property {number} x
@@ -229,7 +229,7 @@ function nozzle(ctx, { nitro, glow: rgb }, [x, y, wide]) {
 
 /**
  * What a craft wears over its paint, within its own outline: two stripes nose to tail, a
- * chevron on each wing, or flames back from the nose.
+ * chevron on each wing, flames back from the nose, or the signal earned from the story.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {Blueprint} print
@@ -274,6 +274,28 @@ function mark(ctx, print, decal, paint) {
     }
 
     ctx.stroke();
+  } else if (decal === 'signal') {
+    // HORIZON's mark, for the pilot who brought it home: a beacon on each wing, its signal
+    // going out along the wing in rings.
+    ctx.strokeStyle = ink;
+    ctx.fillStyle = ink;
+    ctx.lineWidth = 1.4;
+
+    for (const side of [-1, 1]) {
+      const x = side * print.span * 0.42;
+      const facing = side > 0 ? 0 : Math.PI;
+      ctx.beginPath();
+      ctx.arc(x, 3, 1.7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+
+      for (const radius of [4.2, 7.6]) {
+        ctx.moveTo(x + Math.cos(facing - 0.8) * radius, 3 + Math.sin(facing - 0.8) * radius);
+        ctx.arc(x, 3, radius, facing - 0.8, facing + 0.8);
+      }
+
+      ctx.stroke();
+    }
   } else {
     // Flames: licks of amber and red, back from the leading edge.
     for (const [rgb, reach] of /** @type {const} */ ([[PORT, 1], [THEME.amber, 0.62]])) {
@@ -716,6 +738,12 @@ function disc(ctx, style, fine) {
           ctx.moveTo(side * 26, 6);
           ctx.lineTo(side * 23, 1);
           ctx.lineTo(side * 20, 6);
+        }
+      } else if (decal === 'signal') {
+        // The signal going out from the front of the rim, in rings.
+        for (const radius of [17, 22.5]) {
+          ctx.moveTo(Math.cos(Math.PI * 0.3) * radius, 1.2 + Math.sin(Math.PI * 0.3) * radius * 0.32);
+          ctx.ellipse(0, 1.2, radius, radius * 0.32, 0, Math.PI * 0.3, Math.PI * 0.7);
         }
       } else {
         ctx.ellipse(0, 1.2, 24.5, 7.8, 0, Math.PI * 0.12, Math.PI * 0.88);

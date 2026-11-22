@@ -176,11 +176,18 @@ test('a craft shows the rockets it carries under its wings, four at most', () =>
   }
 });
 
-test('a craft wears its decal within its own outline: stripes, chevrons or flames', () => {
+test('a craft wears its decal within its own outline: stripes, chevrons, flames or the earned signal', () => {
   for (const kind of KINDS) {
-    const pictures = ['none', 'stripes', 'chevrons', 'flames'].map((decal) => picture(hull({ kind, decal })));
-    assert.equal(new Set(pictures).size, 4, kind);
+    const pictures = ['none', 'stripes', 'chevrons', 'flames', 'signal'].map((decal) => picture(hull({ kind, decal })));
+    assert.equal(new Set(pictures).size, 5, kind);
   }
+
+  // The signal: a beacon on each wing and its rings going out, none joined to the next.
+  const signal = hull({ decal: 'signal' });
+  assert.equal(callsNamed(signal, 'clip').length, 1);
+  assert.equal(callsNamed(signal, 'arc').filter((call) => call.args[2] === 1.7).length, 2);
+  assert.equal(callsNamed(signal, 'arc').filter((call) => call.args[2] === 4.2 || call.args[2] === 7.6).length, 4);
+  assert.equal(callsNamed(hull({ kind: 'saucer', decal: 'signal' }), 'ellipse').filter((call) => call.args[2] === 17 || call.args[2] === 22.5).length, 2);
 
   assert.equal(callsNamed(hull({ decal: 'none' }), 'clip').length, 0);
   assert.equal(callsNamed(hull({ decal: 'stripes' }), 'clip').length, 1);

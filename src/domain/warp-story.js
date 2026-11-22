@@ -24,8 +24,10 @@
  * @property {string} commander
  * @property {string} intro
  * @property {string} reveal
+ * @property {string} intercept what the Landlord breaks in to say, halfway through the race
  * @property {string} warning
  * @property {string} secured
+ * @property {string} fragment the chapter's piece of HORIZON's message, as the Signal Log decodes it
  */
 
 /**
@@ -47,8 +49,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     commander: 'ECHO',
     intro: 'HORIZON is calling from the dead zone. Fly the rings dead center.',
     reveal: 'Those coordinates were wiped from every chart. Someone wants it gone.',
+    intercept: 'This sky is my property, pilot. Turn back before I bill you for it.',
     warning: 'The signal is moving toward Neon Canyon. We are not alone.',
     secured: 'Fragment decoded: “We are still here.” Nitro restored.',
+    fragment: 'This is HORIZON. We are still here, and still listening.',
   },
   {
     title: '02 · DUST & DECOYS',
@@ -59,8 +63,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     commander: 'ECHO',
     intro: 'False beacons everywhere. Boost pads punch through the jamming.',
     reveal: 'A bounty on anyone tracking HORIZON. The sender: LANDLORD.',
+    intercept: 'Every beacon out here pays me rent. Yours is overdue.',
     warning: 'Keep your shields close. The real signal hides in the dust.',
     secured: 'Jammer down. HORIZON did not crash: it was hidden. Shield restored.',
+    fragment: 'We did not crash. Someone wiped us from every chart on purpose.',
   },
   {
     title: '03 · ABOVE THE STORM',
@@ -71,8 +77,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     commander: 'CAPTAIN LYRA',
     intro: 'This is Lyra, HORIZON. Climb to the relay: take the rings in the air.',
     reveal: 'We found a reactor that could power a city. LANDLORD locked us in.',
+    intercept: 'Lyra signed my lease. Nobody leaves the storm without my say.',
     warning: 'The relay is fading. Stay high, pilot.',
     secured: 'Relay linked. Reactor schematics received. Nitro restored.',
+    fragment: 'Our reactor could light a city. The Landlord wants it dark, and his.',
   },
   {
     title: '04 · THE STOLEN MAP',
@@ -83,8 +91,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     commander: 'ECHO',
     intro: 'The supply pods carry HORIZON’s flight map. Grab every cache.',
     reveal: 'LANDLORD sold the rescue coordinates. Now he wants the core.',
+    intercept: 'That map is mine. Keep flying and I keep your craft as a deposit.',
     warning: 'His ships have sealed the outer ring. Keep racing.',
     secured: 'Map decrypted: a route through the reactor grid. Shield restored.',
+    fragment: 'The way home runs through the reactor grid. Follow the rings.',
   },
   {
     title: '05 · HEART OF THE RIFT',
@@ -95,21 +105,38 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     commander: 'CAPTAIN LYRA',
     intro: 'I see your engine flare! LANDLORD’s escorts block the way out.',
     reveal: 'The reactor is failing. Break the blockade: fire, ram, warp!',
+    intercept: 'My escorts hold the gate. The reactor, the crew, the core: all mine.',
     warning: 'The gate is almost shut. Reach the finish!',
     secured: 'Blockade broken. HORIZON’s way home is open. Shields reinforced.',
+    fragment: 'Thank you, pilot. Whoever you are, HORIZON is coming home.',
   },
 ]).map((chapter) => Object.freeze(chapter)));
 
 /** How long each line of the radio stays up, in seconds of the race. */
-const CUE_SECONDS = Object.freeze({ intro: 4.5, reveal: 4.5, warning: 4, secured: 4.5 });
+const CUE_SECONDS = Object.freeze({ intro: 4.5, reveal: 4.5, intercept: 4, warning: 4, secured: 4.5 });
+
+/**
+ * The radio's lines in the order a race plays them, and how far along the race each comes:
+ * the commander at the start, what they have found a third of the way, the Landlord breaking
+ * in halfway, and a warning for the last third.
+ */
+const BEATS = Object.freeze(/** @type {const} */ ([
+  ['intro', 0],
+  ['reveal', 0.3],
+  ['intercept', 0.5],
+  ['warning', 0.7],
+]));
+
+/** Who breaks in on the radio, the story's villain. */
+export const VILLAIN = 'LANDLORD';
 
 /**
  * @typedef {object} WarpStoryState
  * @property {number} progress actions toward this chapter's optional objective
  * @property {boolean} done objective has been completed and its reward claimed
  * @property {number} recovered completed *previous* chapters in this cup
- * @property {number} beat next unplayed transmission, 0 intro, 1 reveal, 2 warning, 3 exhausted
- * @property {'intro' | 'reveal' | 'warning' | 'secured' | ''} cue the on-screen transmission
+ * @property {number} beat next unplayed transmission, 0 intro, 1 reveal, 2 intercept, 3 warning, 4 exhausted
+ * @property {'intro' | 'reveal' | 'intercept' | 'warning' | 'secured' | ''} cue the on-screen transmission
  * @property {number} cueTime seconds before the transmission slips away
  */
 
@@ -191,18 +218,12 @@ export function advanceWarpStory(race, rules, events, seconds) {
   // during slow devices, fixed-step replays and reduced-motion settings alike.
   if (story.cueTime > 0 || !race.launched || race.z < 12) return;
   const share = race.z / race.course.length;
-  if (story.beat === 0) {
-    story.cue = 'intro';
-    story.cueTime = CUE_SECONDS.intro;
-    story.beat = 1;
-  } else if (story.beat === 1 && share >= 0.34) {
-    story.cue = 'reveal';
-    story.cueTime = CUE_SECONDS.reveal;
-    story.beat = 2;
-  } else if (story.beat === 2 && share >= 0.69) {
-    story.cue = 'warning';
-    story.cueTime = CUE_SECONDS.warning;
-    story.beat = 3;
+  const next = BEATS[story.beat];
+  if (next && share >= next[1]) {
+    story.cue = next[0];
+    story.cueTime = CUE_SECONDS[next[0]];
+    story.beat += 1;
+    events.push({ type: 'radio', cue: next[0], hostile: next[0] === 'intercept' });
   } else {
     story.cue = '';
   }
@@ -226,7 +247,8 @@ export function warpStoryView(race) {
     target: chapter.target,
     completed: story.done,
     recovered: story.recovered + Number(story.done),
-    speaker: cue ? chapter.commander : '',
+    speaker: cue === 'intercept' ? VILLAIN : cue ? chapter.commander : '',
+    hostile: cue === 'intercept',
     message: cue ? chapter[cue] : '',
   };
 }

@@ -168,6 +168,12 @@ test('a place gained swells the place and calls it; a place lost is called in ro
   assert.deepEqual(lost.labels.map((label) => [label.text, label.color]), [['P4', `rgb(${THEME.rose})`]]);
   assert.equal(lost.popAmount, 0);
 
+  // Called out in the sky with the others, clear of the place, the arsenal and the radio up top.
+  for (const label of [...gained.labels, ...lost.labels]) {
+    assert.equal(label.x, config.width / 2);
+    assert.ok(label.y - 36 > config.height * 0.33, 'not even at the top of its rise');
+  }
+
   const slip = play({ type: 'slipstream', z: 300, x: 0 });
   assert.equal(slip.known, true);
   assert.equal(slip.effects.labels.length + slip.effects.particles.length, 0);
@@ -285,6 +291,9 @@ test('two racers side by side over the line are a photo finish', () => {
   };
 
   assert.deepEqual(finish({}), ['PHOTO FINISH!']);
+  const photo = play({ type: 'race-finish', race: 0, place: 1, points: 1000, qualified: true, last: false, margin: 0.1 }).effects.labels.find((label) => label.text === 'PHOTO FINISH!');
+  // The board of results runs from 112 to 380; the callout rises 36 and is about 30 tall.
+  assert.ok(photo.y - 36 - 15 > 380, 'clear of the board of results');
   assert.deepEqual(finish({ place: 2, qualified: false }), ['PHOTO FINISH!'], 'on either side of it');
   assert.deepEqual(finish({ margin: 0.8 }), []);
   assert.deepEqual(finish({ place: 4 }), [], 'not for the places behind');

@@ -273,7 +273,7 @@
     }
   },
   "warp": {
-    "digest": "6e215c12f36db312f5ee6db63f7bdd77433116b6953f2a3c330f94e0a492c947",
+    "digest": "0923c72f208aea707338a21cbded50b8ec0c0093e914c939a305f98250bc61be",
     "summary": {
       "steps": 28800,
       "score": {
@@ -303,6 +303,7 @@
         "overtake": 44,
         "overtaken": 40,
         "race-finish": 3,
+        "radio": 16,
         "ring": 83,
         "rocket-launch": 20,
         "serve": 4,

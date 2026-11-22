@@ -1,4 +1,4 @@
-import { buyCraft, flyCraft, hangarView, paintCraft, TOP_RATING, tuneCraft } from '../application/hangar.js';
+import { buyCraft, decalOpen, flyCraft, fragmentsIn, hangarView, paintCraft, TOP_RATING, tuneCraft } from '../application/hangar.js';
 
 /**
  * @import { Loadout } from '../domain/types.js'
@@ -262,7 +262,12 @@ export class DomHangar {
 
   /** @param {Partial<Pick<CraftSetup, 'paint' | 'decal' | 'glow'>>} look */
   paint(look) {
-    this.keep(paintCraft(this.catalog, this.wallet(), this.crafts()[this.shown].spec.id, look));
+    this.keep(paintCraft(this.catalog, this.wallet(), this.crafts()[this.shown].spec.id, look, this.fragments()));
+  }
+
+  /** Fragments of the story's signal the player has recovered, which earn a decal. */
+  fragments() {
+    return fragmentsIn(this.preferences.get().signal ?? 0);
   }
 
   /** Shows the craft on show as it stands: its portrait, its systems, its paint, and what it costs. */
@@ -318,11 +323,33 @@ export class DomHangar {
         : `Tune ${entry.name.toLowerCase()} to level ${entry.level + 1} of ${entry.levels} for ${entry.price} tickets`);
     }
 
+    const fragments = this.fragments();
+
     for (const part of /** @type {const} */ (['paint', 'decal', 'glow'])) {
       for (const [id, button] of this.looks[part]) {
         button.setAttribute('aria-pressed', String(craft.setup[part] === id));
         button.toggleAttribute('disabled', !owned);
       }
+    }
+
+    // A decal earned from the story waits, greyed, until the player has it; beside the decals'
+    // label it says how near they are.
+    const earn = this.find('[data-hangar-earn]');
+    earn.hidden = true;
+
+    for (const decal of this.catalog.decals) {
+      const button = this.looks.decal.get(decal.id);
+
+      if (decal.fragments === undefined || !button) {
+        continue;
+      }
+
+      const open = decalOpen(decal, fragments);
+      const progress = `${decal.name}: ${Math.min(fragments, decal.fragments)}/${decal.fragments} fragments`;
+      button.setAttribute('aria-label', open ? decal.name : `${decal.name}, earned by recovering all ${decal.fragments} fragments of The Last Signal: ${Math.min(fragments, decal.fragments)} so far`);
+      button.toggleAttribute('disabled', !owned || !open);
+      earn.hidden = open;
+      earn.textContent = open ? '' : progress;
     }
   }
 }

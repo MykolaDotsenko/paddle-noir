@@ -20,7 +20,7 @@ import { CORE_LIGHT, drawDust, drawSky, fogLevel, hash, HORIZON, LOOKS, PAD, pal
  *
  * @import { Course, GameConfig, GameState, Pilot, Racer, TrackItem, WarpConfig, WarpState } from '../../domain/types.js'
  * @import { GlowSprites } from './court.js'
- * @import { Scene, Spot, Sprite, View } from './warp-scenery.js'
+ * @import { Scene, Spot, Sprite, Trail, View } from './warp-scenery.js'
  *
  * @typedef {{ left: Spot, right: Spot, stretch: number }} Row the lane's two edges at the start of a stretch
  */
@@ -38,6 +38,13 @@ const LANE = 1.08;
 /** How far the camera leans for a bend of 1, and at most, in radians. */
 const LEAN_PER_BEND = 0.022;
 const MAX_LEAN = 0.045;
+/** A rival's slipstream is drawn while it is this near ahead; where the player sits in it, as the game has it. */
+const TRAIL_METERS = 90;
+const SLIP_FROM = 1.5;
+const SLIP_ACROSS = 0.22;
+/** At speed the view stretches out ahead, from a little over cruising speed, by at most this. */
+const STRETCH_FROM = 1.04;
+const MAX_STRETCH = 0.2;
 /** How high a jump lifts a craft at its top, and where the rings in the air hang, in half lanes. */
 const JUMP_LIFT = 0.42;
 const AIR_RING_LIFT = 0.4;
@@ -104,15 +111,38 @@ function clamp(value, min, max) {
 }
 
 /**
+ * How far the view stretches out ahead at a speed: not at all at the craft's cruising speed,
+ * the most at full nitro. Far things then look farther and rush in faster, as a lens widens
+ * when a racer floors it. Speed changes smoothly, so the stretch never jumps; with motion
+ * reduced there is none.
+ *
+ * @param {WarpState} race
+ * @param {WarpConfig} rules
+ * @param {boolean} still whether motion is reduced
+ * @returns {number} 1 for none, up to 1 + MAX_STRETCH
+ */
+export function stretchOf(race, rules, still) {
+  if (still) {
+    return 1;
+  }
+
+  const cruise = rules.topSpeed * STRETCH_FROM;
+  return 1 + MAX_STRETCH * clamp((race.speed - cruise) / (rules.nitroSpeed - cruise), 0, 1);
+}
+
+/**
  * The course as the eye sees it for a frame. The eye rides behind the craft at its own height
  * above the lane there, so the craft is always where the paddle would be, and the lane under
- * it spans the paddle's reach; the hills ahead rise above that and the dips fall below.
+ * it spans the paddle's reach; the hills ahead rise above that and the dips fall below. At
+ * speed the view stretches out ahead of the craft, and only ahead of it: the craft and the
+ * lane under it stay put.
  *
  * @param {WarpState} race
  * @param {GameConfig} config
+ * @param {boolean} [still] whether motion is reduced
  * @returns {View}
  */
-export function viewOf(race, config) {
+export function viewOf(race, config, still = false) {
   const rules = /** @type {WarpConfig} */ (config.warp);
   const { course } = race;
   const craftY = config.height - config.paddle.inset - config.paddle.height / 2;
@@ -124,6 +154,7 @@ export function viewOf(race, config) {
   const here = race.z / rules.segment;
   const [hereAt, heading] = middleAt(line, course.curves, here);
   const base = heightAt(course, race.z);
+  const lens = stretchOf(race, rules, still);
 
   /** @type {View['project']} */
   const project = (z, x, lift = 0) => {
@@ -137,11 +168,13 @@ export function viewOf(race, config) {
     // The lane's middle there, measured from the line straight ahead of the craft.
     const [at] = middleAt(line, course.curves, stretch);
     const across = at - hereAt - heading * (stretch - here);
-    const scale = EYE_BEHIND / depth;
+    // How far it looks: as far as it is, or farther ahead of the craft at speed.
+    const seen = depth > EYE_BEHIND ? EYE_BEHIND + (depth - EYE_BEHIND) * lens : depth;
+    const scale = EYE_BEHIND / seen;
 
     return {
-      x: config.width / 2 + (across + x) * (wide / depth),
-      y: HORIZON + (tall / depth) * (1 - (heightAt(course, z) - base)) - lift * reach * scale,
+      x: config.width / 2 + (across + x) * (wide / seen),
+      y: HORIZON + (tall / seen) * (1 - (heightAt(course, z) - base)) - lift * reach * scale,
       scale,
       depth,
     };
@@ -192,9 +225,9 @@ export function drawWarp(ctx, state, config, now, glows, reducedMotion = false) 
   }
 
   const look = LOOKS[rules.courses[race.race].theme];
-  const view = viewOf(race, config);
+  const view = viewOf(race, config, reducedMotion);
   /** @type {Scene} */
-  const scene = { ctx, look, palette: paletteOf(look), view, race, config, now, glows, still: reducedMotion };
+  const scene = { ctx, look, palette: paletteOf(look), view, race, config, now, glows, still: reducedMotion, trails: trailsOf(state, config) };
 
   ctx.save();
 
@@ -307,6 +340,7 @@ function drawPiece(scene, near, far) {
   quad(ctx, near.left, near.right, far.right, far.left, palette.lane[band ? 0 : 1][level]);
   drawTrackLighting(scene, near, far);
   drawSurfaceMaterial(scene, near, far);
+  drawTrails(scene, near, far);
 
   // Rumble strips.
   const strip = band ? palette.stripe : STRIP_DARK;
@@ -338,6 +372,72 @@ function drawPiece(scene, near, far) {
     ctx.moveTo(near.right.x, near.right.y);
     ctx.lineTo(far.right.x, far.right.y);
     ctx.stroke();
+  }
+}
+
+/**
+ * Each rival near enough to matter leaves a trail of its light on the lane: its slipstream,
+ * exactly as long and as wide as the stretch behind it where the player builds a slingshot.
+ * While the player is in one, it widens to the whole of that stretch and brightens as the
+ * slingshot charges, so the player can see where to sit and how long is left.
+ *
+ * @param {GameState} state
+ * @param {GameConfig} config
+ * @returns {Trail[]}
+ */
+export function trailsOf(state, config) {
+  const race = /** @type {WarpState} */ (state.warp);
+  const rules = /** @type {WarpConfig} */ (config.warp);
+  const pilots = rules.courses[race.race].pilots;
+  const x = laneX(state, config);
+  const steady = race.spin === 0 && race.air === 0;
+
+  return race.rivals
+    .filter((rival) => rival.finish === 0 && rival.spin === 0 && rival.air === 0 && rival.z > race.z && rival.z - race.z < TRAIL_METERS)
+    .map((rival) => {
+      const ahead = rival.z - race.z;
+      const inside = steady && ahead > SLIP_FROM && ahead < rules.draft && Math.abs(rival.x - x) < SLIP_ACROSS;
+      return { x: rival.x, from: rival.z - rules.draft, to: rival.z - 1, rgb: pilots[rival.pilot].rgb, lit: inside ? 0.4 + 0.6 * race.slip : 0 };
+    });
+}
+
+/**
+ * The trails where they cross a stretch of the lane, fading toward their far end.
+ *
+ * @param {Scene} scene
+ * @param {Row} near
+ * @param {Row} far
+ */
+function drawTrails({ ctx, trails = [], view }, near, far) {
+  const z0 = near.stretch * view.segment;
+  const z1 = far.stretch * view.segment;
+
+  for (const trail of trails) {
+    const from = Math.max(z0, trail.from);
+    const to = Math.min(z1, trail.to);
+
+    if (from >= to) {
+      continue;
+    }
+
+    /** Across the lane at a share, that far along the stretch between its two rows. */
+    const at = (/** @type {number} */ z, /** @type {number} */ share) => {
+      const t = (z - z0) / (z1 - z0);
+      const a = inset(near, share);
+      const b = inset(far, share);
+      return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    };
+    const middle = (trail.x + LANE) / (LANE * 2);
+    // Brightest just behind the rival, gone at the far end of its slipstream.
+    const fade = ((from + to) / 2 - trail.from) / (trail.to - trail.from);
+    const ribbon = (/** @type {number} */ half, /** @type {string} */ color) => quad(ctx,
+      at(from, middle - half), at(from, middle + half), at(to, middle + half), at(to, middle - half), color);
+
+    if (trail.lit > 0) {
+      ribbon(SLIP_ACROSS / (LANE * 2), `rgba(${trail.rgb}, ${(0.1 + 0.16 * trail.lit) * fade})`);
+    }
+
+    ribbon(0.028, `rgba(${trail.rgb}, ${(0.2 + 0.4 * trail.lit) * fade})`);
   }
 }
 

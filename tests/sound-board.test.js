@@ -560,6 +560,8 @@ test('Warp\'s events each have their sound, and a rival\'s crash is only a dista
     { type: 'warp-system', system: 'shield', z: 0, x: 0 },
     { type: 'craft-ability', kind: 'jet', z: 0, x: 0 },
     { type: 'story-complete', race: 0, points: 180, reward: 'nitro' },
+    { type: 'radio', cue: 'intro', hostile: false },
+    { type: 'radio', cue: 'intercept', hostile: true },
     { type: 'smash', kind: 'cargo', z: 0, x: 0, points: 60 },
     { type: 'overtake', place: 2, pilot: 1, points: 50 },
     { type: 'overtaken', place: 3, pilot: 1 },

@@ -17,7 +17,7 @@ import { interpolateState } from './interpolation.js';
 import { nicknameFor } from './nicknames.js';
 import { GAME_COMMAND, WARP_STEERING_MODES } from './ports.js';
 import { activateWarpControl, warpControlStatus } from '../domain/warp.js';
-import { warpStoryEnding, warpStoryView } from '../domain/warp-story.js';
+import { WARP_STORY, warpStoryEnding, warpStoryView } from '../domain/warp-story.js';
 
 /**
  * @import { GameConfig, GameState } from '../domain/types.js'
@@ -148,6 +148,8 @@ export class GameController {
     /** @type {{ best: number, initials: string, before: number, view: HighScoresView } | null} */
     this.highScoresMemo = null;
     this.recorded = false;
+    /** @type {{ race: number, time: number } | null} a Warp race's time, kept until its results are off the board */
+    this.courseTime = null;
 
     this.loop = new FixedStepLoop({
       stepSeconds: this.config.fixedStepSeconds,
@@ -188,6 +190,7 @@ export class GameController {
     this.announce(this.state);
     this.dramatize(this.state);
     this.recordRally(this.state.longestRally);
+    this.recordWarpProgress(this.state);
 
     if (this.state.phase !== GAME_PHASE.RUNNING) {
       // The match just ended: draw the final state as-is and let the loop idle.
@@ -291,6 +294,7 @@ export class GameController {
    */
   newMatch() {
     this.recordForfeit();
+    this.saveCourseTime();
     this.applyChoices();
     this.newBest = false;
     this.newBestRush = false;
@@ -313,6 +317,7 @@ export class GameController {
   /** @returns {GameState} */
   menu() {
     this.recordForfeit();
+    this.saveCourseTime();
     this.applyChoices();
     this.rushBefore = null;
     this.matchSeed = this.seed();
@@ -426,6 +431,56 @@ export class GameController {
 
     this.newBest = longestRally >= CELEBRATED_RALLY;
     this.preferences.set({ bestRally: longestRally });
+  }
+
+  /**
+   * Keeps what a Warp race does for the records that outlive the cup. A fragment of the story's
+   * signal recovered is kept at once, in the Signal Log. A race's time is kept once its results
+   * are off the board, when the next race or this one's retry is on the grid, the cup is over,
+   * or the player leaves: until then the board compares it with the course record before it,
+   * as a Rush run is compared with the best before it.
+   *
+   * @param {GameState} state
+   */
+  recordWarpProgress(state) {
+    const race = state.warp;
+
+    if (!race) {
+      return;
+    }
+
+    for (const event of state.events) {
+      if (event.type === 'story-complete') {
+        const { signal } = this.preferences.get();
+        this.preferences.set({ signal: signal | (1 << event.race) });
+      } else if (event.type === 'race-finish') {
+        this.courseTime = { race: event.race, time: race.finishTime };
+      }
+    }
+
+    if (this.courseTime && (state.phase === GAME_PHASE.GAME_OVER || !race.finished || race.race !== this.courseTime.race)) {
+      this.saveCourseTime();
+    }
+  }
+
+  /** A race's time, as the course's record if it beats the one before. */
+  saveCourseTime() {
+    if (!this.courseTime) {
+      return;
+    }
+
+    const { race, time } = this.courseTime;
+    this.courseTime = null;
+    const times = [...this.preferences.get().warpTimes];
+
+    while (times.length <= race) {
+      times.push(0);
+    }
+
+    if (time > 0 && (times[race] === 0 || time < times[race])) {
+      times[race] = time;
+      this.preferences.set({ warpTimes: times });
+    }
   }
 
   /**
@@ -637,6 +692,8 @@ export class GameController {
       controls: warpControlStatus(this.state, this.config),
       tickets: this.preferences.get().tickets,
       earned: this.warpEarned,
+      signal: this.preferences.get().signal ?? 0,
+      chapters: WARP_STORY.length,
     };
   }
 

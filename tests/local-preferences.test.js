@@ -24,6 +24,8 @@ const DEFAULTS = {
   bestWarp: 0,
   tickets: 0,
   hangar: { craft: '', owned: {} },
+  warpTimes: [],
+  signal: 0,
   initials: '',
   stats: NO_STATS,
   rival: 0,
@@ -66,6 +68,8 @@ test('restores stored choices', () => {
     bestWarp: 15400,
     tickets: 2480,
     hangar: { craft: 'manta', owned: { manta: { tune: { engine: 2, nitro: 0, grip: 1, armor: 0, guns: 3 }, paint: 'red', decal: 'flames', glow: 'pink' } } },
+    warpTimes: [47.5, 0, 55.125],
+    signal: 0b01011,
     initials: 'MYK',
     stats: { matches: 9, wins: 6, streak: 2, bestStreak: 4 },
     rival: 3,
@@ -146,6 +150,18 @@ test('career progress that cannot be true is brought back into range', () => {
   assert.deepEqual(preferences.careerStars, [3, 3, 0, 0, 0, 2]);
   assert.deepEqual(preferences.careerLosses, []);
   assert.equal(new LocalPreferences({ localStorage: createStorage({ [KEY]: JSON.stringify({ careerLosses: new Array(99).fill(1) }) }) }).get().careerLosses.length, 32);
+});
+
+test('Warp course records and the Signal Log keep only what can be true', () => {
+  const read = (stored) => new LocalPreferences({ localStorage: createStorage({ [KEY]: JSON.stringify(stored) }) }).get();
+
+  assert.deepEqual(read({ warpTimes: [48.25, 0, -3, 'fast', 7200, null, 51] }).warpTimes, [48.25, 0, 0, 0, 0, 0, 51], 'a time nobody could beat, or none at all, is no record');
+  assert.deepEqual(read({ warpTimes: 'quick' }).warpTimes, []);
+  assert.equal(read({ warpTimes: new Array(40).fill(50) }).warpTimes.length, 16);
+  assert.equal(read({ signal: 0b10101 }).signal, 0b10101);
+  assert.equal(read({ signal: -1 }).signal, 0);
+  assert.equal(read({ signal: 2.5 }).signal, 0);
+  assert.equal(read({ signal: 2 ** 40 }).signal, 2 ** 16 - 1);
 });
 
 test('statistics that cannot be true are brought back into range', () => {
