@@ -28,6 +28,7 @@ import { chargeMeter, isLoaded } from './supers.js';
  *   GameConfig,
  *   GameEvent,
  *   GameState,
+ *   Loadout,
  *   Missile,
  *   Racer,
  *   SuperKind,
@@ -456,6 +457,10 @@ export function buildCourse(config, race) {
   /** @type {TrackItem[]} */
   const laid = [];
   const { every } = layout;
+  // A gentle opening gives the player time to understand steering and the bridge.
+  // Later courses bring danger earlier, but never immediately off the starting grid.
+  const opening = [480, 320, 260, 210, 190][Math.min(race, 4)];
+  const hazards = new Set(['mine', 'debris', 'cargo', 'gate']);
   /** @type {[TrackItemKind, number, number, number][]} what, how far apart, how far across, how far it drifts */
   const kinds = [['ring', every.rings, 0.6, 0], ['pad', every.pads, 0.7, 0], ['mine', every.mines, 0.8, 0], ['debris', every.debris, 0.7, 0.3], ['cargo', every.cargo, 0.55, 0], ['ramp', every.ramps, 0.5, 0], ['gate', every.gates, 0.45, 0], ['crate', every.crates, 0.6, 0], ['cell', every.cells, 0.6, 0]];
 
@@ -465,6 +470,7 @@ export function buildCourse(config, race) {
     }
 
     for (let z = CLEAR_START + apart * draw(0.2, 0.8); z < layout.length - CLEAR_END; z += apart * draw(0.75, 1.25)) {
+      if (hazards.has(kind) && z < opening) continue;
       const x = draw(-across, across);
       laid.push({ id: laid.length + 1, kind, z, x, sway: sway * draw(0.5, 1), air: false });
 
@@ -560,7 +566,7 @@ export function raceState(config, race, points = 0, lost = 0) {
     shieldCooldown: 0,
     abilityCooldown: 0,
     abilityTime: 0,
-    shield: rules.loadout.shields,
+    shield: rules.loadout.shields + (race === 0 ? 1 : 0),
     rockets: Math.min(1, rules.loadout.rockets),
     lock: 0,
     lockOn: 0,
