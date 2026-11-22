@@ -242,7 +242,7 @@ export const NOVA_CONFIG = Object.freeze({
 });
 
 /** Credits a Warp cup gives the player: a race placed too low to go through spends one. */
-export const WARP_LIVES = 3;
+export const WARP_LIVES = 4;
 
 /**
  * The craft a Warp race is flown in unless the hangar says otherwise: the first craft of the
@@ -282,19 +282,19 @@ export const WARP_CONFIG = Object.freeze({
       boostSpeed: 54,
       accel: 1.2,
       gravity: 2,
-      spinSeconds: 1.1,
-      spinSpeed: 0.45,
-      safeSeconds: 1.6,
-      craftRadius: 0.1,
+      spinSeconds: 0.8,
+      spinSpeed: 0.7,
+      safeSeconds: 2.25,
+      craftRadius: 0.09,
       ringCenter: 0.1,
       ringRadius: 0.28,
       padWidth: 0.22,
       padSeconds: 1.4,
-      rampWidth: 0.32,
+      rampWidth: 0.36,
       airSeconds: 1.05,
-      gateGap: 0.4,
+      gateGap: 0.45,
       gateCenter: 0.08,
-      nearMiss: 0.1,
+      nearMiss: 0.13,
       draft: 14,
       slipSeconds: 1.2,
       slingSeconds: 1.2,
@@ -311,7 +311,7 @@ export const WARP_CONFIG = Object.freeze({
       burnSeconds: 3,
       ghostSeconds: 4,
       shockRange: 18,
-      pickupWidth: 0.26,
+      pickupWidth: 0.32,
       nitroSpeed: 62,
       nitroPerTrick: 0.05,
       gunRange: 45,
@@ -322,7 +322,7 @@ export const WARP_CONFIG = Object.freeze({
       lockSeconds: 0.7,
       missileSpeed: 45,
       blastRange: 7,
-      mineEvery: 4.5,
+      mineEvery: 7,
       maxDrops: 5,
       calmSeconds: 4.5,
       loadout: WARP_LOADOUT,
