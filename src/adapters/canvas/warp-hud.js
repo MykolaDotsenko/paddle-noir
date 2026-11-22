@@ -1,4 +1,5 @@
 import { flowOf, WARP_ABILITIES } from '../../domain/warp.js';
+import { WARP_STORY } from '../../domain/warp-story.js';
 import { FONT, roundedRect, THEME } from './theme.js';
 
 /**
@@ -90,7 +91,7 @@ export function drawWarpHud(ctx, state, config, pop) {
   ctx.restore();
 
   if (state.serveCountdown > 0 && state.serveNumber === 0) {
-    drawStartLights(ctx, state, config, layout.name, layout.qualify);
+    drawStartLights(ctx, state, config, layout.name, layout.qualify, race.race);
   } else if (race.finished && race.calm > 0) {
     drawResults(ctx, race, rules, config);
   }
@@ -260,7 +261,7 @@ function drawProgress(ctx, race, rules, config) {
  * @param {string} name
  * @param {number} qualify
  */
-function drawStartLights(ctx, state, config, name, qualify) {
+function drawStartLights(ctx, state, config, name, qualify, raceIndex = 0) {
   const lit = Math.min(3, Math.floor(config.startDelaySeconds - state.serveCountdown) + 1);
   const x = config.width / 2;
   const y = 150;
@@ -282,6 +283,16 @@ function drawStartLights(ctx, state, config, name, qualify) {
     ctx.beginPath();
     ctx.arc(x - 40 + light * 40, y + 20, 13, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  const chapter = WARP_STORY[raceIndex];
+  if (chapter) {
+    ctx.font = `900 11px ${FONT}`;
+    ctx.fillStyle = `rgba(${THEME.side.player.rgb}, 0.95)`;
+    ctx.fillText(chapter.title, x, y + 67);
+    ctx.font = `750 10px ${FONT}`;
+    ctx.fillStyle = PAPER;
+    ctx.fillText(`OPTIONAL: ${chapter.mission.toUpperCase()}`, x, y + 84);
   }
 
   ctx.restore();
