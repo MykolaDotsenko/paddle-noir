@@ -439,15 +439,12 @@ canvas:focus-visible {
   .board .warp-control { transition: none; }
 }
 
-/* Flight controls are intentionally independent from combat consoles. Large thumb
-   targets sit in the lower third; the steering-mode switch remains reachable below
-   the vehicle without covering the racing line. */
-.board .warp-steering-switch {
-  position: absolute;
-  z-index: 5;
-  bottom: 1.8%;
-  left: 50%;
-  transform: translateX(-50%);
+/* Flight controls are independent from combat consoles. The steering selector
+   lives in the rail OUTSIDE the canvas: even a full-size aircraft can never
+   disappear beneath the mode-switch button. */
+.rail .warp-steering-switch {
+  position: relative;
+  z-index: 2;
   width: max-content;
   min-width: 134px;
   min-height: 42px;
@@ -462,11 +459,11 @@ canvas:focus-visible {
   touch-action: manipulation;
   cursor: pointer;
 }
-.board .warp-steering-switch__cycle {
+.rail .warp-steering-switch__cycle {
   margin-left: 5px;
   color: #d8b4fe;
 }
-.board .warp-steering-switch:active { filter: brightness(1.22); }
+.rail .warp-steering-switch:active { filter: brightness(1.22); }
 
 .board .warp-turn {
   position: absolute;
@@ -541,18 +538,51 @@ canvas:focus-visible {
   box-shadow: 0 0 14px rgba(34, 211, 238, 0.63);
   will-change: transform;
 }
-.board .warp-steering-switch[hidden],
+.rail .warp-steering-switch[hidden],
 .board .warp-turn[hidden],
 .board .warp-flight-stick[hidden] { display: none; }
-.board .warp-steering-switch:focus-visible,
+.rail .warp-steering-switch:focus-visible,
 .board .warp-turn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
-[data-mode="warp"][data-warp-steering="buttons"] .rail,
-[data-mode="warp"][data-warp-steering="stick"] .rail {
+/* Reserve the original rail's 50px for the switch in all three Warp modes.
+   No new row or extra vertical space is added on phones. On desktops the rail
+   would normally be hidden, so explicitly show it only while flying Warp. */
+.arena[data-mode="warp"] {
+  --rail-h: 50px;
+}
+[data-mode="warp"] .rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(6, 11, 28, 0.83), rgba(24, 22, 56, 0.9), rgba(6, 11, 28, 0.83));
+}
+[data-mode="warp"][data-warp-steering="buttons"] .rail__track,
+[data-mode="warp"][data-warp-steering="buttons"] .rail__label,
+[data-mode="warp"][data-warp-steering="stick"] .rail__track,
+[data-mode="warp"][data-warp-steering="stick"] .rail__label {
   display: none;
 }
+/* The classic rail still offers an unobstructed area for dragging the craft. */
+[data-mode="warp"][data-warp-steering="drag"] .rail {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0 5px 0 9px;
+}
+[data-mode="warp"][data-warp-steering="drag"] .rail__track {
+  right: max(150px, 43%);
+}
+[data-mode="warp"][data-warp-steering="drag"] .rail__label {
+  justify-self: center;
+  margin: 0;
+  font-size: clamp(9px, 2.4vw, 12px);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+[data-mode="warp"][data-warp-steering="drag"] .warp-steering-switch {
+  grid-column: 2;
+}
 @media (prefers-reduced-motion: reduce) {
-  .board .warp-steering-switch,
+  .rail .warp-steering-switch,
   .board .warp-turn,
   .board .warp-flight-stick { transition: none; }
 }
@@ -2551,6 +2581,41 @@ kbd {
   .rail {
     display: none;
   }
+
+  /* Landscape has no vertical rail: keep a compact selector at the outer
+     upper-right screen margin, never over the near-camera craft. */
+  .arena[data-mode="warp"] {
+    --rail-h: 0px;
+  }
+  [data-mode="warp"] .rail {
+    display: flex;
+    position: fixed;
+    z-index: 8;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    width: 46px;
+    height: 46px;
+    border: 0;
+    background: transparent;
+  }
+  [data-mode="warp"] .rail__track,
+  [data-mode="warp"] .rail__label { display: none; }
+  [data-mode="warp"] .rail .warp-steering-switch {
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 0;
+  }
+  [data-mode="warp"] .rail .warp-steering-switch::before {
+    content: '↻';
+    font-size: 25px;
+    line-height: 1;
+    color: #d5f4ff;
+  }
+  [data-mode="warp"] .rail .warp-steering-switch__cycle { display: none; }
 
   .stage {
     display: grid;
