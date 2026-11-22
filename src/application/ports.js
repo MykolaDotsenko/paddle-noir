@@ -97,6 +97,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  *
  * @typedef {object} Preferences Choices that outlive a match.
  * @property {Mode} mode
+ * @property {WarpSteeringMode} warpSteering persisted Warp steering method
  * @property {Difficulty} difficulty applied when the next Solo match starts
  * @property {boolean} powerUps whether power-ups appear in Solo and two-player matches
  * @property {boolean} supers whether the super meters fill in Solo, two-player and career matches
