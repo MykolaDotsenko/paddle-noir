@@ -1,4 +1,5 @@
 import { mixRgb, roundedRect, THEME } from './theme.js';
+import { drawAirframeDetails } from './warp-airframe-details.js';
 
 /**
  * The racing craft of the Warp game, seen from behind and a little above, their noses away
@@ -39,6 +40,8 @@ import { mixRgb, roundedRect, THEME } from './theme.js';
  * @property {number} bank radians it leans, or turns while it spins
  * @property {number} [yaw] side-slip angle, for a subtle 2.5D perspective deformation
  * @property {number} [pitch] nose-up attitude, for a small depth change in the silhouette
+ * @property {boolean} [active] signature system is engaged
+ * @property {number} [damage] visible airframe wear, 0 fresh to 1 heavily damaged
  * @property {number} flame 0 to 1 and a little more
  * @property {boolean} nitro whether it burns nitro: a longer, blue flame
  * @property {number} rockets how many hang under its wings
@@ -813,6 +816,16 @@ export function drawHull(ctx, style) {
     plates(ctx, style, print, fine);
   } else {
     disc(ctx, style, fine);
+  }
+
+  // Sculpted metal facets, actuated surfaces, turbine detail and battle wear.
+  // The near-only pass is kept behind the unique cockpit beacon and navigation lights.
+  if (fine && scale >= 0.72) {
+    drawAirframeDetails(ctx, {
+      kind, paint: style.paint, span, bank,
+      yaw: style.yaw ?? 0, pitch: style.pitch ?? 0,
+      active: style.active ?? false, damage: style.damage ?? 0, engines,
+    });
   }
 
   // The light on the canopy.
