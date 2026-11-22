@@ -36,7 +36,8 @@ test('every Warp course paints its own multi-layer background in finite Canvas c
     const ctx = paint(look);
     assert.ok(callsNamed(ctx, operation).length >= minimum, look.skyline);
     assert.equal(callsNamed(ctx, 'save').length, callsNamed(ctx, 'restore').length, look.skyline);
-    assert.ok(paints(ctx).length >= 7, look.skyline);
+    assert.ok(paints(ctx).length >= 3, look.skyline + ' paints in several layers');
+    assert.ok(paints(ctx).length <= 40, look.skyline + ' paints a layer of like shapes at once');
     assert.ok(ctx.calls.length < 900, look.skyline + ' stays within a bounded frame budget');
 
     for (const call of ctx.calls) {
@@ -51,7 +52,8 @@ test('sunset features are multi-plane wisps and distant air traffic, not random 
   const ctx = paint(LOOKS.sunset);
   assert.ok(callsNamed(ctx, 'bezierCurveTo').length >= 18);
   assert.ok(callsNamed(ctx, 'quadraticCurveTo').length >= 18);
-  assert.ok(callsNamed(ctx, 'stroke').length >= 40);
+  assert.equal(callsNamed(ctx, 'stroke').length, 5, 'a stroke for each band of cirrus, one for their sunlit edges, one for the air traffic');
+  assert.equal(new Set(callsNamed(ctx, 'stroke').map(({ brush }) => brush.strokeStyle)).size, 5);
 });
 
 test('canyon retains dark near and far ridges, layered rock and one diffuse dust sheet', () => {
@@ -65,8 +67,11 @@ test('canyon retains dark near and far ridges, layered rock and one diffuse dust
 test('clouds have three different depth gradients but only a fixed number of painted lobes', () => {
   const ctx = paint(LOOKS.clouds);
   assert.equal(callsNamed(ctx, 'createLinearGradient').length, 3);
-  assert.equal(callsNamed(ctx, 'fill').length, 18);
+  assert.equal(callsNamed(ctx, 'fill').length, 3, 'one shape for each depth of cloud');
+  assert.equal(callsNamed(ctx, 'stroke').length, 3, 'and one stroke for its sunlit crowns');
   assert.equal(callsNamed(ctx, 'ellipse').length, 18 * 4);
+  // Each lobe and crown starts a shape of its own, so no edge runs from one cloud to the next.
+  assert.equal(callsNamed(ctx, 'moveTo').length, 18 * 4);
 });
 
 test('orbit is filled with deterministic stars, planetary arcs and shaded irregular debris', () => {

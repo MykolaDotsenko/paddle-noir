@@ -61,6 +61,39 @@ test('resizing repaints only when the size really changed, and redraws the last 
   assert.ok(callsNamed(canvas.contexts[0], 'drawImage').length > 0, 'the frame is drawn again at the new size');
 });
 
+test('a device that steadily cannot keep up during a match is given a board with fewer pixels, once', () => {
+  const play = (renderer, window, frames, gap, state = running()) => {
+    for (let frame = 0; frame < frames; frame += 1) {
+      window.advance(gap);
+      renderer.render(state, GAME_CONFIG);
+    }
+  };
+
+  const smooth = setup({ clientWidth: 400, devicePixelRatio: 3 });
+  play(smooth.renderer, smooth.window, 400, 1000 / 60);
+  assert.equal(smooth.canvas.width, 800, 'a device that keeps up keeps its sharp board');
+
+  const slow = setup({ clientWidth: 400, devicePixelRatio: 3 });
+  play(slow.renderer, slow.window, 90, 1000 / 30);
+  assert.equal(slow.canvas.width, 800, 'not on a few slow frames');
+  play(slow.renderer, slow.window, 1, 1000 / 30);
+  assert.deepEqual([slow.canvas.width, slow.canvas.height], [600, 960], 'one and a half pixels to the CSS pixel');
+  assert.equal(slow.renderer.scale, 600 / GAME_CONFIG.width);
+  assert.ok(callsNamed(slow.canvas.contexts[0], 'drawImage').length > 0, 'the frame drawn at the new size');
+  play(slow.renderer, slow.window, 400, 1000 / 20);
+  assert.equal(slow.canvas.width, 600, 'and no further');
+
+  const paused = setup({ clientWidth: 400, devicePixelRatio: 2 });
+  play(paused.renderer, paused.window, 80, 1000 / 30);
+  play(paused.renderer, paused.window, 3, 1000 / 30, { ...running(), phase: GAME_PHASE.PAUSED });
+  play(paused.renderer, paused.window, 80, 1000 / 30);
+  assert.equal(paused.canvas.width, 800, 'a pause starts the count over');
+
+  const plain = setup({ clientWidth: 400, devicePixelRatio: 1 });
+  play(plain.renderer, plain.window, 200, 1000 / 30);
+  assert.equal(plain.canvas.width, 400, 'a board at CSS size has no pixels to spare');
+});
+
 test('a change of pixel ratio, from zoom or another display, resizes and keeps watching', () => {
   const { canvas, renderer, window } = setup({ clientWidth: 400 });
   renderer.connect();
@@ -471,4 +504,6 @@ test('a Warp frame draws the course and the craft where the paddle would be, the
   assert.ok(texts.includes('P6') && texts.includes('KM/H') && !texts.includes('RALLY'), 'the place and the speed, where a match shows its rally');
   assert.equal(texts.filter((text) => text === 'SUPER').length, 1, 'the player\'s meter, and none for the field');
   assert.ok(callsNamed(ctx, 'scale').some((call) => call.args[0] > 1), 'the course drawn a little past the edges, so a shake never shows them');
+  assert.ok(!callsNamed(ctx, 'drawImage').some((call) => call.args[0] === renderer.background || call.args[0] === renderer.gridLayer), 'no court under the course');
+  assert.ok(!callsNamed(ctx, 'fillRect').some((call) => call.brush.fillStyle === THEME.background), 'nor its backdrop: the course covers the board');
 });

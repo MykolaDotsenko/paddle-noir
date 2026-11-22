@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { drawEngineWake, drawJumpLighting, drawSkyLighting, drawTrackLighting } from '../src/adapters/canvas/warp-lighting.js';
+import { drawEngineWake, drawJumpLighting, drawSkyLighting, drawTrackLighting, LIGHT_FLOOR, LIGHT_SWAY, lightShift, paintSkyLight } from '../src/adapters/canvas/warp-lighting.js';
 import { LOOKS } from '../src/adapters/canvas/warp-scenery.js';
 import { callsNamed, createRecordingContext } from './support/fake-canvas.js';
 
@@ -33,26 +33,39 @@ const road = (stretch = 8, scale = 0.8) => ({
   },
 });
 
-test('five course looks have restrained colored atmospheric bloom and shafts', () => {
+test('five course looks have restrained colored atmospheric bloom, painted once, and shafts', () => {
   for (const look of Object.values(LOOKS)) {
-    const ctx = context((c) => drawSkyLighting(scene(c, look)));
-    const gradients = callsNamed(ctx, 'createRadialGradient');
-    const fills = callsNamed(ctx, 'fill');
-
+    const glow = context((ctx) => paintSkyLight(ctx, look, 500, -190, 690));
+    const gradients = callsNamed(glow, 'createRadialGradient');
     assert.equal(gradients.length, 1, look.skyline);
     assert.equal(gradients[0].args[4] > gradients[0].args[2], true);
     assert.equal(gradients[0].args[5] > 150, true);
     assert.equal(gradients[0].args[3], gradients[0].args[0]);
     assert.equal(gradients[0].args[4], gradients[0].args[1]);
-    assert.equal(gradients.length, 1);
-    assert.equal(fills.length, 4, look.skyline);
-    assert.equal(callsNamed(ctx, 'save').length, callsNamed(ctx, 'restore').length);
+    assert.deepEqual(callsNamed(glow, 'fillRect')[0].args, [-190, -50, 880, LIGHT_FLOOR + 50], 'down to a little under the horizon');
+
+    const shafts = context((c) => drawSkyLighting(scene(c, look)));
+    assert.equal(callsNamed(shafts, 'createRadialGradient').length, 0, 'no glow shaded over the whole sky each frame');
+    assert.equal(callsNamed(shafts, 'fill').length, 4, look.skyline);
+    assert.equal(callsNamed(shafts, 'save').length, callsNamed(shafts, 'restore').length);
   }
 
   const fixed = (now) => context((ctx) => drawSkyLighting(scene(ctx, LOOKS.orbit, { still: true, now }))).calls;
   const moving = (now) => context((ctx) => drawSkyLighting(scene(ctx, LOOKS.orbit, { now }))).calls;
   assert.equal(JSON.stringify(fixed(100)), JSON.stringify(fixed(800)));
   assert.notEqual(JSON.stringify(moving(100)), JSON.stringify(moving(800)));
+});
+
+test('the light slides against the turn of the lane, farthest at sunset, never past its sway', () => {
+  assert.equal(lightShift(LOOKS.sunset, 0), 0);
+  assert.equal(lightShift(LOOKS.sunset, 1), -30);
+  assert.equal(lightShift(LOOKS.orbit, -1), 14);
+  assert.equal(lightShift(LOOKS.sunset, 9), -LIGHT_SWAY);
+  assert.equal(lightShift(LOOKS.tunnel, -9), LIGHT_SWAY);
+
+  // The shafts start where the slid glow is.
+  const start = (heading) => callsNamed(context((ctx) => drawSkyLighting(scene(ctx, LOOKS.sunset, { view: { heading } }))), 'moveTo')[0].args[0];
+  assert.equal(start(0) - start(1), 30);
 });
 
 test('track light catches its surface in near segments, without expensive per-segment gradients', () => {

@@ -127,39 +127,39 @@
             <!-- Bridge consoles: independent tactical controls, kept clear of the central
                  flight path and ignored by pointer steering. -->
             <div class="warp-console warp-console--port" data-warp-console role="group" aria-label="Port bridge controls" hidden>
-              <button type="button" class="warp-control warp-control--nitro" data-warp-control="nitro" data-command="warp-nitro" aria-label="Nitro boost" disabled>
+              <button type="button" class="warp-control warp-control--nitro" data-warp-control="nitro" data-command="warp-nitro" data-key="N" aria-label="Nitro boost" disabled>
                 <span class="warp-control__glyph" aria-hidden="true">ϟ</span>
                 <span class="warp-control__name">NITRO</span>
                 <span class="warp-control__status" data-warp-status>READY</span>
               </button>
-              <button type="button" class="warp-control warp-control--guns" data-warp-control="guns" data-command="warp-guns" aria-label="Rapid-fire guns" disabled>
+              <button type="button" class="warp-control warp-control--guns" data-warp-control="guns" data-command="warp-guns" data-key="G" aria-label="Rapid-fire guns" disabled>
                 <span class="warp-control__glyph" aria-hidden="true">▥</span>
                 <span class="warp-control__name">GUNS</span>
                 <span class="warp-control__status" data-warp-status>READY</span>
               </button>
-              <button type="button" class="warp-control warp-control--rockets" data-warp-control="rockets" data-command="warp-rockets" aria-label="Launch guided rocket" disabled>
+              <button type="button" class="warp-control warp-control--rockets" data-warp-control="rockets" data-command="warp-rockets" data-key="R" aria-label="Launch guided rocket" disabled>
                 <span class="warp-control__glyph" aria-hidden="true">➤</span>
                 <span class="warp-control__name">ROCKET</span>
                 <span class="warp-control__status" data-warp-status>LOCK</span>
               </button>
             </div>
             <div class="warp-console warp-console--starboard" data-warp-console role="group" aria-label="Starboard bridge controls" hidden>
-              <button type="button" class="warp-control warp-control--shield" data-warp-control="shield" data-command="warp-shield" aria-label="Engage energy shield" disabled>
+              <button type="button" class="warp-control warp-control--shield" data-warp-control="shield" data-command="warp-shield" data-key="F" aria-label="Engage energy shield" disabled>
                 <span class="warp-control__glyph" aria-hidden="true">⬡</span>
                 <span class="warp-control__name">SHIELD</span>
                 <span class="warp-control__status" data-warp-status>READY</span>
               </button>
-              <button type="button" class="warp-control warp-control--warp" data-warp-ability data-warp-control="warp" data-command="ability" aria-label="Engage warp drive" disabled>
+              <button type="button" class="warp-control warp-control--warp" data-warp-ability data-warp-control="warp" data-command="ability" data-key="E" aria-label="Engage warp drive" disabled>
                 <span class="warp-control__glyph" aria-hidden="true">✦</span>
                 <span class="warp-control__name">WARP</span>
                 <span class="warp-control__status" data-warp-status>READY</span>
               </button>
             </div>
 
-            <button type="button" class="warp-turn warp-turn--left" data-warp-steer="left" aria-label="Hold to steer left" hidden>
+            <button type="button" class="warp-turn warp-turn--left" data-warp-steer="left" data-key="A" aria-label="Hold to steer left" hidden>
               <span class="warp-turn__arrow" aria-hidden="true">‹</span><span class="warp-turn__label" aria-hidden="true">LEFT</span>
             </button>
-            <button type="button" class="warp-turn warp-turn--right" data-warp-steer="right" aria-label="Hold to steer right" hidden>
+            <button type="button" class="warp-turn warp-turn--right" data-warp-steer="right" data-key="D" aria-label="Hold to steer right" hidden>
               <span class="warp-turn__arrow" aria-hidden="true">›</span><span class="warp-turn__label" aria-hidden="true">RIGHT</span>
             </button>
             <div class="warp-flight-stick" data-flight-stick aria-hidden="true" hidden>
@@ -338,9 +338,9 @@
                   <li data-ball-only><span class="tutorial__icon" aria-hidden="true">◐</span><span><strong>Hit off-center</strong> to angle your return. Every hit speeds the ball up.</span></li>
                   <li data-match-only><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Grab power-ups</strong> with the ball: Wide, Shrink, Turbo, Ghost and Multiball. Whoever hit last gets it.</span></li>
                   <li data-nova-only hidden><span class="tutorial__icon" aria-hidden="true">✈</span><span><strong>Your paddle is a starship.</strong> It fires by itself: steer out of the way of rocks and fire, and under what you want shot down.</span></li>
-                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">➤</span><span><strong>Your paddle is a racing craft.</strong> It flies by itself: thread rings and gates, jump ramps, drift on the inside of bends, and slipstream rivals to slingshot past.</span></li>
-                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">◎</span><span><strong>Fight for your place.</strong> Boost with nitro, activate rapid guns, launch guided rockets when a rival is in range, protect yourself with shields and engage warp drive for a speed surge.</span></li>
-                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Flight controls:</strong> tap <strong>STEER</strong> during Warp to choose <strong>Buttons</strong> (hold left/right), <strong>Floating Stick</strong> (drag a thumb in the lower half) or <strong>Classic Drag</strong>. The selected mode is remembered. On keyboard use <kbd>←</kbd>/<kbd>→</kbd> or <kbd>A</kbd>/<kbd>D</kbd>. The bridge weapon systems work independently.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">➤</span><span><strong>Your paddle is a racing craft.</strong> It flies by itself: thread rings and gates, jump ramps, drift round bends, slipstream rivals.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">◎</span><span><strong>Fight for your place.</strong> Guns fire at rivals ahead by themselves. The side panels add nitro, gun overdrive, rockets, a shield and your craft's warp.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Steer</strong> with the buttons under the track, a floating stick or classic drag: tap <strong>STEER</strong> to switch. Keys: <kbd>N</kbd> <kbd>G</kbd> <kbd>R</kbd> <kbd>F</kbd> <kbd>E</kbd> for the panels.</span></li>
                   <li data-bricks-only hidden><span class="tutorial__icon" aria-hidden="true">▦</span><span><strong>Break every wall.</strong> Catch what falls with your paddle. A super goes through bricks, or takes a whole row.</span></li>
                 </ol>
                 <button type="button" class="cta" data-dismiss-tutorial autofocus>Got it</button>
@@ -515,7 +515,7 @@
                 <p class="panel__meta" data-over-meta>Longest rally <strong data-over-rally>0</strong></p>
                 <p class="panel__meta" data-over-wall hidden></p>
                 <p class="panel__meta panel__meta--tickets" data-over-tickets hidden></p>
-                <p class="warp-ending" data-warp-ending hidden></p>
+                <p class="warp-ending" data-warp-ending hidden><strong class="warp-ending__title" data-warp-ending-title></strong> <span class="warp-ending__text" data-warp-ending-text></span></p>
                 <button type="button" class="standing" data-over-scores data-show-scores hidden>
                   <span class="standing__rows" data-standing-rows></span>
                   <span class="standing__note" data-standing-note></span>
@@ -548,7 +548,8 @@
             <span class="rail__track" aria-hidden="true"></span>
             <span class="rail__label" aria-hidden="true">Drag here to move</span>
             <button type="button" class="warp-steering-switch" data-command="warp-steering-cycle" data-warp-steering-switch aria-label="Change Warp steering mode" hidden>
-              <span aria-hidden="true">◎</span> STEER: BUTTONS <span class="warp-steering-switch__cycle" aria-hidden="true">↻</span>
+              <span class="warp-steering-switch__kicker">STEER ↻</span>
+              <span class="warp-steering-switch__name" data-warp-steering-name>LEFT / RIGHT</span>
             </button>
           </div>
         </div>

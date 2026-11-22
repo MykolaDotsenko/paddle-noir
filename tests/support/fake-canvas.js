@@ -49,6 +49,19 @@ export function createRecordingContext() {
   });
 }
 
+/**
+ * Glow sprites that stand for themselves, and kept layers whose painting is recorded on a
+ * context of their own, so a test can see what a layer holds.
+ */
+export const fakeGlows = Object.freeze({
+  get: (rgb) => ({ glow: rgb }),
+  layer(slot, key, width, height, paint) {
+    const ctx = createRecordingContext();
+    paint(ctx);
+    return { layer: slot, key, width, height, calls: ctx.calls };
+  },
+});
+
 /** A canvas element whose 2D context records its drawing. */
 export class FakeCanvas {
   constructor({ clientWidth = 0, contextAvailable = true } = {}) {

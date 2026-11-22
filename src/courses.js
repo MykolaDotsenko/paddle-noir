@@ -10,6 +10,14 @@
  */
 
 /**
+ * How much faster than the paces written below the whole field flies. The paces say who is
+ * faster than whom; this says how fast the field is against a player with a bridge to fight
+ * with. It was set by flying the cup with human-like bots that use the bridge: a casual one
+ * takes the cup about half the time, a decent one nearly always, a skilled one always.
+ */
+const FIELD = 1.08;
+
+/**
  * @param {string} name
  * @param {string} rgb
  * @param {Pilot['craft']} craft
@@ -18,7 +26,7 @@
  * @param {Pilot['trait']} [trait]
  * @returns {Pilot}
  */
-const pilot = (name, rgb, craft, pace, skill, trait = 'none') => Object.freeze({ name, rgb, craft, pace, skill, trait });
+const pilot = (name, rgb, craft, pace, skill, trait = 'none') => Object.freeze({ name, rgb, craft, pace: pace * FIELD, skill, trait });
 
 const ROMA = pilot('Roma', '96, 165, 250', 'jet', 0.99, 0.55);
 const HALYNA = pilot('Halyna', '244, 114, 182', 'wing', 1.0, 0.6);
@@ -29,7 +37,7 @@ const SANYA = pilot('Sanya', '45, 212, 191', 'dart', 1.06, 0.75, 'blocker');
 const WOBBLE = pilot('DJ Wobble', '232, 121, 249', 'saucer', 1.07, 0.7, 'weaver');
 const ZINA = pilot('Zina', '250, 204, 21', 'wing', 1.09, 0.85, 'blocker');
 const LAG = pilot('LAG', '167, 139, 250', 'dart', 1.1, 0.8, 'weaver');
-const LANDLORD = pilot('Landlord', '239, 68, 68', 'heavy', 1.12, 0.9, 'miner');
+const LANDLORD = pilot('Landlord', '239, 68, 68', 'heavy', 1.1, 0.9, 'miner');
 
 /** @type {readonly CourseLayout[]} */
 export const WARP_COURSES = Object.freeze(/** @type {CourseLayout[]} */ ([
@@ -41,7 +49,7 @@ export const WARP_COURSES = Object.freeze(/** @type {CourseLayout[]} */ ([
     hills: [[1, 420, 0.1], [0.35, 170, 0.6]],
     every: { rings: 100, pads: 185, mines: 0, debris: 0, cargo: 340, ramps: 560, gates: 0, crates: 440, cells: 450 },
     pilots: [ROMA, HALYNA, TARAS, JANITOR, HRYTS],
-    qualify: 4,
+    qualify: 3,
   },
   {
     name: 'Neon Canyon',
@@ -51,7 +59,7 @@ export const WARP_COURSES = Object.freeze(/** @type {CourseLayout[]} */ ([
     hills: [[1.4, 360, 0.3], [0.5, 140, 0.2]],
     every: { rings: 115, pads: 190, mines: 330, debris: 0, cargo: 0, ramps: 650, gates: 630, crates: 420, cells: 440 },
     pilots: [TARAS, JANITOR, HRYTS, SANYA, WOBBLE],
-    qualify: 4,
+    qualify: 3,
   },
   {
     name: 'Cloud Nine',

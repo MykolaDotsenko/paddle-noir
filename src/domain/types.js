@@ -504,6 +504,15 @@
  * @property {number} lockSeconds how long a lock takes
  * @property {number} missileSpeed how much faster than the craft a rocket flies
  * @property {number} blastRange how far along the course a rocket's blast reaches, in meters
+ * @property {number} overdriveSeconds how long the guns' overdrive fires, once pressed
+ * @property {number} overdriveRecharge seconds before the overdrive can be pressed again
+ * @property {number} overdriveDamage what the overdrive multiplies the guns' damage by
+ * @property {number} shieldSeconds how long the emergency shield, once pressed, stays up
+ * @property {number} shieldRecharge seconds before the emergency shield can be pressed again
+ * @property {number} takedownSlow the share of its speed a rival keeps as it is taken down
+ * @property {number} takedownSpin seconds a rival taken down by guns or a ram spins
+ * @property {number} blastSpin seconds a rival caught in a rocket's blast spins
+ * @property {number} spunPace the share of its top speed a spinning rival flies at
  * @property {number} mineEvery seconds between the mines a miner drops
  * @property {number} maxDrops mines a miner may have lying ahead of the player at once
  * @property {number} calmSeconds the pause after a race before the next one's start lights

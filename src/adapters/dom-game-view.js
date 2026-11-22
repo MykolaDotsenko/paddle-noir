@@ -157,16 +157,44 @@ export class DomGameView {
     for (const button of this.findAll('[data-command]')) {
       const command = button.dataset.command ?? '';
 
-      if (COMMANDS.includes(command)) {
-        this.listen(button, () => {
-          // Bring the whole court into view, since scrolling locks while a match runs.
-          this.root.scrollIntoView?.({ block: 'nearest' });
-          // Hand focus back to the board. A focused button would otherwise swallow Space
-          // (re-activating itself) instead of letting it pause or resume the match.
-          this.board.focus({ preventScroll: true });
-          this.commandHandler(/** @type {GameCommand} */ (command));
-        });
+      if (!COMMANDS.includes(command)) {
+        continue;
       }
+
+      const send = () => {
+        // Bring the whole court into view, since scrolling locks while a match runs.
+        this.root.scrollIntoView?.({ block: 'nearest' });
+        // Hand focus back to the board. A focused button would otherwise swallow Space
+        // (re-activating itself) instead of letting it pause or resume the match.
+        this.board.focus({ preventScroll: true });
+        this.commandHandler(/** @type {GameCommand} */ (command));
+      };
+
+      if (!button.hasAttribute('data-warp-control')) {
+        this.listen(button, send);
+        continue;
+      }
+
+      // A bridge control acts the moment a finger lands on it. A phone makes no click of a
+      // second finger's tap, and a thumb on a bridge control usually is a second finger, the
+      // first one holding a steering button or the stick. A click still comes from the
+      // keyboard and from assistive technology, which press no pointer (its detail is 0);
+      // a pointer's own click, after the press already acted, only hands the focus back.
+      this.listen(button, (event) => {
+        const press = /** @type {PointerEvent} */ (event);
+
+        if (press.button === 0 || press.pointerType === 'touch' || press.pointerType === 'pen') {
+          event.preventDefault();
+          send();
+        }
+      }, 'pointerdown');
+      this.listen(button, (event) => {
+        if (/** @type {MouseEvent} */ (event).detail === 0) {
+          send();
+        } else {
+          this.board.focus({ preventScroll: true });
+        }
+      });
     }
 
     for (const button of this.findAll('[data-mode]')) {
@@ -714,7 +742,14 @@ export class DomGameView {
       if (this.steeringSwitch) {
         const names = { drag: 'CLASSIC DRAG', buttons: 'LEFT / RIGHT', stick: 'FLOATING STICK' };
         const label = names[steering];
-        this.steeringSwitch.textContent = `◎ STEER: ${label} ↻`;
+        const name = this.steeringSwitch.querySelector('[data-warp-steering-name]');
+
+        if (name) {
+          name.textContent = label;
+        } else {
+          this.steeringSwitch.textContent = `STEER ↻ ${label}`;
+        }
+
         this.steeringSwitch.setAttribute('aria-label', `Steering: ${label}. Press to change control mode`);
       }
     }
@@ -723,19 +758,11 @@ export class DomGameView {
     for (const button of this.steeringButtons) button.hidden = !steeringVisible || steering !== 'buttons';
     if ((!steeringVisible || steering !== 'stick') && this.flightStickIndicator) this.flightStickIndicator.hidden = true;
 
-    // Update tiny status captions only when their value changes. This runs each
-    // frame, so avoid replacing the icon/label markup or spamming live regions.
+    // The bridge's buttons: this runs every frame, so each is written only when what it
+    // shows has changed, its recharge in twentieths of a fill along its foot.
     if (presentation.warp) {
       for (const button of this.bridgeButtons) {
-        const id = /** @type {'nitro' | 'guns' | 'rockets' | 'shield' | 'warp'} */ (button.dataset.warpControl);
-        const system = presentation.warp.controls[id];
-        if (!system) continue;
-        const caption = button.querySelector('[data-warp-status]');
-        if (caption && caption.textContent !== system.status) caption.textContent = system.status;
-        button.disabled = !system.ready || presentation.phase !== GAME_PHASE.RUNNING;
-        const label = `${id.toUpperCase()}: ${system.status}`;
-        if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
-        button.dataset.active = String(['BURNING', 'FIRING', 'ONLINE', 'ENGAGED'].includes(system.status));
+        this.showBridgeControl(button, presentation);
       }
     }
 
@@ -971,6 +998,43 @@ export class DomGameView {
   }
 
   /**
+   * One button of the bridge: what its system is doing, whether it can be pressed, and how
+   * far it has recharged.
+   *
+   * @param {HTMLButtonElement} button
+   * @param {Presentation} presentation
+   */
+  showBridgeControl(button, { warp, phase }) {
+    const id = /** @type {'nitro' | 'guns' | 'rockets' | 'shield' | 'warp'} */ (button.dataset.warpControl);
+    const system = warp?.controls[id];
+
+    if (!system) {
+      return;
+    }
+
+    const disabled = !system.ready || phase !== GAME_PHASE.RUNNING;
+    const charge = String(Math.round(system.charge * 20) / 20);
+    const active = String(['BURNING', 'FIRING', 'ONLINE', 'ENGAGED'].includes(system.status));
+    const shown = `${system.status}|${disabled}|${charge}|${active}`;
+
+    if (button.dataset.shown === shown) {
+      return;
+    }
+
+    button.dataset.shown = shown;
+    const caption = button.querySelector('[data-warp-status]');
+
+    if (caption) {
+      caption.textContent = system.status;
+    }
+
+    button.disabled = disabled;
+    button.setAttribute('aria-label', `${id.toUpperCase()}: ${system.status}`);
+    button.dataset.active = active;
+    button.style?.setProperty('--charge', charge);
+  }
+
+  /**
    * The hangar's card in the Warp menu: the craft the next cup is flown in, and the tickets
    * there are to spend on it.
    *
@@ -1051,8 +1115,18 @@ export class DomGameView {
 
     if (this.storyEnding) {
       this.storyEnding.hidden = !warp || winner !== 'player';
-      if (warp && winner === 'player' && this.storyEnding.textContent !== warp.ending) {
-        this.storyEnding.textContent = warp.ending;
+
+      // A title and the story's last lines; a short screen keeps only the title.
+      if (warp && winner === 'player') {
+        const title = this.storyEnding.querySelector('[data-warp-ending-title]');
+        const text = this.storyEnding.querySelector('[data-warp-ending-text]');
+
+        if (title && text) {
+          title.textContent = warp.ending.title;
+          text.textContent = warp.ending.text;
+        } else {
+          this.storyEnding.textContent = `${warp.ending.title} — ${warp.ending.text}`;
+        }
       }
     }
 

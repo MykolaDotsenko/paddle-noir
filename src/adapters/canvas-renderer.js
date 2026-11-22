@@ -11,6 +11,7 @@ import { drawBall, drawExtraBalls, drawGhostFog, drawHazards, drawPaddle, drawPi
 import { THEME } from './canvas/theme.js';
 import { CAMEO_SECONDS, CameoCue } from './cameo.js';
 import { Effects } from './effects.js';
+import { FramePace } from './frame-pace.js';
 
 /**
  * @import { GameConfig, GameEvent, GameState, NovaState } from '../domain/types.js'
@@ -19,6 +20,8 @@ import { Effects } from './effects.js';
 
 // Rendering above twice the CSS size costs battery on phones without visibly sharper glow.
 const MAX_PIXEL_RATIO = 2;
+// A device that cannot keep up at that is given half as many pixels, still sharper than CSS.
+const SLOW_PIXEL_RATIO = 1.5;
 const MAX_SHAKE = 9;
 const MAX_FRAME_SECONDS = 0.05;
 // Under the Lag boss's attack the balls are redrawn about seven times a second.
@@ -64,6 +67,9 @@ export class CanvasRenderer {
     this.effects = new Effects({ random, reducedMotion: this.reducedMotionQuery.matches });
     this.trail = new BallTrail();
     this.cameoCue = new CameoCue();
+    this.pace = new FramePace();
+    // Lowered for good, for this visit, once the device has shown it cannot keep up.
+    this.pixelCap = MAX_PIXEL_RATIO;
     this.glows = new GlowSprites(() => this.createLayer());
     this.scale = 1;
     /** @type {GameState | null} */
@@ -122,7 +128,7 @@ export class CanvasRenderer {
   resize() {
     const { width, height } = this.config;
     const displayWidth = this.canvas.clientWidth || width;
-    const pixelRatio = Math.min(this.window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+    const pixelRatio = Math.min(this.window.devicePixelRatio || 1, this.pixelCap);
     const backingWidth = Math.round(displayWidth * pixelRatio);
     const backingHeight = Math.round(backingWidth * (height / width));
 
@@ -138,6 +144,31 @@ export class CanvasRenderer {
     if (this.lastState) {
       this.draw();
     }
+  }
+
+  /**
+   * While a match runs, a device that steadily shows fewer than about 45 frames a second gets
+   * a board with fewer pixels to paint, once: a smooth game matters more than the last bit of
+   * sharpness. Then the frame is drawn again at the new size.
+   *
+   * @param {GameState} state
+   * @param {number} now milliseconds
+   * @returns {boolean} whether the board was resized, and this frame already drawn
+   */
+  keepPace(state, now) {
+    if (state.phase !== GAME_PHASE.RUNNING) {
+      this.pace.rest();
+      return false;
+    }
+
+    if (!this.pace.slow(now) || this.pixelCap === SLOW_PIXEL_RATIO) {
+      return false;
+    }
+
+    this.pixelCap = SLOW_PIXEL_RATIO;
+    const before = this.canvas.width;
+    this.resize();
+    return this.canvas.width !== before;
   }
 
   createLayer() {
@@ -262,6 +293,11 @@ export class CanvasRenderer {
     }
 
     const now = this.window.performance.now();
+
+    if (this.keepPace(state, now)) {
+      return;
+    }
+
     const deltaSeconds = this.lastFrameTime === null ? 0 : Math.min(MAX_FRAME_SECONDS, (now - this.lastFrameTime) / 1000);
     this.lastFrameTime = now;
 
@@ -277,6 +313,15 @@ export class CanvasRenderer {
     ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+
+    if (state.warp) {
+      // A race paints the whole board itself, sky to ground and past its edges, so the court
+      // under it would be two passes over every pixel for nothing.
+      ctx.translate(shake.x, shake.y);
+      this.drawWarpFrame(state, now);
+      return;
+    }
+
     ctx.fillStyle = THEME.background;
     ctx.fillRect(0, 0, width, height);
     ctx.translate(shake.x, shake.y);
@@ -292,11 +337,6 @@ export class CanvasRenderer {
 
     if (state.nova) {
       this.drawNova(state, now);
-      return;
-    }
-
-    if (state.warp) {
-      this.drawWarpFrame(state, now);
       return;
     }
 

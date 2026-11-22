@@ -27,6 +27,33 @@ function playing(overrides = {}) {
 const ghosted = (side) => ({ modifiers: { player: noGhost, opponent: noGhost, [side]: { ...noGhost, ghost: 3 } } });
 const glows = () => new GlowSprites(() => new FakeCanvas());
 
+test('a kept layer is painted once per slot and key, and painted anew, on the same canvas, for a new key', () => {
+  const made = [];
+  const sprites = new GlowSprites(() => {
+    const canvas = new FakeCanvas();
+    made.push(canvas);
+    return canvas;
+  });
+  let paints = 0;
+  const paint = (ctx) => {
+    paints += 1;
+    ctx.fillRect(0, 0, 1, 1);
+  };
+
+  const first = sprites.layer('sky', 'city', 880.4, 420, paint);
+  assert.deepEqual([first.width, first.height], [881, 420], 'whole pixels, never short of the picture');
+  assert.equal(sprites.layer('sky', 'city', 880.4, 420, paint), first);
+  assert.equal(paints, 1, 'kept, not painted again');
+
+  const next = sprites.layer('sky', 'clouds', 700, 300, paint);
+  assert.equal(next, first, 'the same canvas, painted over');
+  assert.deepEqual([next.width, next.height, paints], [700, 300, 2]);
+
+  sprites.layer('other', 'city', 10, 10, paint);
+  assert.equal(made.length, 2, 'one canvas a slot');
+  assert.equal(callsNamed(next.contexts.at(-1), 'fillRect').length, 1);
+});
+
 test('mixRgb blends two colors and speedIntensity maps serve speed to 0 and top speed to 1', () => {
   assert.equal(mixRgb('0, 0, 0', '200, 100, 50', 0.5), '100, 50, 25');
   assert.equal(speedIntensity(ballConfig.initialSpeed, GAME_CONFIG), 0);

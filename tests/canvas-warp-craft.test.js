@@ -11,14 +11,14 @@ import { WARP_CONFIG } from '../src/config.js';
 import { createInitialState, GAME_PHASE } from '../src/domain/game.js';
 import { buildCourse, raceState } from '../src/domain/warp.js';
 import { HANGAR } from '../src/hangar.js';
-import { callsNamed, createRecordingContext, FakeCanvas } from './support/fake-canvas.js';
+import { callsNamed, createRecordingContext, FakeCanvas, fakeGlows } from './support/fake-canvas.js';
 
 // The racing craft of the Warp game on the canvas, their weapons at work, and what the race's
 // display says of them.
 
 const config = WARP_CONFIG;
 const rules = config.warp;
-const glows = { get: (rgb) => ({ glow: rgb }) };
+const glows = fakeGlows;
 const KINDS = ['jet', 'dart', 'wing', 'heavy', 'saucer'];
 const CYAN = THEME.side.player.rgb;
 const CORE = THEME.side.player.core;

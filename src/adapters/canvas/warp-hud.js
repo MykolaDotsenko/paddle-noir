@@ -285,14 +285,19 @@ function drawStartLights(ctx, state, config, name, qualify, raceIndex = 0) {
     ctx.fill();
   }
 
+  // The story's chapter and its mission, on a plate of their own: the sky behind them is
+  // as bright as the sun on the first course.
   const chapter = WARP_STORY[raceIndex];
   if (chapter) {
+    ctx.fillStyle = 'rgba(5, 6, 15, 0.82)';
+    roundedRect(ctx, x - 118, y + 52, 236, 40, 9);
+    ctx.fill();
     ctx.font = `900 11px ${FONT}`;
     ctx.fillStyle = `rgba(${THEME.side.player.rgb}, 0.95)`;
-    ctx.fillText(chapter.title, x, y + 67);
+    ctx.fillText(chapter.title, x, y + 68);
     ctx.font = `750 10px ${FONT}`;
     ctx.fillStyle = PAPER;
-    ctx.fillText(`OPTIONAL: ${chapter.mission.toUpperCase()}`, x, y + 84);
+    ctx.fillText(`MISSION: ${chapter.mission.toUpperCase()}`, x, y + 84);
   }
 
   ctx.restore();

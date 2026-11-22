@@ -33,21 +33,25 @@ const across = (row, x) => ({
 });
 
 /**
- * Put a diagonal or longitudinal streak on the physical surface.
+ * Put diagonal or longitudinal streaks of one color on the physical surface, as one stroke:
+ * a stroke apiece cost a phone more than the hairlines are worth.
+ *
  * @param {CanvasRenderingContext2D} ctx
  * @param {RoadRow} near
  * @param {RoadRow} far
- * @param {number} x1
- * @param {number} x2
+ * @param {readonly (readonly [number, number])[]} streaks where each starts across the near
+ *   edge, and ends across the far edge, as shares of the lane
  * @param {string} color
  */
-function seam(ctx, near, far, x1, x2, color) {
-  const a = across(near, x1);
-  const b = across(far, x2);
+function seams(ctx, near, far, streaks, color) {
   ctx.strokeStyle = color;
   ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
+  for (const [x1, x2] of streaks) {
+    const a = across(near, x1);
+    const b = across(far, x2);
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+  }
   ctx.stroke();
 }
 
@@ -76,9 +80,7 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
 
   if (kind === 'city' || kind === 'planet' || kind === 'core') {
     // Fabricated deck plates with recessed longitudinal service grooves.
-    for (const x of [0.115, 0.22, 0.78, 0.885]) {
-      seam(ctx, near, far, x, x, cut);
-    }
+    seams(ctx, near, far, [[0.115, 0.115], [0.22, 0.22], [0.78, 0.78], [0.885, 0.885]], cut);
     if (index % 3 === 0) {
       ctx.strokeStyle = cut;
       ctx.beginPath();
@@ -96,29 +98,33 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
     }
     if (index % 4 === 0 && scale > 0.4) {
       // Track-side countersunk fasteners follow correct projected boundaries.
-      for (const row of [near, far]) {
-        for (const x of [0.125, 0.875]) {
-          const p = across(row, x);
-          ctx.fillStyle = 'rgba(10, 17, 32, ' + (fade * 0.6) + ')';
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, Math.max(0.75, row.left.scale * 1.6), 0, TAU);
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(203, 213, 225, ' + (fade * 0.33) + ')';
-          ctx.lineWidth = 0.65;
-          ctx.beginPath();
-          ctx.moveTo(p.x - 0.8, p.y - 0.45);
-          ctx.lineTo(p.x + 0.8, p.y + 0.45);
-          ctx.stroke();
-        }
+      const heads = [near, far].flatMap((row) => [0.125, 0.875].map((x) => ({ ...across(row, x), r: Math.max(0.75, row.left.scale * 1.6) })));
+      ctx.fillStyle = 'rgba(10, 17, 32, ' + (fade * 0.6) + ')';
+      ctx.beginPath();
+      for (const p of heads) {
+        ctx.moveTo(p.x + p.r, p.y);
+        ctx.arc(p.x, p.y, p.r, 0, TAU);
       }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(203, 213, 225, ' + (fade * 0.33) + ')';
+      ctx.lineWidth = 0.65;
+      ctx.beginPath();
+      for (const p of heads) {
+        ctx.moveTo(p.x - 0.8, p.y - 0.45);
+        ctx.lineTo(p.x + 0.8, p.y + 0.45);
+      }
+      ctx.stroke();
     }
   } else if (kind === 'mesas') {
     // Ancient compacted stone: irregular geological cracks and worn joint faces.
+    /** @type {[number, number][]} */
+    const fractures = [];
     for (let fracture = 0; fracture < 5; fracture += 1) {
       const from = 0.17 + noise(index, 44 + fracture) * 0.65;
-      const to = from + (noise(index, 61 + fracture) - 0.5) * 0.1;
-      seam(ctx, near, far, from, to, fracture === 0 ? stripe : cut);
+      fractures.push([from, from + (noise(index, 61 + fracture) - 0.5) * 0.1]);
     }
+    seams(ctx, near, far, fractures.slice(0, 1), stripe);
+    seams(ctx, near, far, fractures.slice(1), cut);
     if (index % 4 === 0) {
       const l = across(near, 0.12);
       const m = across(near, 0.53);
@@ -133,9 +139,8 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
   } else {
     // Cloud Nine's smooth ceramic deck: pearly brushed streaks and soft seams.
     if (index % 2 === 0) {
-      for (const s of [0.14, 0.29, 0.51, 0.7, 0.85]) {
-        seam(ctx, near, far, s, s + (s > 0.5 ? -0.01 : 0.01), s > 0.5 ? reflection : stripe);
-      }
+      seams(ctx, near, far, [[0.14, 0.15], [0.29, 0.3]], stripe);
+      seams(ctx, near, far, [[0.51, 0.5], [0.7, 0.69], [0.85, 0.84]], reflection);
     }
     if (index % 5 === 0) {
       const l = across(near, 0.24);
@@ -151,18 +156,41 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
   // Extremely faint isolated wear flecks: seeded by distance, never by time.
   // Four marks maximum per near segment, irrespective of device resolution.
   if (scale > 0.38) {
-    for (let mark = 0; mark < 4; mark += 1) {
-      const x = 0.15 + noise(index * 7 + mark, 83) * 0.7;
-      const t = 0.12 + noise(index * 9 + mark, 84) * 0.72;
-      const nearSpot = across(near, x);
-      const farSpot = across(far, x);
-      const px = nearSpot.x + (farSpot.x - nearSpot.x) * t;
-      const py = nearSpot.y + (farSpot.y - nearSpot.y) * t;
-      ctx.fillStyle = mark % 2 ? cut : reflection;
-      ctx.fillRect(px, py, Math.max(0.6, scale * 2.5), Math.max(0.6, scale * 1.25));
+    const fleck = { w: Math.max(0.6, scale * 2.5), h: Math.max(0.6, scale * 1.25) };
+    for (const [first, color] of /** @type {const} */ ([[0, reflection], [1, cut]])) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (let mark = first; mark < 4; mark += 2) {
+        const x = 0.15 + noise(index * 7 + mark, 83) * 0.7;
+        const t = 0.12 + noise(index * 9 + mark, 84) * 0.72;
+        const nearSpot = across(near, x);
+        const farSpot = across(far, x);
+        ctx.rect(nearSpot.x + (farSpot.x - nearSpot.x) * t, nearSpot.y + (farSpot.y - nearSpot.y) * t, fleck.w, fleck.h);
+      }
+      ctx.fill();
     }
   }
   ctx.restore();
+}
+
+/**
+ * One path, filled or stroked in one color.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {'fill' | 'stroke'} how
+ * @param {string} color
+ * @param {() => void} trace adds the path's shapes
+ */
+function paths(ctx, how, color, trace) {
+  ctx.beginPath();
+  trace();
+  if (how === 'fill') {
+    ctx.fillStyle = color;
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  }
 }
 
 /**
@@ -186,136 +214,139 @@ export function drawWorldArchitecture({ ctx, look, config, view, race, still, no
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
 
+  // Each kind of part is one path across all the structures that have it: a fill or stroke
+  // apiece cost a phone far more than these few, faint shapes are worth.
   if (theme === 'city') {
     // Near-sky tramways, balcony supports and inset windows behind the roadway.
-    for (let n = 0; n < 8; n += 1) {
-      const x = wrap(n * 117 + noise(n, 4) * 45 + movement * 1.45, size) - PAD;
+    const towers = Array.from({ length: 8 }, (_, n) => {
       const h = 39 + noise(n, 5) * 76;
-      const w = 17 + noise(n, 6) * 19;
-      const top = HORIZON - h;
-      ctx.fillStyle = 'rgba(9, 8, 31, 0.67)';
-      ctx.fillRect(x, top, w, h);
-      ctx.fillStyle = 'rgba(57, 45, 93, 0.32)';
-      ctx.fillRect(x + w * 0.7, top + 3, w * 0.25, h - 4);
-      ctx.strokeStyle = 'rgba(233, 154, 174, 0.32)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x, top, w, h);
-      for (let floor = 0; floor < 7; floor += 1) {
-        const y = top + 7 + floor * (h - 12) / 7;
-        ctx.fillStyle = noise(n * 9 + floor, 17) > 0.46
-          ? 'rgba(255, 203, 142, 0.39)' : 'rgba(103, 232, 249, 0.19)';
-        ctx.fillRect(x + 4, y, w * 0.23, Math.max(1, h * 0.027));
-      }
-      if (n % 3 === 0) {
-        ctx.strokeStyle = 'rgba(103, 232, 249, 0.22)';
-        ctx.lineWidth = 1.3;
-        ctx.beginPath();
-        ctx.moveTo(x + w * 0.5, top - 12);
-        ctx.lineTo(x + w * 0.5, top);
-        ctx.stroke();
-      }
+      return { n, x: wrap(n * 117 + noise(n, 4) * 45 + movement * 1.45, size) - PAD, h, w: 17 + noise(n, 6) * 19, top: HORIZON - h };
+    });
+    ctx.lineWidth = 1;
+    paths(ctx, 'fill', 'rgba(9, 8, 31, 0.67)', () => towers.forEach(({ x, top, w, h }) => ctx.rect(x, top, w, h)));
+    paths(ctx, 'fill', 'rgba(57, 45, 93, 0.32)', () => towers.forEach(({ x, top, w, h }) => ctx.rect(x + w * 0.7, top + 3, w * 0.25, h - 4)));
+    paths(ctx, 'stroke', 'rgba(233, 154, 174, 0.32)', () => towers.forEach(({ x, top, w, h }) => ctx.rect(x, top, w, h)));
+    for (const lit of [true, false]) {
+      paths(ctx, 'fill', lit ? 'rgba(255, 203, 142, 0.39)' : 'rgba(103, 232, 249, 0.19)', () => {
+        for (const { n, x, top, w, h } of towers) {
+          for (let floor = 0; floor < 7; floor += 1) {
+            if ((noise(n * 9 + floor, 17) > 0.46) === lit) {
+              ctx.rect(x + 4, top + 7 + floor * (h - 12) / 7, w * 0.23, Math.max(1, h * 0.027));
+            }
+          }
+        }
+      });
     }
+    ctx.lineWidth = 1.3;
+    paths(ctx, 'stroke', 'rgba(103, 232, 249, 0.22)', () => {
+      for (const { n, x, top, w } of towers) {
+        if (n % 3 === 0) {
+          ctx.moveTo(x + w * 0.5, top - 12);
+          ctx.lineTo(x + w * 0.5, top);
+        }
+      }
+    });
   } else if (theme === 'mesas') {
     // Geological layers lit by distant aurora: a 2D rocky relief study.
-    for (let n = 0; n < 7; n += 1) {
-      const x = wrap(n * 137 + movement * 1.3 + 24, size) - PAD;
-      const w = 45 + noise(n, 34) * 41;
-      const h = 34 + noise(n, 35) * 42;
-      ctx.beginPath();
+    const rocks = Array.from({ length: 7 }, (_, n) => ({ x: wrap(n * 137 + movement * 1.3 + 24, size) - PAD, w: 45 + noise(n, 34) * 41, h: 34 + noise(n, 35) * 42 }));
+    ctx.beginPath();
+    for (const { x, w, h } of rocks) {
       ctx.moveTo(x - 6, HORIZON);
       ctx.lineTo(x + w * 0.13, HORIZON - h);
       ctx.lineTo(x + w * 0.69, HORIZON - h - 3);
       ctx.lineTo(x + w, HORIZON - h * 0.82);
       ctx.lineTo(x + w + 17, HORIZON);
       ctx.closePath();
-      ctx.fillStyle = 'rgba(12, 47, 39, 0.47)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(171, 127, 93, 0.29)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      for (let layer = 0; layer < 5; layer += 1) {
-        const y = HORIZON - h * (0.12 + 0.15 * layer);
-        ctx.strokeStyle = layer % 2 ? 'rgba(94, 234, 212, 0.14)' : 'rgba(251, 146, 60, 0.17)';
-        ctx.beginPath();
-        ctx.moveTo(x + w * (0.13 + 0.02 * layer), y);
-        ctx.lineTo(x + w * (0.89 - 0.02 * layer), y + 1.8);
-        ctx.stroke();
-      }
+    }
+    ctx.fillStyle = 'rgba(12, 47, 39, 0.47)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(171, 127, 93, 0.29)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    for (const odd of [0, 1]) {
+      paths(ctx, 'stroke', odd ? 'rgba(94, 234, 212, 0.14)' : 'rgba(251, 146, 60, 0.17)', () => {
+        for (const { x, w, h } of rocks) {
+          for (let layer = odd; layer < 5; layer += 2) {
+            const y = HORIZON - h * (0.12 + 0.15 * layer);
+            ctx.moveTo(x + w * (0.13 + 0.02 * layer), y);
+            ctx.lineTo(x + w * (0.89 - 0.02 * layer), y + 1.8);
+          }
+        }
+      });
     }
   } else if (theme === 'clouds') {
     // Dense cloud shelf shadowing under bright vapor crowns, three parallax levels.
+    /** @type {{ x: number, y: number, radius: number }[]} */
+    const crowns = [];
     for (let layer = 0; layer < 3; layer += 1) {
       const drift = movement * (0.4 + layer * 0.47) + time * (still ? 0 : 0.00022 * (layer + 1));
-      for (let n = 0; n < 5; n += 1) {
-        const x = wrap(n * 171 + noise(n, layer + 44) * 83 + drift, size) - PAD;
-        const y = 164 + layer * 28 + noise(n, 48 + layer) * 22;
-        const radius = 27 + noise(n, 51 + layer) * 31;
-        ctx.fillStyle = layer === 0 ? 'rgba(216, 180, 254, 0.12)'
-          : layer === 1 ? 'rgba(196, 181, 253, 0.18)' : 'rgba(165, 180, 252, 0.22)';
-        ctx.beginPath();
-        ctx.ellipse(x, y, radius * 1.75, radius * 0.44, 0, 0, TAU);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(224, 231, 255, 0.10)';
-        ctx.beginPath();
-        ctx.ellipse(x - radius * 0.22, y - radius * 0.29, radius * 0.78, radius * 0.31, -0.12, Math.PI, TAU);
-        ctx.fill();
-      }
+      paths(ctx, 'fill', layer === 0 ? 'rgba(216, 180, 254, 0.12)'
+        : layer === 1 ? 'rgba(196, 181, 253, 0.18)' : 'rgba(165, 180, 252, 0.22)', () => {
+        for (let n = 0; n < 5; n += 1) {
+          const x = wrap(n * 171 + noise(n, layer + 44) * 83 + drift, size) - PAD;
+          const y = 164 + layer * 28 + noise(n, 48 + layer) * 22;
+          const radius = 27 + noise(n, 51 + layer) * 31;
+          ctx.moveTo(x + radius * 1.75, y);
+          ctx.ellipse(x, y, radius * 1.75, radius * 0.44, 0, 0, TAU);
+          crowns.push({ x: x - radius * 0.22, y: y - radius * 0.29, radius });
+        }
+      });
     }
+    paths(ctx, 'fill', 'rgba(224, 231, 255, 0.10)', () => {
+      for (const { x, y, radius } of crowns) {
+        // Where the arc starts, so no edge joins one crown to the next.
+        ctx.moveTo(x - radius * 0.78 * Math.cos(0.12), y + radius * 0.78 * Math.sin(0.12));
+        ctx.ellipse(x, y, radius * 0.78, radius * 0.31, -0.12, Math.PI, TAU);
+        ctx.closePath();
+      }
+    });
   } else if (theme === 'planet') {
     // Orbital shipyards: small solar-panel arrays and triangulated service trusses.
-    for (let n = 0; n < 5; n += 1) {
-      const x = wrap(n * 203 + movement * 0.9 + 38, size) - PAD;
-      const y = 64 + noise(n, 70) * 112;
-      const widthPanel = 14 + noise(n, 71) * 15;
-      const h = 10 + noise(n, 72) * 9;
-      ctx.strokeStyle = 'rgba(165, 180, 252, 0.38)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x - widthPanel * 2, y);
-      ctx.lineTo(x + widthPanel * 2, y);
-      ctx.stroke();
-      for (const side of [-1, 1]) {
-        ctx.fillStyle = 'rgba(40, 58, 128, 0.59)';
-        ctx.fillRect(x + side * widthPanel - widthPanel * 0.45, y - h * 0.5, widthPanel * 0.92, h);
-        ctx.strokeStyle = 'rgba(129, 140, 248, 0.55)';
-        ctx.strokeRect(x + side * widthPanel - widthPanel * 0.45, y - h * 0.5, widthPanel * 0.92, h);
-        for (let line = 0; line < 3; line += 1) {
-          const sy = y - h * 0.38 + line * h * 0.38;
-          ctx.beginPath();
-          ctx.moveTo(x + side * widthPanel - widthPanel * 0.4, sy);
-          ctx.lineTo(x + side * widthPanel + widthPanel * 0.4, sy);
-          ctx.stroke();
-        }
+    const yards = Array.from({ length: 5 }, (_, n) => ({ x: wrap(n * 203 + movement * 0.9 + 38, size) - PAD, y: 64 + noise(n, 70) * 112, span: 14 + noise(n, 71) * 15, h: 10 + noise(n, 72) * 9 }));
+    const panels = yards.flatMap(({ x, y, span, h }) => [-1, 1].map((side) => ({ x: x + side * span, y, span, h })));
+    ctx.lineWidth = 1;
+    paths(ctx, 'stroke', 'rgba(165, 180, 252, 0.38)', () => yards.forEach(({ x, y, span }) => {
+      ctx.moveTo(x - span * 2, y);
+      ctx.lineTo(x + span * 2, y);
+    }));
+    paths(ctx, 'fill', 'rgba(40, 58, 128, 0.59)', () => panels.forEach(({ x, y, span, h }) => ctx.rect(x - span * 0.45, y - h * 0.5, span * 0.92, h)));
+    paths(ctx, 'stroke', 'rgba(129, 140, 248, 0.55)', () => panels.forEach(({ x, y, span, h }) => {
+      ctx.rect(x - span * 0.45, y - h * 0.5, span * 0.92, h);
+      for (let line = 0; line < 3; line += 1) {
+        const sy = y - h * 0.38 + line * h * 0.38;
+        ctx.moveTo(x - span * 0.4, sy);
+        ctx.lineTo(x + span * 0.4, sy);
       }
-      ctx.fillStyle = 'rgba(251, 191, 36, 0.55)';
-      ctx.beginPath();
+    }));
+    paths(ctx, 'fill', 'rgba(251, 191, 36, 0.55)', () => yards.forEach(({ x, y }) => {
+      ctx.moveTo(x + 2.5, y);
       ctx.arc(x, y, 2.5, 0, TAU);
-      ctx.fill();
-    }
+    }));
   } else if (theme === 'core') {
     // Repeated insulated conduits feeding into a faint converging reactor grid.
     const cx = view.vanish.x;
     const cy = view.vanish.y;
-    for (const side of [-1, 1]) {
-      for (let line = 0; line < 5; line += 1) {
-        const x = cx + side * (49 + line * 25);
-        const y = cy - 20 - line * 14;
-        ctx.strokeStyle = 'rgba(251, 113, 133, ' + (0.09 + line * 0.018) + ')';
-        ctx.lineWidth = line % 2 ? 1.7 : 1;
-        ctx.beginPath();
-        ctx.moveTo(cx + side * 24, cy);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + side * 22, y - 29);
-        ctx.stroke();
-      }
+    for (let line = 0; line < 5; line += 1) {
+      ctx.lineWidth = line % 2 ? 1.7 : 1;
+      paths(ctx, 'stroke', 'rgba(251, 113, 133, ' + (0.09 + line * 0.018) + ')', () => {
+        for (const side of [-1, 1]) {
+          const x = cx + side * (49 + line * 25);
+          const y = cy - 20 - line * 14;
+          ctx.moveTo(cx + side * 24, cy);
+          ctx.lineTo(x, y);
+          ctx.lineTo(x + side * 22, y - 29);
+        }
+      });
     }
-    for (let n = 0; n < 7; n += 1) {
-      const s = 8 + n * 7 + wrap(race.z * 0.027, 6);
-      ctx.strokeStyle = 'rgba(253, 164, 175, ' + (0.11 + (n % 3) * 0.04) + ')';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(cx, cy, s, Math.PI * 1.09, Math.PI * 1.91);
-      ctx.stroke();
+    ctx.lineWidth = 1;
+    for (let shade = 0; shade < 3; shade += 1) {
+      paths(ctx, 'stroke', 'rgba(253, 164, 175, ' + (0.11 + shade * 0.04) + ')', () => {
+        for (let n = shade; n < 7; n += 3) {
+          const s = 8 + n * 7 + wrap(race.z * 0.027, 6);
+          ctx.moveTo(cx + s * Math.cos(Math.PI * 1.09), cy + s * Math.sin(Math.PI * 1.09));
+          ctx.arc(cx, cy, s, Math.PI * 1.09, Math.PI * 1.91);
+        }
+      });
     }
   }
   ctx.restore();

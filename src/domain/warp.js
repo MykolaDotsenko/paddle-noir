@@ -191,11 +191,7 @@ export const WARP_CONTROLS = Object.freeze(['nitro', 'guns', 'rockets', 'shield'
 
 /** @typedef {'nitro' | 'guns' | 'rockets' | 'shield' | 'warp'} WarpControl */
 
-/** Cooldowns are simulation seconds: pausing the game pauses every system. */
-const GUN_BURST_SECONDS = 2.6;
-const GUN_RECHARGE_SECONDS = 8;
-const SHIELD_SECONDS = 3.2;
-const SHIELD_RECHARGE_SECONDS = 14;
+/** A rocket fired by hand finds a rival this far ahead. Cooldowns are seconds of the race. */
 const MANUAL_ROCKET_RANGE = 150;
 
 /**
@@ -256,8 +252,8 @@ export function activateWarpControl(state, config, control) {
       break;
     case 'guns':
       if (race.gunCooldown > 0) return state;
-      race.gunCooldown = GUN_RECHARGE_SECONDS;
-      race.gunTime = GUN_BURST_SECONDS;
+      race.gunCooldown = rules.overdriveRecharge;
+      race.gunTime = rules.overdriveSeconds;
       race.gunIn = 0;
       events.push({ type: 'warp-system', system: 'guns', z: race.z, x });
       break;
@@ -275,8 +271,8 @@ export function activateWarpControl(state, config, control) {
     }
     case 'shield':
       if (race.shieldCooldown > 0) return state;
-      race.shieldTime = SHIELD_SECONDS;
-      race.shieldCooldown = SHIELD_RECHARGE_SECONDS;
+      race.shieldTime = rules.shieldSeconds;
+      race.shieldCooldown = rules.shieldRecharge;
       events.push({ type: 'warp-system', system: 'shield', z: race.z, x });
       break;
     default:
@@ -287,10 +283,12 @@ export function activateWarpControl(state, config, control) {
 
 /**
  * Every control has explicit state so the touch bridge says WHY a press cannot
- * work (cooldown, no ammunition, no lock, or still engaged).
+ * work (cooldown, no ammunition, no lock, or still engaged), and how far it has
+ * recharged, from 0 just used to 1 ready, for the fill along its button.
  *
  * @param {GameState} state
  * @param {GameConfig} config
+ * @returns {Record<WarpControl, { ready: boolean, status: string, charge: number }>}
  */
 export function warpControlStatus(state, config) {
   const race = /** @type {WarpState} */ (state.warp);
@@ -300,20 +298,27 @@ export function warpControlStatus(state, config) {
   /** @param {number} seconds */
   const clock = (seconds) => Math.ceil(Math.max(0, seconds)) + 's';
   const target = manualTarget(race, rules, laneX(state, config));
-  /** @param {boolean} enabled @param {string} text */
-  const ready = (enabled, text) => ({ ready: active && enabled, status: text });
+  /** @param {boolean} enabled @param {string} text @param {number} charge */
+  const ready = (enabled, text, charge) => ({ ready: active && enabled, status: text, charge: clamp(charge, 0, 1) });
+  /** @param {number} left @param {number} whole */
+  const recharged = (left, whole) => 1 - left / whole;
 
   return {
     nitro: ready(race.nitro >= 1 && race.nitroBurn === 0,
-      race.nitroBurn > 0 ? 'BURNING' : race.nitro >= 1 ? Math.floor(race.nitro) + ' READY' : 'EMPTY'),
+      race.nitroBurn > 0 ? 'BURNING' : race.nitro >= 1 ? Math.floor(race.nitro) + ' READY' : 'EMPTY',
+      race.nitro >= 1 ? 1 : race.nitro),
     guns: ready(race.gunCooldown === 0,
-      race.gunTime > 0 ? 'FIRING' : race.gunCooldown > 0 ? clock(race.gunCooldown) : 'READY'),
+      race.gunTime > 0 ? 'FIRING' : race.gunCooldown > 0 ? clock(race.gunCooldown) : 'READY',
+      recharged(race.gunCooldown, rules.overdriveRecharge)),
     rockets: ready(race.air === 0 && race.rockets > 0 && Boolean(target),
-      race.rockets === 0 ? 'EMPTY' : target ? race.rockets + ' LOCK' : 'SCANNING'),
+      race.rockets === 0 ? 'EMPTY' : target ? race.rockets + ' LOCK' : 'SCANNING',
+      race.rockets > 0 ? 1 : 0),
     shield: ready(race.shieldCooldown === 0,
-      race.shieldTime > 0 ? 'ONLINE' : race.shieldCooldown > 0 ? clock(race.shieldCooldown) : 'READY'),
+      race.shieldTime > 0 ? 'ONLINE' : race.shieldCooldown > 0 ? clock(race.shieldCooldown) : 'READY',
+      recharged(race.shieldCooldown, rules.shieldRecharge)),
     warp: ready(race.abilityCooldown === 0,
-      race.abilityTime > 0 ? 'ENGAGED' : race.abilityCooldown > 0 ? clock(race.abilityCooldown) : 'READY'),
+      race.abilityTime > 0 ? 'ENGAGED' : race.abilityCooldown > 0 ? clock(race.abilityCooldown) : 'READY',
+      recharged(race.abilityCooldown, WARP_ABILITIES[rules.loadout.kind].cooldown)),
   };
 }
 
@@ -523,6 +528,7 @@ export function itemX(item, time) {
  * @param {number} race
  * @param {number} [points] the cup's points so far
  * @param {number} [lost] points of races flown again so far
+ * @param {number} [recovered] chapters of the story whose fragment the cup has already recovered
  * @returns {WarpState}
  */
 export function raceState(config, race, points = 0, lost = 0, recovered = 0) {
@@ -808,7 +814,7 @@ function crash(lap, kind, z, x) {
  */
 function takeDown(lap, rival, seconds, by) {
   rival.spin = seconds;
-  rival.speed *= 0.55;
+  rival.speed *= rulesOf(lap.config).takedownSlow;
   rival.boost = 0;
   rival.hull = rulesOf(lap.config).rivalHull;
   lap.events.push({ type: 'takedown', pilot: rival.pilot, z: rival.z, x: rival.x, points: trick(lap, TRICK_POINTS.takedown), by });
@@ -888,7 +894,7 @@ function fly(lap, rival, deltaSeconds, x) {
   const band = gap > PULL_AHEAD ? 1 - BAND : gap < -PUSH_BEHIND ? 1 + CHASE : gap > 0 ? 1 - (BAND * gap) / PULL_AHEAD : 1 - (CHASE * gap) / PUSH_BEHIND;
   const hill = rival.air > 0 ? 1 : gradeAt(race.course, rival.z, rules);
   const top = rules.topSpeed * pilot.pace * hill * (race.finished && rival.finish > 0 ? CRUISE : 1) * (onRumble(rival.x) ? RUMBLE_SPEED : 1);
-  const target = rival.spin > 0 ? top * 0.35 : rival.boost > 0 ? rules.boostSpeed * pilot.pace * hill : top * band;
+  const target = rival.spin > 0 ? top * rules.spunPace : rival.boost > 0 ? rules.boostSpeed * pilot.pace * hill : top * band;
 
   rival.spin = Math.max(0, rival.spin - deltaSeconds);
   rival.boost = Math.max(0, rival.boost - deltaSeconds);
@@ -1011,7 +1017,7 @@ function meet(lap, rival, x, before) {
 
   if (Math.abs(ahead) < CONTACT_Z && across < CONTACT_X) {
     if (race.burn > 0 || race.nitroBurn > 0) {
-      takeDown(lap, rival, 1.6, 'ram');
+      takeDown(lap, rival, rules.takedownSpin, 'ram');
     } else if (race.ghost === 0 && rival.bumped === 0 && race.spin === 0) {
       const side = rival.x >= x ? 1 : -1;
       rival.x = clamp(rival.x + side * 0.22, -1, 1);
@@ -1066,7 +1072,7 @@ function fight(lap, x, deltaSeconds) {
   race.gunIn = Math.max(0, race.gunIn - deltaSeconds);
 
   if (mark) {
-    mark.hull -= rules.loadout.damage * (fortress ? 1.55 : 1) * (overdrive ? 2.25 : 1) * deltaSeconds;
+    mark.hull -= rules.loadout.damage * (fortress ? 1.55 : 1) * (overdrive ? rules.overdriveDamage : 1) * deltaSeconds;
 
     if (race.gunIn === 0) {
       race.gunIn = overdrive ? GUN_EVERY * 0.65 : GUN_EVERY;
@@ -1074,7 +1080,7 @@ function fight(lap, x, deltaSeconds) {
     }
 
     if (mark.hull <= 0) {
-      takeDown(lap, mark, 1.6, 'guns');
+      takeDown(lap, mark, rules.takedownSpin, 'guns');
     }
   }
 
@@ -1120,7 +1126,7 @@ function fight(lap, x, deltaSeconds) {
 
     for (const rival of race.rivals) {
       if (rival.finish === 0 && rival.spin === 0 && Math.abs(rival.z - target.z) <= rules.blastRange && Math.abs(rival.x - target.x) <= 0.45) {
-        takeDown(lap, rival, 2, 'rocket');
+        takeDown(lap, rival, rules.blastSpin, 'rocket');
       }
     }
 

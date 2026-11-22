@@ -134,7 +134,10 @@ test('the craft\'s weapons are felt when they do something once, never the guns 
     { type: 'ammo', kind: 'rocket', z: 0, x: 0 },
     { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150, by: 'ram' },
     { type: 'takedown', pilot: 1, z: 0, x: 0, points: 150, by: 'rocket' },
+    { type: 'craft-ability', kind: 'heavy', z: 0, x: 0 },
+    { type: 'warp-system', system: 'guns', z: 0, x: 0 },
+    { type: 'story-complete', race: 2, points: 260, reward: 'nitro' },
   ]);
 
-  assert.deepEqual(calls, [[15, 20, 40], 15, 30, 45, 12, [25, 20, 35], 20]);
+  assert.deepEqual(calls, [[15, 20, 40], 15, 30, 45, 12, [25, 20, 35], 20, [20, 30, 20, 30, 50], 18, [15, 40, 15]]);
 });

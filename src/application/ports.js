@@ -206,10 +206,10 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {string} craft the craft being flown, by name
  * @property {WarpSteeringMode} steering selected flight control scheme
  * @property {{ chapter: number, title: string, mission: string, progress: number, target: number, completed: boolean, recovered: number, speaker: string, message: string, active: boolean }} story the chapter mission and short radio transcript
- * @property {string} ending the story's final outcome, displayed after completing the cup
+ * @property {{ title: string, text: string }} ending how the story ends, shown once the cup is won
  * @property {number} abilityCooldown seconds before its signature system can be fired again
  * @property {number} abilityTime seconds remaining of the active signature system
- * @property {Record<'nitro' | 'guns' | 'rockets' | 'shield' | 'warp', { ready: boolean, status: string }>} controls the live readiness of the five bridge buttons
+ * @property {Record<'nitro' | 'guns' | 'rockets' | 'shield' | 'warp', { ready: boolean, status: string, charge: number }>} controls the live readiness of the five bridge buttons, and how far each has recharged
  * @property {number} tickets what the player has to spend in the hangar
  * @property {number} earned the tickets the cup just finished paid out
  *
