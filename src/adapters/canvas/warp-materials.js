@@ -114,7 +114,7 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
     }
   } else if (kind === 'mesas') {
     // Ancient compacted stone: irregular geological cracks and worn joint faces.
-    for (let fracture = 0; fracture < 3; fracture += 1) {
+    for (let fracture = 0; fracture < 5; fracture += 1) {
       const from = 0.17 + noise(index, 44 + fracture) * 0.65;
       const to = from + (noise(index, 61 + fracture) - 0.5) * 0.1;
       seam(ctx, near, far, from, to, fracture === 0 ? stripe : cut);
@@ -133,8 +133,9 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
   } else {
     // Cloud Nine's smooth ceramic deck: pearly brushed streaks and soft seams.
     if (index % 2 === 0) {
-      seam(ctx, near, far, 0.14, 0.15, stripe);
-      seam(ctx, near, far, 0.85, 0.84, reflection);
+      for (const s of [0.14, 0.29, 0.51, 0.7, 0.85]) {
+        seam(ctx, near, far, s, s + (s > 0.5 ? -0.01 : 0.01), s > 0.5 ? reflection : stripe);
+      }
     }
     if (index % 5 === 0) {
       const l = across(near, 0.24);
