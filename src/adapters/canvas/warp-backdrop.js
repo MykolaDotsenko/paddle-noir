@@ -65,7 +65,7 @@ function sunset(scene) {
       ctx.moveTo(x - length * 0.55, y + 3);
       ctx.bezierCurveTo(x - length * 0.24, y - 4, x + length * 0.12, y - 9, x + length * 0.56, y - 3);
       ctx.strokeStyle = layer === 0 ? 'rgba(251, 146, 160, 0.17)'
-        : layer === 1 ? 'rgba(253, 186, 116, 0.19)' : 'rgba(244, 114, 182, 0.12)';
+        : layer === 1 ? 'rgba(251, 170, 117, 0.19)' : 'rgba(244, 114, 182, 0.12)';
       ctx.lineWidth = 1.8 + layer * 2;
       ctx.stroke();
 
