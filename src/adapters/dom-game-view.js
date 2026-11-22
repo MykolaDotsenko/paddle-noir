@@ -24,9 +24,9 @@ import { finisherApplies, FINISHER_SECONDS } from './finisher.js';
 /** @type {readonly string[]} */
 const COMMANDS = Object.values(GAME_COMMAND);
 const DIFFICULTY_LABELS = Object.freeze({ easy: 'Easy', normal: 'Normal', hard: 'Hard' });
-const PLAYER_LABELS = Object.freeze({ solo: 'You', rush: 'Hits', duo: 'P1', career: 'You', bricks: 'Score', nova: 'Score' });
+const PLAYER_LABELS = Object.freeze({ solo: 'You', rush: 'Hits', duo: 'P1', career: 'You', bricks: 'Score', nova: 'Score', warp: 'Score' });
 /** The modes in which the scoreboard names the player, by their initials once they have signed. */
-const NAMES_PLAYER = Object.freeze({ solo: true, rush: false, duo: false, career: true, bricks: false, nova: false });
+const NAMES_PLAYER = Object.freeze({ solo: true, rush: false, duo: false, career: true, bricks: false, nova: false, warp: false });
 const TOGGLE_SETTINGS = /** @type {const} */ (['sound', 'music', 'vibration', 'powerUps', 'supers', 'jokes']);
 /** Where the arcade's "Continue?" countdown starts, a second a step, after a loss. */
 const CONTINUE_FROM = 9;
@@ -353,7 +353,8 @@ export class DomGameView {
       element.hidden = mode !== 'rush';
     }
 
-    // How to play tells of the game chosen: power-ups in a match, the wall in Bricks, the ship in Nova.
+    // How to play tells of the game chosen: power-ups in a match, the wall in Bricks, the ship in
+    // Nova, the race in Warp.
     for (const element of this.findAll('[data-bricks-only]')) {
       element.hidden = mode !== 'bricks';
     }
@@ -362,8 +363,12 @@ export class DomGameView {
       element.hidden = mode !== 'nova';
     }
 
+    for (const element of this.findAll('[data-warp-only]')) {
+      element.hidden = mode !== 'warp';
+    }
+
     for (const element of this.findAll('[data-match-only]')) {
-      element.hidden = mode === 'bricks' || mode === 'nova';
+      element.hidden = mode === 'bricks' || mode === 'nova' || mode === 'warp';
     }
 
     this.root.dataset.mode = mode;
@@ -576,7 +581,11 @@ export class DomGameView {
     const score = `${result.score.player}:${result.score.opponent}`;
     let text = `I ${won ? 'won' : 'lost'} ${score} on ${DIFFICULTY_LABELS[result.difficulty]} in Paddle Noir. Longest rally: ${result.longestRally}.`;
 
-    if (result.nova) {
+    if (result.warp) {
+      text = won
+        ? `I won all ${result.warp.races} races of the Warp cup in Paddle Noir: ${countPoints(result.warp.points)}. Beat that!`
+        : `I made ${countPoints(result.warp.points)} in the Warp cup of Paddle Noir, up to race ${result.warp.race} of ${result.warp.races}. Beat that!`;
+    } else if (result.nova) {
       text = won
         ? `I flew all ${result.nova.sectors} sectors of Nova in Paddle Noir and downed the Dreadnought: ${countPoints(result.nova.points)}. Beat that!`
         : `I made ${countPoints(result.nova.points)} in Nova mode of Paddle Noir, up to sector ${result.nova.sector} of ${result.nova.sectors}. Beat that!`;
@@ -631,8 +640,8 @@ export class DomGameView {
       if (value !== previousValue) {
         this.scores[side].textContent = String(value);
 
-        // A point in a match is an occasion; in Bricks and Nova the points tick up all the time.
-        if (previous && previousValue !== null && value > previousValue && !((presentation.bricks || presentation.nova) && side === 'player')) {
+        // A point in a match is an occasion; in Bricks, Nova and Warp the points tick up all the time.
+        if (previous && previousValue !== null && value > previousValue && !((presentation.bricks || presentation.nova || presentation.warp) && side === 'player')) {
           restartAnimation(this.scores[side], 'is-popping');
         }
       }
@@ -657,6 +666,7 @@ export class DomGameView {
       || presentation.bestRush !== previous?.bestRush
       || presentation.bricks?.best !== previous?.bricks?.best
       || presentation.nova?.best !== previous?.nova?.best
+      || presentation.warp?.best !== previous?.warp?.best
       || presentation.mode !== previous?.mode
       || presentation.rules !== previous?.rules
       || careerChanged
@@ -692,7 +702,7 @@ export class DomGameView {
     return finisherApplies({
       winner,
       twoPlayers: mode === 'duo',
-      rush: mode === 'rush' || mode === 'bricks' || mode === 'nova',
+      rush: mode === 'rush' || mode === 'bricks' || mode === 'nova' || mode === 'warp',
       jokes: this.preferences.get().jokes === true,
     });
   }
@@ -827,10 +837,17 @@ export class DomGameView {
    *
    * @param {Presentation} presentation
    */
-  showMenuMeta({ mode, rules, bestRally, bestRush, career, bricks, nova }) {
+  showMenuMeta({ mode, rules, bestRally, bestRush, career, bricks, nova, warp }) {
     const goal = rules.kind === 'match' ? `First to ${rules.winningScore}` : `${rules.lives} lives`;
 
     for (const element of this.findAll('[data-menu-meta]')) {
+      if (warp) {
+        const best = element.ownerDocument.createElement('strong');
+        best.textContent = String(warp.best);
+        element.replaceChildren(`${warp.races} races · Best `, best, warp.best === 1 ? ' point' : ' points');
+        continue;
+      }
+
       if (nova) {
         const best = element.ownerDocument.createElement('strong');
         best.textContent = String(nova.best);
@@ -900,22 +917,23 @@ export class DomGameView {
 
   /** @param {Presentation} presentation */
   showResult(presentation) {
-    const { winner, score, hits, longestRally, newBest, newBestRush, mode, difficulty, opponent, career, highScores, bricks, nova } = presentation;
+    const { winner, score, hits, longestRally, newBest, newBestRush, mode, difficulty, opponent, career, highScores, bricks, nova, warp } = presentation;
     const title = this.find('[data-over-title]');
     const rush = mode === 'rush';
     const setting = career ? `Career ${career.index + 1}/${career.count}`
-      : nova ? 'Nova' : bricks ? 'Bricks' : rush ? 'Rush' : mode === 'duo' ? 'Two players' : DIFFICULTY_LABELS[difficulty];
+      : warp ? 'Warp' : nova ? 'Nova' : bricks ? 'Bricks' : rush ? 'Rush' : mode === 'duo' ? 'Two players' : DIFFICULTY_LABELS[difficulty];
     // Beating the final boss keeps the last arcade open.
     const champion = career !== null && winner === 'player' && isFinalRival(career);
     const stars = this.find('[data-over-stars]');
 
     this.lastResult = presentation;
     title.textContent = rush ? 'Run over'
+      : warp ? (winner === 'player' ? 'Cup won' : 'Out of credits')
       : nova ? (winner === 'player' ? 'Galaxy saved' : 'Ship lost')
       : bricks ? (winner === 'player' ? 'All clear' : 'Game over')
         : champion ? 'Champion' : winner === 'player' ? 'Victory' : 'Defeat';
     title.dataset.winner = rush ? 'opponent' : (winner ?? '');
-    this.find('[data-over-score]').textContent = nova ? String(nova.points) : bricks ? String(bricks.points)
+    this.find('[data-over-score]').textContent = warp ? String(warp.points) : nova ? String(nova.points) : bricks ? String(bricks.points)
       : rush ? countHits(hits.player) : `${score.player} : ${score.opponent}`;
     this.find('[data-over-rally]').textContent = String(longestRally);
     this.find('[data-over-difficulty]').textContent = opponent.proper ? `${setting} · vs ${opponent.name}` : setting;
@@ -923,12 +941,19 @@ export class DomGameView {
     this.find('[data-over-best-rush]').hidden = !newBestRush;
     this.find('[data-over-best-bricks]').hidden = !bricks?.newBest;
     this.find('[data-over-best-nova]').hidden = !nova?.newBest;
+    this.find('[data-over-best-warp]').hidden = !warp?.newBest;
     this.find('[data-over-champion]').hidden = !champion;
     this.find('[data-over-scores]').hidden = !highScores;
     // A run is told by its hits and its place on the table, a Bricks game by the wall it
     // reached; the longest rally belongs to a match.
-    this.find('[data-over-meta]').hidden = Boolean(highScores) || Boolean(bricks) || Boolean(nova);
-    this.find('[data-over-wall]').hidden = !bricks && !nova;
+    this.find('[data-over-meta]').hidden = Boolean(highScores) || Boolean(bricks) || Boolean(nova) || Boolean(warp);
+    this.find('[data-over-wall]').hidden = !bricks && !nova && !warp;
+
+    if (warp) {
+      this.find('[data-over-wall]').textContent = winner === 'player'
+        ? `points · all ${warp.races} races won through`
+        : `points · race ${warp.race} of ${warp.races} · ${warp.name}`;
+    }
 
     if (nova) {
       this.find('[data-over-wall]').textContent = winner === 'player'
@@ -1075,7 +1100,7 @@ export class DomGameView {
    * @param {Presentation} presentation
    */
   startContinue({ mode, winner }) {
-    const lost = mode === 'rush' || ((mode === 'solo' || mode === 'career' || mode === 'bricks' || mode === 'nova') && winner === 'opponent');
+    const lost = mode === 'rush' || ((mode === 'solo' || mode === 'career' || mode === 'bricks' || mode === 'nova' || mode === 'warp') && winner === 'opponent');
 
     this.stopContinue();
     this.continueLine.hidden = !lost || this.preferences.get().jokes !== true;
@@ -1181,12 +1206,17 @@ function countPoints(points) {
 
 /**
  * The two numbers of the scoreboard: the score of a match, the hits of a Rush run, in Bricks
- * the points and the wall being played, and in Nova the points and the sector.
+ * the points and the wall being played, in Nova the points and the sector, and in Warp the points
+ * and the race.
  *
  * @param {Presentation} presentation
  * @returns {Record<Side, number>}
  */
-function scoreboardNumbers({ mode, score, hits, bricks, nova }) {
+function scoreboardNumbers({ mode, score, hits, bricks, nova, warp }) {
+  if (warp) {
+    return { player: warp.points, opponent: warp.race };
+  }
+
   if (nova) {
     return { player: nova.points, opponent: nova.sector };
   }

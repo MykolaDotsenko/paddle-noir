@@ -28,6 +28,7 @@ import { GAME_COMMAND } from './ports.js';
  *   InputPort,
  *   MatchCatalog,
  *   NovaView,
+ *   WarpView,
  *   Mode,
  *   OpponentName,
  *   PreferencesPort,
@@ -66,6 +67,10 @@ export function buildMatchConfig(catalog, choices) {
 
   if (choices.mode === 'nova') {
     return withSupers(catalog.nova, choices.supers);
+  }
+
+  if (choices.mode === 'warp') {
+    return withSupers(catalog.warp, choices.supers);
   }
 
   if (choices.mode === 'career') {
@@ -125,6 +130,7 @@ export class GameController {
     this.newBestRush = false;
     this.newBestBricks = false;
     this.newBestNova = false;
+    this.newBestWarp = false;
     /** Stars the career match just finished earned. */
     this.careerEarned = 0;
     /** @type {number | null} the best Rush run before the one just finished, which tells whose rows it passed */
@@ -251,6 +257,7 @@ export class GameController {
     this.newBestRush = false;
     this.newBestBricks = false;
     this.newBestNova = false;
+    this.newBestWarp = false;
     this.careerEarned = 0;
     this.rushBefore = null;
     this.recorded = false;
@@ -314,13 +321,15 @@ export class GameController {
    * Hit-stop on hard hits, and slow motion while a match-point ball flies at a paddle. In
    * Bricks, where returns come thick and fast, the picture stops only for a super fired, a bomb
    * going off and a super landing; in Nova, for the ship hit, a super fired, and a gunship or
-   * the boss going down.
+   * the boss going down; in Warp, for a crash, a super fired and a rival taken down.
    *
    * @param {GameState} state
    */
   dramatize(state) {
     for (const event of state.events) {
-      const hard = state.nova
+      const hard = state.warp
+        ? (event.type === 'crash' && event.pilot === undefined) || event.type === 'super-fire' || event.type === 'takedown'
+        : state.nova
         ? event.type === 'ship-hit' || event.type === 'super-fire' || (event.type === 'enemy-down' && (event.kind === 'boss' || event.kind === 'gunship'))
         : state.bricks
           ? (event.type === 'paddle-hit' && event.super !== undefined) || event.type === 'blast' || event.type === 'strike'
@@ -379,7 +388,7 @@ export class GameController {
   }
 
   /**
-   * Saves the outcome of a finished match: the Rush, Bricks or Nova record, or the Solo win statistics.
+   * Saves the outcome of a finished match: the Rush, Bricks, Nova or Warp record, or the Solo win statistics.
    *
    * @param {GameState} state
    */
@@ -413,6 +422,14 @@ export class GameController {
       if (state.nova.points > this.preferences.get().bestNova) {
         this.newBestNova = true;
         this.preferences.set({ bestNova: state.nova.points });
+      }
+      return;
+    }
+
+    if (state.warp) {
+      if (state.warp.points > this.preferences.get().bestWarp) {
+        this.newBestWarp = true;
+        this.preferences.set({ bestWarp: state.warp.points });
       }
       return;
     }
@@ -499,6 +516,10 @@ export class GameController {
       return { label: 'Sector', name: 'The fleet', proper: false };
     }
 
+    if (this.mode === 'warp') {
+      return { label: 'Race', name: 'The field', proper: false };
+    }
+
     if (this.mode === 'career') {
       const { short, name } = this.catalog.career[this.rival];
       return { label: short, name, proper: true };
@@ -543,6 +564,27 @@ export class GameController {
       highScores: this.highScoresView(),
       bricks: this.bricksView(),
       nova: this.novaView(),
+      warp: this.warpView(),
+    };
+  }
+
+  /** @returns {WarpView | null} */
+  warpView() {
+    const race = this.state.warp;
+    const rules = this.config.warp;
+
+    if (!race || !rules) {
+      return null;
+    }
+
+    return {
+      race: race.race + 1,
+      races: rules.courses.length,
+      name: rules.courses[race.race].name,
+      place: race.place,
+      points: race.points,
+      best: this.preferences.get().bestWarp,
+      newBest: this.newBestWarp,
     };
   }
 
@@ -638,6 +680,7 @@ export class GameController {
     const { rules } = this.config;
     const bricks = this.bricksView();
     const nova = this.novaView();
+    const warp = this.warpView();
 
     if (rules.kind === 'bricks' && bricks) {
       return this.bricksStatus(bricks);
@@ -645,6 +688,10 @@ export class GameController {
 
     if (rules.kind === 'nova' && nova) {
       return this.novaStatus(nova);
+    }
+
+    if (rules.kind === 'warp' && warp) {
+      return this.warpStatus(warp);
     }
 
     const rush = rules.kind === 'rush';
@@ -727,5 +774,28 @@ export class GameController {
     }
 
     return `Sector ${sector}, ${name}: ${points} points, ${lives} ${lives === 1 ? 'ship' : 'ships'} left`;
+  }
+
+  /**
+   * @param {WarpView} warp
+   */
+  warpStatus({ race, races, name, place, points }) {
+    const { phase, lives } = this.state;
+
+    if (phase === GAME_PHASE.READY) {
+      return `Warp: race all ${races} courses of the cup.`;
+    }
+
+    if (phase === GAME_PHASE.PAUSED) {
+      return 'Game paused.';
+    }
+
+    if (phase === GAME_PHASE.GAME_OVER) {
+      return getWinner(this.state) === 'player'
+        ? `The cup is yours — ${points} points.`
+        : `Out of credits in race ${race} of ${races} — ${points} points.`;
+    }
+
+    return `Race ${race}, ${name}: place ${place}, ${points} points, ${lives} ${lives === 1 ? 'credit' : 'credits'} left`;
   }
 }

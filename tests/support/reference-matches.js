@@ -5,7 +5,7 @@
 // re-records them when a change to classic play is intended.
 import { createHash } from 'node:crypto';
 
-import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../../src/config.js';
+import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, WARP_CONFIG } from '../../src/config.js';
 import { advanceGame, createInitialState, GAME_PHASE, startGame } from '../../src/domain/game.js';
 import { nextBetween, nextRandom } from '../../src/domain/random.js';
 
@@ -87,6 +87,9 @@ export const SCENARIOS = Object.freeze([
   // The Nova game, supers on, with ships enough for this bot to fly into the later sectors:
   // waves come in, enemies fire, bonuses fall and supers go off.
   { name: 'nova', config: () => withSupers({ ...NOVA_CONFIG, rules: { kind: 'nova', lives: 40 } }), seed: 6502, seconds: 200, device: 'pointer' },
+  // The Warp game, supers on, with credits enough for this bot to race on through the cup:
+  // rivals steer, boost and crash, and the races end and start again.
+  { name: 'warp', config: () => withSupers({ ...WARP_CONFIG, rules: { kind: 'warp', lives: 40 } }), seed: 2077, seconds: 240, device: 'pointer' },
 ]);
 
 /**
@@ -140,6 +143,10 @@ export function playReference(scenario) {
       ...(state.nova
         ? [state.nova.sector, state.nova.points, state.nova.chain, ...state.nova.enemies.map((enemy) => `${enemy.kind}:${enemy.x.toFixed(6)}/${enemy.y.toFixed(6)}`), state.nova.shots.length, state.nova.fire.length]
         : []),
+      // The race, in the Warp game only.
+      ...(state.warp
+        ? [state.warp.race, state.warp.z.toFixed(6), state.warp.speed.toFixed(6), state.warp.place, state.warp.points, ...state.warp.rivals.map((rival) => `${rival.z.toFixed(6)}/${rival.x.toFixed(6)}`)]
+        : []),
     ].join(',') + '\n');
   }
 
@@ -154,6 +161,7 @@ export function playReference(scenario) {
       events: Object.fromEntries(Object.entries(counts).sort()),
       ...(state.bricks ? { level: state.bricks.level, points: state.bricks.points, lives: state.lives } : {}),
       ...(state.nova ? { sector: state.nova.sector, points: state.nova.points, lives: state.lives } : {}),
+      ...(state.warp ? { race: state.warp.race, points: state.warp.points, lives: state.lives } : {}),
     },
   };
 }

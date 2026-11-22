@@ -5,7 +5,7 @@ import { buildMatchConfig, GameController } from '../src/application/game-contro
 import { NICKNAMES } from '../src/application/nicknames.js';
 import { GAME_COMMAND } from '../src/application/ports.js';
 import { HIGH_SCORES, MATCH_CATALOG, RIVALS } from '../src/catalog.js';
-import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, DIFFICULTY_CONFIGS, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, TWO_PLAYER_CONFIG, WARP_CONFIG } from '../src/config.js';
 import { GAME_PHASE } from '../src/domain/game.js';
 
 function createFrameScheduler() {
@@ -63,6 +63,7 @@ function createPreferences(initial = {}) {
     bestRush: 0,
     bestBricks: 0,
     bestNova: 0,
+    bestWarp: 0,
     stats: DEFAULT_STATS,
     rival: 0,
     careerStars: [],
@@ -192,6 +193,7 @@ test('connecting draws the ready screen, sets up one player, and leaves the loop
     highScores: null,
     bricks: null,
     nova: null,
+    warp: null,
   });
   assert.equal(scheduler.pending.size, 0);
 });
@@ -1269,4 +1271,116 @@ test('in Nova the picture stops for the ship hit, not for every shot', () => {
   scheduler.flush(1040);
   scheduler.flush(1140);
   assert.ok(controller.state.lives < NOVA_CONFIG.rules.lives);
+});
+
+// Warp: the paddle as a racing craft.
+
+const WARP = WARP_CONFIG.warp;
+/** The race as it is, with a mine right ahead of the craft and nobody else on the course. */
+const mineAhead = (race) => ({ ...race, rivals: [], course: { ...race.course, items: [{ id: 1, kind: 'mine', z: race.z + 1, x: 0, sway: 0 }] }, cursor: 0, speed: WARP.topSpeed });
+
+test('Warp races on its own tuning, with supers as the player chose', () => {
+  const choose = (choices) => buildMatchConfig(MATCH_CATALOG, { mode: 'warp', difficulty: 'easy', powerUps: true, ...choices });
+
+  assert.strictEqual(choose({ supers: false }), WARP_CONFIG);
+  assert.equal(choose({ supers: true }).supers.enabled, true);
+  assert.equal(MATCH_CATALOG.warp.rules.kind, 'warp');
+});
+
+test('in the menu Warp tells what there is to do', () => {
+  const { view, controller } = setup({ mode: 'warp', bestWarp: 8800 });
+  const presentation = lastOf(view.presentations);
+
+  assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
+  assert.deepEqual(presentation.warp, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false });
+  assert.deepEqual(presentation.opponent, { label: 'Race', name: 'The field', proper: false });
+  assert.equal(presentation.maxLives, WARP_CONFIG.rules.lives);
+  assert.equal(presentation.nova, null);
+  assert.ok(controller.state.warp);
+});
+
+test('the other modes have nothing of Warp to show', () => {
+  for (const mode of ['solo', 'rush', 'duo', 'career', 'bricks', 'nova']) {
+    assert.equal(lastOf(setup({ mode }).view.presentations).warp, null, mode);
+  }
+});
+
+test('while Warp runs the status line tells the race, the place, the points and the credits left', () => {
+  const { controller, scheduler, view } = setup({ mode: 'warp' });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { warp: { ...controller.state.warp, points: 420 } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+  assert.equal(lastOf(view.presentations).status, `Race 1, ${WARP.courses[0].name}: place 6, 420 points, 3 credits left`);
+
+  inPlay(controller, { lives: 1 });
+  scheduler.flush(1040);
+  assert.match(lastOf(view.presentations).status, /1 credit left$/);
+
+  view.handler(GAME_COMMAND.TOGGLE_PAUSE);
+  assert.equal(lastOf(view.presentations).status, 'Game paused.');
+});
+
+test('a cup out of credits records the points, and a record is celebrated', () => {
+  const { controller, scheduler, view, preferences } = setup({ mode: 'warp', bestWarp: 100 });
+  const race = controller.state.warp;
+
+  view.handler(GAME_COMMAND.START);
+  // On the line, behind everyone: the last credit goes.
+  inPlay(controller, { lives: 1, warp: { ...controller.state.warp, race: 2, z: race.course.length - 0.1, cursor: race.course.items.length, points: 2400, speed: WARP.topSpeed, rivals: race.rivals.map((rival) => ({ ...rival, z: race.course.length + 5, finish: 30 })) } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  const presentation = lastOf(view.presentations);
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.equal(presentation.winner, 'opponent');
+  assert.equal(presentation.status, `Out of credits in race 3 of ${WARP.courses.length} — ${2400 + WARP.placePoints[5]} points.`);
+  assert.deepEqual({ best: presentation.warp.best, newBest: presentation.warp.newBest }, { best: 2400 + WARP.placePoints[5], newBest: true });
+  assert.deepEqual(lastOf(preferences.writes), { bestWarp: 2400 + WARP.placePoints[5] });
+});
+
+test('a cup short of the record changes nothing', () => {
+  const { controller, scheduler, view, preferences } = setup({ mode: 'warp', bestWarp: 9000 });
+  const race = controller.state.warp;
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { lives: 1, warp: { ...controller.state.warp, z: race.course.length - 0.1, speed: WARP.topSpeed, rivals: race.rivals.map((rival) => ({ ...rival, z: race.course.length + 5, finish: 30 })) } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.equal(lastOf(view.presentations).warp.newBest, false);
+  assert.ok(!preferences.writes.some((write) => 'bestWarp' in write));
+});
+
+test('winning the last race takes the cup', () => {
+  const { controller, scheduler, view } = setup({ mode: 'warp' });
+  const last = WARP.courses.length - 1;
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { warp: { ...controller.state.warp, race: last, z: controller.state.warp.course.length - 0.1, cursor: controller.state.warp.course.items.length, points: 9000, speed: WARP.topSpeed, place: 1, rivals: [] } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+
+  const presentation = lastOf(view.presentations);
+  assert.equal(controller.state.phase, GAME_PHASE.GAME_OVER);
+  assert.equal(presentation.winner, 'player');
+  assert.equal(presentation.status, `The cup is yours — ${9000 + WARP.placePoints[0]} points.`);
+});
+
+test('in Warp the picture stops for the craft\'s own crash, not for every ring', () => {
+  const { controller, scheduler, view } = setup({ mode: 'warp' });
+
+  view.handler(GAME_COMMAND.START);
+  inPlay(controller, { player: { x: 250, vx: 0 }, warp: { ...controller.state.warp, rivals: [] } });
+  scheduler.flush(1000);
+  scheduler.flush(1020);
+  assert.equal(controller.loop.holdSeconds, 0);
+
+  inPlay(controller, { warp: mineAhead(controller.state.warp) });
+  scheduler.flush(1040);
+  scheduler.flush(1090);
+  assert.ok(controller.state.warp.spin > 0, 'it crashed');
+  assert.ok(controller.loop.holdSeconds > 0);
 });

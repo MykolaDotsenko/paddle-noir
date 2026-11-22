@@ -7,6 +7,7 @@ import { meterBox } from './hud.js';
 import { phaseStyle, PICKUP_STYLE, speedIntensity, SUPER_STYLE, THEME } from './theme.js';
 import { playBrickEvent } from './brick-effects.js';
 import { playNovaEvent } from './nova-effects.js';
+import { playWarpEvent } from './warp-effects.js';
 
 /**
  * @import { GameConfig, GameEvent, GameState, Side } from '../../domain/types.js'
@@ -61,7 +62,11 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
         }
         break;
       case 'countdown':
-        effects.ring({ x: width / 2, y: height / 2, color: `rgba(${THEME.violet}, 0.7)`, radius: 40, growth: 260, life: 0.5, width: 3 });
+        // A race has its start lights instead.
+        if (!config.warp) {
+          effects.ring({ x: width / 2, y: height / 2, color: `rgba(${THEME.violet}, 0.7)`, radius: 40, growth: 260, life: 0.5, width: 3 });
+        }
+
         effects.pulse(0.5);
         break;
       case 'serve':
@@ -71,6 +76,11 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
 
         if (state?.serveNumber === 0 && isFinalBoss(config)) {
           fight(effects, config);
+        }
+
+        // The start lights go out.
+        if (config.warp) {
+          effects.label({ text: 'GO!', x: width / 2, y: 170, color: `rgb(${THEME.lime})`, life: 0.8, size: 54 });
         }
         break;
       case 'paddle-hit':
@@ -164,7 +174,7 @@ export function playEvents(effects, events, { config, random, jokes = false, sta
         break;
       }
       default:
-        if (!playBrickEvent(effects, event, { config, state, random })) {
+        if (!playBrickEvent(effects, event, { config, state, random }) && !playWarpEvent(effects, event, { config, state, random })) {
           playNovaEvent(effects, event, { config, random });
         }
         break;

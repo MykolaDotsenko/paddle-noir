@@ -419,3 +419,21 @@ test('resuming a match during a preview ends it and goes back to the saved track
   assert.equal(player.playing, true);
   assert.equal(player.track.id, preferences.get().track);
 });
+
+test('in a race the chords come in as the lights go green, the lead for the final stretch, and the chords alone past the line', () => {
+  const { player } = setup();
+  const racing = { phase: 'running', warp: {} };
+
+  player.handle(events('match-start'), racing);
+  player.handle(events('serve'), running);
+  assert.deepEqual([layerGain(player, 'chord'), layerGain(player, 'lead')], [0, 0], 'a serve in a match brings nothing in');
+
+  player.handle(events('serve'), racing);
+  assert.deepEqual([layerGain(player, 'chord'), layerGain(player, 'lead')], [1, 0]);
+
+  player.handle(events('final-stretch'), racing);
+  assert.deepEqual([layerGain(player, 'chord'), layerGain(player, 'lead')], [1, 1]);
+
+  player.handle(events('race-finish'), racing);
+  assert.deepEqual([layerGain(player, 'chord'), layerGain(player, 'lead')], [1, 0]);
+});

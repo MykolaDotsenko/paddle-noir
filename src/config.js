@@ -1,4 +1,5 @@
 import { BRICK_LEVELS } from './levels.js';
+import { WARP_COURSES } from './courses.js';
 import { NOVA_SECTORS } from './sectors.js';
 
 /**
@@ -75,6 +76,7 @@ export const GAME_CONFIG = Object.freeze({
   boss: null,
   bricks: null,
   nova: null,
+  warp: null,
 });
 
 /**
@@ -87,6 +89,7 @@ export const GAME_CONFIG = Object.freeze({
  * @property {GameConfig['boss']} [boss]
  * @property {GameConfig['bricks']} [bricks]
  * @property {GameConfig['nova']} [nova]
+ * @property {GameConfig['warp']} [warp]
  */
 
 /**
@@ -105,6 +108,7 @@ export function tuned(base, tuning) {
     boss: tuning.boss === undefined ? base.boss : tuning.boss && Object.freeze({ ...tuning.boss }),
     bricks: tuning.bricks === undefined ? base.bricks : tuning.bricks && Object.freeze({ ...tuning.bricks }),
     nova: tuning.nova === undefined ? base.nova : tuning.nova && Object.freeze({ ...tuning.nova }),
+    warp: tuning.warp === undefined ? base.warp : tuning.warp && Object.freeze({ ...tuning.warp }),
   });
 }
 
@@ -235,4 +239,45 @@ export const NOVA_CONFIG = Object.freeze({
   }),
   // The ship is narrower than a paddle, so it reaches nearer the walls.
   paddle: Object.freeze({ ...GAME_CONFIG.paddle, width: 44 }),
+});
+
+/** Credits a Warp cup gives the player: a race placed too low to go through spends one. */
+export const WARP_LIVES = 3;
+
+// Warp: the paddle is a racing craft on a neon course, seen from behind. It flies on by itself,
+// so the player only steers, as in every other mode: through rings, over boost pads, round
+// hazards and past five rivals a race. Its place across the lane is the paddle's place across
+// the court. A race lasts about a minute. Tuned by racing the cup with human-like bots.
+export const WARP_CONFIG = Object.freeze({
+  ...tuned(GAME_CONFIG, {
+    rules: Object.freeze({ kind: 'warp', lives: WARP_LIVES }),
+    powerUps: { enabled: false },
+    warp: {
+      courses: WARP_COURSES,
+      segment: 3,
+      topSpeed: 40,
+      boostSpeed: 54,
+      accel: 1.2,
+      spinSeconds: 1.1,
+      spinSpeed: 0.45,
+      safeSeconds: 1.6,
+      craftRadius: 0.1,
+      ringCenter: 0.1,
+      ringRadius: 0.28,
+      padWidth: 0.22,
+      padSeconds: 1.4,
+      nearMiss: 0.1,
+      draft: 14,
+      slipSeconds: 1.2,
+      slingSeconds: 1.2,
+      placePoints: Object.freeze([1000, 600, 400, 200, 100, 50]),
+      chargePerTrick: 0.06,
+      burnSeconds: 3,
+      ghostSeconds: 4,
+      shockRange: 18,
+      calmSeconds: 3.5,
+    },
+  }),
+  // The craft steers across the whole lane with the paddle's whole reach.
+  paddle: Object.freeze({ ...GAME_CONFIG.paddle, width: 80 }),
 });

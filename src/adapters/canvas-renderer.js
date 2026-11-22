@@ -4,6 +4,7 @@ import { GlowSprites, paintCourt, paintGrid } from './canvas/court.js';
 import { playEvents } from './canvas/event-effects.js';
 import { drawBricks, drawCombo, drawDrops, drawLaser, drawNet } from './canvas/bricks.js';
 import { drawBossBar, drawEnemies, drawLoot, drawMultiplier, drawShip, drawShots, drawSpace } from './canvas/nova.js';
+import { drawWarp, drawWarpHud } from './canvas/warp.js';
 import { drawCameo, drawLabels, drawMeters, drawRally, drawServeCountdown } from './canvas/hud.js';
 import { drawBall, drawExtraBalls, drawGhostFog, drawHazards, drawPaddle, drawPickups, drawTrail } from './canvas/scene.js';
 import { THEME } from './canvas/theme.js';
@@ -293,6 +294,11 @@ export class CanvasRenderer {
       return;
     }
 
+    if (state.warp) {
+      this.drawWarpFrame(state, now);
+      return;
+    }
+
     drawGhostFog(ctx, state, config);
 
     if (state.bricks) {
@@ -362,6 +368,30 @@ export class CanvasRenderer {
 
     drawBossBar(ctx, space, config);
     drawServeCountdown(ctx, state, config);
+    drawMeters(ctx, state, config, now);
+    drawCameo(ctx, effects.cameo, config, effects.reducedMotion);
+    drawLabels(ctx, effects.labels);
+    this.drawFlash();
+  }
+
+  /**
+   * A frame of the Warp game: the course from just behind the craft, then the effects, the
+   * race's own display, the meter and the callouts. The start lights stand in for the countdown.
+   *
+   * @param {GameState} state
+   * @param {number} now
+   */
+  drawWarpFrame(state, now) {
+    const { context: ctx, config, effects, glows } = this;
+
+    ctx.save();
+    // The whole board is the course, so a shake moves the picture without showing its edges.
+    ctx.translate(-MAX_SHAKE, -MAX_SHAKE);
+    ctx.scale((config.width + MAX_SHAKE * 2) / config.width, (config.height + MAX_SHAKE * 2) / config.height);
+    drawWarp(ctx, state, config, now, glows, effects.reducedMotion);
+    ctx.restore();
+    effects.draw(ctx);
+    drawWarpHud(ctx, state, config, effects.popAmount);
     drawMeters(ctx, state, config, now);
     drawCameo(ctx, effects.cameo, config, effects.reducedMotion);
     drawLabels(ctx, effects.labels);

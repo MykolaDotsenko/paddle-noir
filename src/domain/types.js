@@ -179,6 +179,55 @@
  *
  * @typedef {'bolt' | 'super' | 'ram'} DownCause
  *
+ * @typedef {'ring' | 'pad' | 'mine' | 'debris' | 'cargo'} TrackItemKind
+ *
+ * @typedef {object} TrackItem Something on a Warp course, where it stands.
+ * @property {number} id
+ * @property {TrackItemKind} kind a ring to fly through, a boost pad to fly over, or something
+ *   to fly round: a mine, a drifting piece of debris, or a slow cargo craft
+ * @property {number} z how far along the course, in meters
+ * @property {number} x across the lane, from -1 at its left edge to 1 at its right
+ * @property {number} sway how far it drifts to either side, across the lane, as time goes
+ *
+ * @typedef {object} Course A Warp course as it is flown: its bends and what is on it.
+ * @property {number} length in meters, from the start to the finish line
+ * @property {readonly number[]} curves the bend of each stretch of the course, a stretch a segment
+ * @property {readonly TrackItem[]} items in the order they come
+ *
+ * @typedef {object} Racer A rival in a Warp race.
+ * @property {number} id
+ * @property {number} pilot who flies it: a place in the course's list of pilots
+ * @property {number} z how far along the course, in meters
+ * @property {number} x across the lane, from -1 to 1
+ * @property {number} speed meters a second
+ * @property {number} line where across the lane it means to be
+ * @property {number} lineIn seconds until it picks a new line
+ * @property {number} boost seconds of boost left
+ * @property {number} spin seconds it is still spinning after a hit
+ * @property {number} bumped seconds before it can be bumped again
+ * @property {number} finish seconds the race had run when it crossed the line; 0 until then
+ *
+ * @typedef {object} WarpState A Warp race and the cup it is part of.
+ * @property {number} race the race being flown, from 0
+ * @property {Course} course
+ * @property {number} time seconds since the start lights went green
+ * @property {number} z how far the player has flown, in meters
+ * @property {number} speed meters a second
+ * @property {number} cursor the next item on the course the player has yet to reach
+ * @property {readonly Racer[]} rivals
+ * @property {number} place the player's place in the race, from 1
+ * @property {number} boost seconds of boost left
+ * @property {number} spin seconds the player is still spinning after a hit
+ * @property {number} safe seconds the player cannot be hit again after one
+ * @property {number} burn seconds of a fireball's afterburner left
+ * @property {number} ghost seconds of a phantom left
+ * @property {number} slip slipstream built up behind a rival, from 0 to 1
+ * @property {number} chain rings flown dead center in a row
+ * @property {number} points
+ * @property {number} calm seconds of the pause after a race, before the next one's start lights
+ * @property {boolean} retry whether the race after the pause is this one again
+ * @property {boolean} finished whether the player has crossed the line
+ *
  * @typedef {{ type: 'match-start' }
  *   | { type: 'menu' }
  *   | { type: 'paused' }
@@ -219,6 +268,20 @@
  *   | { type: 'chain', x: number, y: number, targets: readonly { x: number, y: number }[] }
  *   | { type: 'boss-rage', phase: number, x: number, y: number }
  *   | { type: 'sector-clear', sector: number, bonus: number, last: boolean }
+ *   | { type: 'ring', grade: 'perfect' | 'good' | 'miss', chain: number, z: number, x: number, points: number }
+ *   | { type: 'boost', z: number, x: number, by: 'pad' | 'slingshot' | 'super' }
+ *   | { type: 'crash', z: number, x: number, kind: TrackItemKind, pilot?: number }
+ *   | { type: 'near-miss', z: number, x: number, points: number }
+ *   | { type: 'bump', z: number, x: number }
+ *   | { type: 'takedown', pilot: number, z: number, x: number, points: number }
+ *   | { type: 'smash', kind: TrackItemKind, z: number, x: number, points: number }
+ *   | { type: 'overtake', place: number, pilot: number, points: number }
+ *   | { type: 'overtaken', place: number, pilot: number }
+ *   | { type: 'slipstream', z: number, x: number }
+ *   | { type: 'lightning', targets: readonly { z: number, x: number }[] }
+ *   | { type: 'shockwave', z: number, x: number }
+ *   | { type: 'final-stretch' }
+ *   | { type: 'race-finish', race: number, place: number, points: number, qualified: boolean, last: boolean, margin: number }
  *   | { type: 'game-over', winner: Side, super?: SuperKind }} GameEvent
  *   A paddle-hit's `super` is the super that return fired and `saved` the one it answered; a
  *   point's and a game-over's `super` is the super that scored it. A boss-phase is a final boss
@@ -229,6 +292,10 @@
  *   points, and its `last` says the game is won. In the Nova game a shield that takes a hit is a
  *   shield-save, an enemy-arrive is the boss coming in, a chain is thunder jumping from the ship
  *   to the enemies it strikes, and a boss-rage the boss moving on to its next pattern of fire.
+ *   In Warp the course's things are where they are along it, `z`, and across the lane, `x`,
+ *   which the board projects; a crash with a `pilot` is a rival's, one without the player's;
+ *   and a race-finish's `margin` is the seconds between the player and the racer next to them
+ *   in the order.
  *
  * @typedef {object} GameState
  * @property {GamePhase} phase
@@ -254,6 +321,7 @@
  * @property {SuperShot | null} superShot The super in flight, if any.
  * @property {BricksState | null} bricks The Bricks game's wall; null in every other mode.
  * @property {NovaState | null} nova The Nova game's space; null in every other mode.
+ * @property {WarpState | null} warp The Warp game's race; null in every other mode.
  * @property {number} seed State of the deterministic random source.
  * @property {readonly GameEvent[]} events What happened in the transition that produced this state.
  *
@@ -263,7 +331,7 @@
  * @property {number} opponentAxis The same for a second human on the top paddle.
  * @property {number | null} opponentPointerX
  *
- * @typedef {{ kind: 'match', winningScore: number } | { kind: 'rush', lives: number } | { kind: 'bricks', lives: number } | { kind: 'nova', lives: number }} Rules
+ * @typedef {{ kind: 'match', winningScore: number } | { kind: 'rush', lives: number } | { kind: 'bricks', lives: number } | { kind: 'nova', lives: number } | { kind: 'warp', lives: number }} Rules
  *
  * @typedef {'line' | 'snake' | 'left' | 'right' | 'scatter'} Formation
  *
@@ -278,6 +346,51 @@
  * @property {string} name
  * @property {readonly Wave[]} waves
  * @property {boolean} boss whether the boss comes once its waves are down
+ *
+ * @typedef {'sunset' | 'canyon' | 'clouds' | 'orbit' | 'tunnel'} CourseTheme
+ *
+ * @typedef {object} Pilot A racer of the Warp game, as the board names and paints it.
+ * @property {string} name
+ * @property {string} rgb "r, g, b"
+ * @property {'jet' | 'wing' | 'saucer' | 'dart'} craft
+ * @property {number} pace top speed, as a share of the player's
+ * @property {number} skill chance of steering round what is in its way, from 0 to 1
+ *
+ * @typedef {object} CourseLayout A Warp course, as it is written.
+ * @property {string} name
+ * @property {CourseTheme} theme how the board paints it
+ * @property {number} length in meters
+ * @property {readonly (readonly [number, number])[]} bends the course's bends: how long each is, in
+ *   meters, and how hard it turns, negative to the left; a straight is a bend of 0
+ * @property {{ rings: number, pads: number, mines: number, debris: number, cargo: number }} every
+ *   meters between one ring, pad, mine, piece of debris or cargo craft and the next; 0 for none
+ * @property {readonly Pilot[]} pilots the field the player races, slowest first
+ * @property {number} qualify the worst place that goes through to the next race
+ *
+ * @typedef {object} WarpConfig How the Warp game plays.
+ * @property {readonly CourseLayout[]} courses flown in order, the cup
+ * @property {number} segment meters in a stretch of the course
+ * @property {number} topSpeed the player's speed with nothing helping or hindering it
+ * @property {number} boostSpeed
+ * @property {number} accel how quickly speed comes to what it should be, a share a second
+ * @property {number} spinSeconds
+ * @property {number} spinSpeed share of its speed a racer keeps when it is hit
+ * @property {number} safeSeconds how long a racer that was hit cannot be hit again
+ * @property {number} craftRadius the player's craft across the lane, as it is hit
+ * @property {number} ringCenter how near a ring's middle counts as dead center
+ * @property {number} ringRadius how near counts as through it
+ * @property {number} padWidth half a boost pad's width
+ * @property {number} padSeconds
+ * @property {number} nearMiss how much nearer than a hit counts as a near miss
+ * @property {number} draft how far behind a rival, in meters, its slipstream reaches
+ * @property {number} slipSeconds how long a slipstream takes to build to a slingshot
+ * @property {number} slingSeconds
+ * @property {readonly number[]} placePoints points for each place at the finish
+ * @property {number} chargePerTrick charge a ring dead center, a near miss or an overtake adds
+ * @property {number} burnSeconds a fireball's afterburner
+ * @property {number} ghostSeconds a phantom
+ * @property {number} shockRange how far a zigzag's shockwave reaches, in meters
+ * @property {number} calmSeconds the pause after a race before the next one's start lights
  *
  * @typedef {object} NovaConfig How the Nova game plays.
  * @property {readonly SectorLayout[]} sectors
@@ -433,6 +546,7 @@
  * @property {BossConfig | null} boss A career boss's attacks, or null for an opponent that only plays.
  * @property {BricksConfig | null} bricks The Bricks game's wall and rules; null in every other mode.
  * @property {NovaConfig | null} nova The Nova game's sectors and rules; null in every other mode.
+ * @property {WarpConfig | null} warp The Warp game's cup and rules; null in every other mode.
  */
 
 export {};

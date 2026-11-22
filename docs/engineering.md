@@ -68,7 +68,9 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   │   ├── nova-effects.js
 │   │   │   ├── nova.js
 │   │   │   ├── scene.js
-│   │   │   └── theme.js
+│   │   │   ├── theme.js
+│   │   │   ├── warp-effects.js
+│   │   │   └── warp.js
 │   │   ├── audio-output.js
 │   │   ├── browser-device.js
 │   │   ├── browser-frame-scheduler.js
@@ -102,9 +104,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── power-ups.js
 │   │   ├── random.js
 │   │   ├── supers.js
-│   │   └── types.js
+│   │   ├── types.js
+│   │   └── warp.js
 │   ├── catalog.js              the matches a player can choose, the career ladder and the high-score table included
 │   ├── config.js
+│   ├── courses.js              the courses of the Warp cup and the pilots who race them
 │   ├── levels.js               the walls of the Bricks game, drawn a character a brick
 │   └── sectors.js              the sectors of the Nova game, wave by wave
 ├── tests                       unit tests per module, reference matches, collision and module-load checks, support/ fakes

@@ -97,6 +97,7 @@ export class SoundBoard {
     let volleys = 0;
     let downs = 0;
     let knocks = 0;
+    let wrecks = 0;
 
     for (const event of events) {
       if (
@@ -104,6 +105,7 @@ export class SoundBoard {
         || (event.type === 'bolt-fire' && (volleys += 1) > 1)
         || (event.type === 'enemy-down' && (downs += 1) > BREAKS_PER_STEP)
         || ((event.type === 'enemy-hit' || event.type === 'enemy-fire') && (knocks += 1) > 1)
+        || (event.type === 'crash' && event.pilot !== undefined && (wrecks += 1) > 1)
       ) {
         continue;
       }
@@ -227,6 +229,97 @@ export class SoundBoard {
         this.tone({ frequency: 140, endFrequency: 25, duration: 1.6, type: 'sawtooth', volume: 0.42 });
         this.tone({ frequency: 70, endFrequency: 30, duration: 1.4, type: 'square', volume: 0.24, delay: 0.3 });
         this.arpeggio([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6], 0.1, 'triangle', 0.4, 0.3, 1.2);
+    }
+  }
+
+  /**
+   * A ring flown through: a chime, higher the longer the chain of rings flown dead center, and
+   * a softer one for a ring flown through off its middle.
+   *
+   * @param {Extract<GameEvent, { type: 'ring' }>} event
+   */
+  ring(event) {
+    if (event.grade === 'miss') {
+      return;
+    }
+
+    if (event.grade === 'good') {
+      this.tone({ frequency: NOTE.G5, duration: 0.12, type: 'sine', volume: 0.16 });
+      return;
+    }
+
+    const lift = 2 ** (Math.min(event.chain - 1, 7) / 12);
+    this.tone({ frequency: NOTE.C6 * lift, duration: 0.16, type: 'sine', volume: 0.24 });
+    this.tone({ frequency: NOTE.G6 * lift, duration: 0.2, type: 'triangle', volume: 0.1, delay: 0.04 });
+  }
+
+  /**
+   * The Warp game's other sounds: boosts rush, crashes crunch, rivals go down with a boom, and
+   * places are gained with a rising blip and lost with a falling one.
+   *
+   * @param {GameEvent} event
+   * @returns {boolean} whether the event was one of the Warp game's
+   */
+  race(event) {
+    switch (event.type) {
+      case 'ring':
+        this.ring(event);
+        return true;
+      case 'boost':
+        if (event.by === 'slingshot') {
+          this.tone({ frequency: 140, endFrequency: 1500, duration: 0.42, type: 'sawtooth', volume: 0.16 });
+          this.tone({ frequency: NOTE.E6, duration: 0.18, type: 'triangle', volume: 0.16, delay: 0.3 });
+        } else if (event.by === 'pad') {
+          this.tone({ frequency: 220, endFrequency: 900, duration: 0.28, type: 'sawtooth', volume: 0.12 });
+        }
+        return true;
+      case 'crash':
+        if (event.pilot === undefined) {
+          this.tone({ frequency: 180, endFrequency: 40, duration: 0.5, type: 'sawtooth', volume: 0.4 });
+          this.tone({ frequency: 1200, endFrequency: 200, duration: 0.25, type: 'square', volume: 0.18, delay: 0.02 });
+        } else {
+          this.tone({ frequency: 140, endFrequency: 60, duration: 0.2, type: 'sawtooth', volume: 0.08 });
+        }
+        return true;
+      case 'near-miss':
+        this.tone({ frequency: 1500, endFrequency: 500, duration: 0.16, type: 'sine', volume: 0.12 });
+        return true;
+      case 'bump':
+        this.tone({ frequency: 320, endFrequency: 120, duration: 0.12, type: 'square', volume: 0.16 });
+        return true;
+      case 'takedown':
+        this.tone({ frequency: 160, endFrequency: 35, duration: 0.42, type: 'sawtooth', volume: 0.3 });
+        this.tone({ frequency: 900, endFrequency: 150, duration: 0.2, type: 'square', volume: 0.14, delay: 0.02 });
+        return true;
+      case 'smash':
+        this.tone({ frequency: 420, endFrequency: 90, duration: 0.16, type: 'sawtooth', volume: 0.18 });
+        return true;
+      case 'overtake':
+        this.arpeggio([NOTE.E6, NOTE.G6], 0.06, 'triangle', 0.2);
+        return true;
+      case 'overtaken':
+        this.tone({ frequency: NOTE.G5, endFrequency: NOTE.E5, duration: 0.18, type: 'triangle', volume: 0.14 });
+        return true;
+      case 'slipstream':
+        this.tone({ frequency: 280, endFrequency: 520, duration: 0.3, type: 'sine', volume: 0.06 });
+        return true;
+      case 'lightning':
+        this.tone({ frequency: 1900, endFrequency: 50, duration: 0.32, type: 'sawtooth', volume: 0.3 });
+        this.tone({ frequency: 60, endFrequency: 38, duration: 0.5, type: 'square', volume: 0.22, delay: 0.05 });
+        return true;
+      case 'shockwave':
+        this.tone({ frequency: 90, endFrequency: 40, duration: 0.6, type: 'sawtooth', volume: 0.3 });
+        return true;
+      case 'final-stretch':
+        this.arpeggio([NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6], 0.09, 'square', 0.14);
+        return true;
+      case 'race-finish':
+        if (event.qualified) {
+          this.arpeggio(event.place === 1 ? [NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6] : [NOTE.C5, NOTE.G5, NOTE.C6], 0.08, 'triangle', 0.4, 0.2);
+        }
+        return true;
+      default:
+        return false;
     }
   }
 
@@ -485,6 +578,7 @@ export class SoundBoard {
         this.tone({ frequency: 360, endFrequency: 620, duration: 0.09, type: 'sine', volume: 0.22 });
         break;
       default:
+        this.race(event);
         break;
     }
   }

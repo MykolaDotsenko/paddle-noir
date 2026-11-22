@@ -131,8 +131,8 @@ export function drawMeters(ctx, state, config, now) {
 
   drawMeter(ctx, state.meters.player, 'player', config, now, { turned: false, person: true });
 
-  // A wall, and the enemies in space, have no meter.
-  if (!state.bricks && !state.nova) {
+  // A wall, the enemies in space and the field of a race have no meter.
+  if (!state.bricks && !state.nova && !state.warp) {
     drawMeter(ctx, state.meters.opponent, 'opponent', config, now, { turned: twoPlayers, person: twoPlayers });
   }
 }

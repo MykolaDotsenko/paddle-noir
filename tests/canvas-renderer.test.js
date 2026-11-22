@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { THEME } from '../src/adapters/canvas/theme.js';
 import { CanvasRenderer } from '../src/adapters/canvas-renderer.js';
 import { HIGH_SCORES } from '../src/catalog.js';
-import { BRICKS_CONFIG, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG } from '../src/config.js';
+import { BRICKS_CONFIG, GAME_CONFIG, NOVA_CONFIG, RUSH_CONFIG, WARP_CONFIG } from '../src/config.js';
 import { createInitialState, GAME_PHASE, startGame } from '../src/domain/game.js';
 import { callsNamed, createFrameScheduler, createRendererWindow, FakeCanvas } from './support/fake-canvas.js';
 
@@ -450,4 +450,25 @@ test('Nova\'s events reach the board: an enemy goes down in pieces', () => {
   renderer.handle([{ type: 'enemy-down', kind: 'rock', x: 200, y: 150, rx: 24, by: 'bolt', points: 20, multiplier: 1 }], state, config);
 
   assert.equal(renderer.effects.shards.length, 5);
+});
+
+// Warp: the course on the board.
+
+test('a Warp frame draws the course and the craft where the paddle would be, the race\'s display, and neither paddle nor ball', () => {
+  const config = { ...WARP_CONFIG, supers: { ...WARP_CONFIG.supers, enabled: true } };
+  const canvas = new FakeCanvas({ clientWidth: 400 });
+  const renderer = new CanvasRenderer({ canvas, window: createRendererWindow(), scheduler: createFrameScheduler(), config, preferences: { get: () => ({ jokes: false }) }, random: () => 0.5 });
+  const started = startGame(createInitialState(config), config);
+
+  renderer.render({ ...started, serveCountdown: 0, player: { x: 300, vx: 0 }, warp: { ...started.warp, z: 200, speed: 40 } }, config);
+
+  const ctx = canvas.contexts[0];
+  const fills = callsNamed(ctx, 'fill').map((call) => call.brush.fillStyle);
+  assert.ok(fills.includes(THEME.side.player.core), 'the craft\'s cockpit');
+  assert.ok(!fills.includes(THEME.side.opponent.core), 'no paddle at the far end');
+  assert.ok(!fills.includes(THEME.ballCore), 'no ball');
+  const texts = callsNamed(ctx, 'fillText').map((call) => call.args[0]);
+  assert.ok(texts.includes('P6') && texts.includes('KM/H') && !texts.includes('RALLY'), 'the place and the speed, where a match shows its rally');
+  assert.equal(texts.filter((text) => text === 'SUPER').length, 1, 'the player\'s meter, and none for the field');
+  assert.ok(callsNamed(ctx, 'scale').some((call) => call.args[0] > 1), 'the course drawn a little past the edges, so a shake never shows them');
 });

@@ -117,6 +117,17 @@ export class MusicPlayer {
         case 'point':
           this.setIntensity(0);
           break;
+        // A race has no rallies: the chords come in as the lights go green, the lead for the
+        // final stretch, and the chords alone again past the line.
+        case 'serve':
+          if (state.warp) this.setIntensity(3);
+          break;
+        case 'final-stretch':
+          this.setIntensity(6);
+          break;
+        case 'race-finish':
+          this.setIntensity(3);
+          break;
         default:
           break;
       }

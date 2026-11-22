@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="Paddle Noir: neon arcade ping pong for phones and desktops. Curve the ball, fire super shots, climb a ladder of ten rivals, break eight walls of bricks, or fly a starship through five sectors.">
+    <meta name="description" content="Paddle Noir: neon arcade ping pong for phones and desktops. Curve the ball, fire super shots, climb a ladder of ten rivals, break eight walls of bricks, fly a starship through five sectors, or race a neon cup in a warp craft.">
     <meta name="theme-color" content="#05060f">
     <meta name="color-scheme" content="dark">
     <meta name="mobile-web-app-capable" content="yes">
@@ -186,35 +186,40 @@
                 </div>
                 <div class="panel__main">
                   <div class="modes" role="group" aria-label="Mode">
-                    <button type="button" class="mode mode--third mode--short" data-mode="solo" aria-pressed="true">
+                    <button type="button" class="mode mode--top" data-mode="solo" aria-pressed="true">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="17" width="15" height="3.6" rx="1.8"/><circle class="mode__ball" cx="12" cy="9" r="2.8"/></svg>
                       <strong class="mode__name">Solo</strong>
                       <small class="mode__note visually-hidden">Quick match</small>
                     </button>
-                    <button type="button" class="mode mode--third mode--short" data-mode="rush" aria-pressed="false">
+                    <button type="button" class="mode mode--top" data-mode="rush" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5L5.5 13.5h6l-1 8 8-11h-6z"/></svg>
                       <strong class="mode__name">Rush</strong>
                       <small class="mode__note visually-hidden">Survival</small>
                     </button>
-                    <button type="button" class="mode mode--third mode--short" data-mode="duo" aria-pressed="false">
+                    <button type="button" class="mode mode--top" data-mode="duo" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.4" width="15" height="3.6" rx="1.8"/><rect x="4.5" y="17" width="15" height="3.6" rx="1.8"/><circle class="mode__ball" cx="12" cy="12" r="2.6"/></svg>
                       <strong class="mode__name">2P</strong>
                       <small class="mode__note visually-hidden">Local duel</small>
                     </button>
-                    <button type="button" class="mode mode--third" data-mode="career" aria-pressed="false">
+                    <button type="button" class="mode" data-mode="career" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 3.5h9v5.5a4.5 4.5 0 0 1-9 0zM7.5 5.5H5a2.8 2.8 0 0 0 3 4.3M16.5 5.5H19a2.8 2.8 0 0 1-3 4.3M12 13.5v3.5M8 20.5h8M9.5 20.5l.6-3.5h3.8l.6 3.5"/></svg>
                       <strong class="mode__name">Career</strong>
-                      <small class="mode__note">10 rivals</small>
+                      <small class="mode__note visually-hidden">10 rivals</small>
                     </button>
-                    <button type="button" class="mode mode--third" data-mode="bricks" aria-pressed="false">
+                    <button type="button" class="mode" data-mode="bricks" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3.5" width="8" height="4" rx="1"/><rect x="13.5" y="3.5" width="8" height="4" rx="1"/><rect x="8" y="9.5" width="8" height="4" rx="1"/><rect x="6" y="19" width="12" height="2.6" rx="1.3"/><circle class="mode__ball" cx="15" cy="16" r="1.8"/></svg>
                       <strong class="mode__name">Bricks</strong>
-                      <small class="mode__note">8 walls</small>
+                      <small class="mode__note visually-hidden">8 walls</small>
                     </button>
-                    <button type="button" class="mode mode--third" data-mode="nova" aria-pressed="false">
+                    <button type="button" class="mode" data-mode="nova" aria-pressed="false">
                       <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l6 13-6-3-6 3z"/><path d="M10.5 18.5L12 21.5l1.5-3"/><circle class="mode__ball" cx="19" cy="5" r="1.2"/><circle class="mode__ball" cx="5" cy="8" r="0.9"/></svg>
                       <strong class="mode__name">Nova</strong>
-                      <small class="mode__note">Space</small>
+                      <small class="mode__note visually-hidden">Space shooter</small>
+                    </button>
+                    <button type="button" class="mode" data-mode="warp" aria-pressed="false">
+                      <svg class="mode__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21L10 4M21 21L14 4M12 6.5v2M12 11.5v2.5"/><path class="mode__ball" d="M12 15.5l4.5 5-4.5-1.6-4.5 1.6z"/></svg>
+                      <strong class="mode__name">Warp</strong>
+                      <small class="mode__note visually-hidden">Racing cup</small>
                     </button>
                   </div>
                   <div class="segmented" role="group" aria-label="Difficulty" data-solo-only>
@@ -270,6 +275,7 @@
                   <li><span class="tutorial__icon" aria-hidden="true">◐</span><span><strong>Hit off-center</strong> to angle your return. Every hit speeds the ball up.</span></li>
                   <li data-match-only><span class="tutorial__icon" aria-hidden="true">✦</span><span><strong>Grab power-ups</strong> with the ball: Wide, Shrink, Turbo, Ghost and Multiball. Whoever hit last gets it.</span></li>
                   <li data-nova-only hidden><span class="tutorial__icon" aria-hidden="true">✈</span><span><strong>Your paddle is a starship.</strong> It fires by itself: steer out of the way of rocks and fire, and under what you want shot down.</span></li>
+                  <li data-warp-only hidden><span class="tutorial__icon" aria-hidden="true">➤</span><span><strong>Your paddle is a racing craft.</strong> It flies by itself: steer through rings and over boost pads, round mines and debris, and tuck in behind a rival to slingshot past.</span></li>
                   <li data-bricks-only hidden><span class="tutorial__icon" aria-hidden="true">▦</span><span><strong>Break every wall.</strong> Catch what falls with your paddle. A super goes through bricks, or takes a whole row.</span></li>
                 </ol>
                 <button type="button" class="cta" data-dismiss-tutorial autofocus>Got it</button>
@@ -411,6 +417,7 @@
                   <p class="badge" data-over-best-rush hidden>New Rush record!</p>
                   <p class="badge" data-over-best-bricks hidden>New Bricks record!</p>
                   <p class="badge" data-over-best-nova hidden>New Nova record!</p>
+                  <p class="badge" data-over-best-warp hidden>New Warp record!</p>
                   <p class="badge" data-over-champion hidden>The arcade stays open!</p>
                   <p class="continue" data-continue aria-hidden="true" hidden></p>
                 </div>

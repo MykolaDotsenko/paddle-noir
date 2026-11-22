@@ -34,6 +34,14 @@ test('the reference matches cover real play: points, hits and long rallies', () 
       continue;
     }
 
+    if (scenario.name === 'warp') {
+      // Nobody scores points in a race either: it is real play if races are flown to the line
+      // and the field races, through rings, round hazards and past each other.
+      assert.ok(summary.events['race-finish'] >= 2 && summary.events.ring >= 30, 'races are finished, through rings');
+      assert.ok(summary.events.overtake >= 10 && summary.events.crash >= 10 && summary.events['super-fire'] >= 1, 'the field races, crashes and supers go off');
+      continue;
+    }
+
     assert.ok(summary.hits.player + summary.hits.opponent >= 15, `${scenario.name} has hits`);
     assert.ok(summary.longestRally >= 4, `${scenario.name} has rallies`);
 
