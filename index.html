@@ -156,11 +156,6 @@
               </button>
             </div>
 
-            <!-- Flight controls are separate from tactical consoles. Mode is stored
-                 per player and cycles: classic drag / dual arrows / floating stick. -->
-            <button type="button" class="warp-steering-switch" data-command="warp-steering-cycle" data-warp-steering-switch aria-label="Change Warp steering mode" hidden>
-              <span aria-hidden="true">◎</span> STEER: BUTTONS <span class="warp-steering-switch__cycle" aria-hidden="true">↻</span>
-            </button>
             <button type="button" class="warp-turn warp-turn--left" data-warp-steer="left" aria-label="Hold to steer left" hidden>
               <span class="warp-turn__arrow" aria-hidden="true">‹</span><span class="warp-turn__label" aria-hidden="true">LEFT</span>
             </button>
@@ -534,9 +529,15 @@
             </div>
           </div>
 
-          <div class="rail" aria-hidden="true">
-            <span class="rail__track"></span>
-            <span class="rail__label">Drag here to move</span>
+          <!-- Dedicated out-of-court steering toolbar: the selector must never hide
+               the aircraft or block any part of the race. Classic drag remains usable
+               on the free portion of this rail. -->
+          <div class="rail">
+            <span class="rail__track" aria-hidden="true"></span>
+            <span class="rail__label" aria-hidden="true">Drag here to move</span>
+            <button type="button" class="warp-steering-switch" data-command="warp-steering-cycle" data-warp-steering-switch aria-label="Change Warp steering mode" hidden>
+              <span aria-hidden="true">◎</span> STEER: BUTTONS <span class="warp-steering-switch__cycle" aria-hidden="true">↻</span>
+            </button>
           </div>
         </div>
 
