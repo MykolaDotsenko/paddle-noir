@@ -20,6 +20,8 @@ export const GAME_COMMAND = Object.freeze({
   PRIMARY: 'primary',
   /** Show the screen again as it is: a preference it draws on has changed, such as the player's initials. */
   REFRESH: 'refresh',
+  /** Trigger the currently flown Warp craft's signature system. */
+  ABILITY: 'ability',
 });
 
 /** @type {readonly Difficulty[]} */
