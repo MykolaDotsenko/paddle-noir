@@ -880,7 +880,7 @@ function drawGantry({ ctx, look, view, now, still }, { x, y, scale }) {
  * @param {Spot} spot where the craft is
  * @param {Spot} ground where the lane is under it
  */
-function drawRival({ ctx, config, glows, now, still }, rival, pilot, spot, ground) {
+function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot, ground) {
   const rules = /** @type {WarpConfig} */ (config.warp);
   const turn = rival.spin > 0 ? (rival.spin / 1.2) * Math.PI * 3 : clamp((rival.line - rival.x) * 1.4, -0.35, 0.35);
 
@@ -898,6 +898,8 @@ function drawRival({ ctx, config, glows, now, still }, rival, pilot, spot, groun
     y: spot.y,
     scale: spot.scale,
     bank: turn,
+    yaw: clamp((rival.line - rival.x) * 0.28, -0.24, 0.24),
+    pitch: clamp((heightAt(race.course, rival.z + 28) - heightAt(race.course, rival.z)) * 0.04, -0.16, 0.16),
     flame: rival.boost > 0 ? 1 : 0.45 + (still ? 0 : 0.1 * Math.sin(now / 50 + rival.id)),
     nitro: false,
     rockets: 0,
@@ -1028,6 +1030,10 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     y,
     scale: CRAFT_SCALE,
     bank,
+    // Flight attitude follows the player's lateral velocity, the approaching slope and
+    // the climb after a ramp. The collision geometry remains untouched.
+    yaw: clamp(state.player.vx / 1800, -0.25, 0.25),
+    pitch: clamp((heightAt(race.course, race.z + 28) - heightAt(race.course, race.z)) * 0.04 + high * 0.14, -0.16, 0.22),
     flame: race.burn > 0 || nitro ? 1.4 : 0.5 + rush * 0.6 + (still ? 0 : 0.08 * Math.sin(now / 40)),
     nitro,
     rockets: race.rockets,
