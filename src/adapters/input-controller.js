@@ -11,7 +11,12 @@ const PLAYER_KEYS = Object.freeze({ left: new Set(['ArrowLeft', 'KeyA']), right:
 const OPPONENT_KEYS = Object.freeze({ left: new Set(['KeyJ', 'Numpad4']), right: new Set(['KeyL', 'Numpad6']) });
 // The player's extra, where a game has one: a bar of nitro in Warp. A key, a click of the mouse,
 // or a swipe up: a finger that has risen this far on the screen, more than it moved sideways.
-const ACTION_KEYS = new Set(['ArrowUp', 'KeyW']);
+const ACTION_KEYS = new Set(['ArrowUp', 'KeyW', 'KeyN']);
+const BRIDGE_KEYS = Object.freeze(new Map([
+  ['KeyG', GAME_COMMAND.WARP_GUNS],
+  ['KeyR', GAME_COMMAND.WARP_ROCKETS],
+  ['KeyF', GAME_COMMAND.WARP_SHIELD],
+]));
 const ABILITY_KEYS = new Set(['KeyE']);
 const SWIPE_UP_PIXELS = 34;
 const INTERACTIVE_TAGS = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'];
@@ -208,6 +213,14 @@ export class InputController {
     if (ACTION_KEYS.has(event.code)) {
       // Held down, it asks once.
       this.action ||= !event.repeat;
+      event.preventDefault();
+      return;
+    }
+
+    if (BRIDGE_KEYS.has(event.code)) {
+      if (!event.repeat && !isInteractiveTarget(event.target)) {
+        this.commandHandler(/** @type {import('../application/ports.js').GameCommand} */ (BRIDGE_KEYS.get(event.code)));
+      }
       event.preventDefault();
       return;
     }
