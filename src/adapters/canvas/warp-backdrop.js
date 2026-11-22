@@ -297,7 +297,7 @@ function tunnel(scene) {
   }
 
   for (let ring = 0; ring < 4; ring += 1) {
-    const distance = 75 + ring * 48;
+    const distance = 75 + ring * 48 + wrap(scene.race.z * 0.085, 36);
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, distance * 1.5, distance * 0.81, 0, Math.PI * 0.05, Math.PI * 0.95);
     ctx.strokeStyle = 'rgba(251, 146, 60, ' + (0.10 + ring * 0.02) + ')';
