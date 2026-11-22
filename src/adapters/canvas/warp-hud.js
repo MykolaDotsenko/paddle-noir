@@ -1,4 +1,4 @@
-import { flowOf } from '../../domain/warp.js';
+import { flowOf, WARP_ABILITIES } from '../../domain/warp.js';
 import { FONT, roundedRect, THEME } from './theme.js';
 
 /**
@@ -159,6 +159,20 @@ function drawArsenal(ctx, race, rules) {
     ctx.closePath();
     ctx.fill();
   }
+
+  // One cockpit indicator for the craft's signature system, independent of nitro.
+  const signature = WARP_ABILITIES[loadout.kind];
+  const seconds = Math.max(0, race.abilityCooldown);
+  const charged = seconds === 0;
+  ctx.font = `800 9px ${FONT}`;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = race.abilityTime > 0 ? `rgb(${THEME.lime})`
+    : charged ? `rgb(${THEME.side.player.rgb})` : `rgba(${THEME.text}, 0.63)`;
+  ctx.fillText(`${signature.name} · ${race.abilityTime > 0 ? 'ACTIVE' : charged ? 'READY' : Math.ceil(seconds) + 's'}`, left, top + 47);
+  ctx.fillStyle = 'rgba(125, 211, 252, 0.16)';
+  ctx.fillRect(left, top + 51, 112, 3);
+  ctx.fillStyle = `rgba(125, 211, 252, ${charged ? 0.96 : 0.55})`;
+  ctx.fillRect(left, top + 51, 112 * (1 - Math.min(1, seconds / signature.cooldown)), 3);
 }
 
 /**
