@@ -167,6 +167,17 @@
               <span class="warp-flight-stick__thumb" data-flight-knob></span>
             </div>
 
+            <!-- Optional Warp chapter objective and brief non-blocking radio traffic.
+                 The notices live high above the ship, never over flight controls. -->
+            <div class="warp-mission" data-warp-mission hidden aria-label="Current story mission">
+              <span class="warp-mission__heading" data-warp-chapter>THE LAST SIGNAL</span>
+              <span class="warp-mission__task" data-warp-objective>Recover the signal · 0/2</span>
+            </div>
+            <div class="warp-radio" data-warp-radio hidden role="status" aria-live="polite" aria-atomic="true">
+              <span class="warp-radio__sender" data-warp-sender>ECHO · INCOMING</span>
+              <span class="warp-radio__message" data-warp-message></span>
+            </div>
+
             <p class="match-point" data-match-point hidden>Match point</p>
             <div class="versus" data-versus aria-hidden="true" hidden>
               <div class="versus__side versus__side--rival">
@@ -504,6 +515,7 @@
                 <p class="panel__meta" data-over-meta>Longest rally <strong data-over-rally>0</strong></p>
                 <p class="panel__meta" data-over-wall hidden></p>
                 <p class="panel__meta panel__meta--tickets" data-over-tickets hidden></p>
+                <p class="warp-ending" data-warp-ending hidden></p>
                 <button type="button" class="standing" data-over-scores data-show-scores hidden>
                   <span class="standing__rows" data-standing-rows></span>
                   <span class="standing__note" data-standing-note></span>
