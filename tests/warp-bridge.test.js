@@ -156,5 +156,5 @@ test('the intro races offer safe opening space, more rewards and fewer early haz
   assert.ok(course.items.some((item) => item.kind === 'pad' && item.z < 480));
 
   const starter = createInitialState(WARP_CONFIG, 88);
-  assert.equal(starter.warp.shield, WARP_CONFIG.warp.loadout.shields + 1, 'one introductory shield');
+  assert.equal(starter.warp.shield, WARP_CONFIG.warp.loadout.shields, 'passive shields still come from the selected hull');
 });
