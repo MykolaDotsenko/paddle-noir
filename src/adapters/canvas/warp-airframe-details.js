@@ -49,9 +49,9 @@ function wingSurfaces(ctx, { kind, span, bank, yaw, paint, active }) {
   for (const side of [-1, 1]) {
     const edge = span * (kind === 'wing' ? 0.91 : kind === 'dart' ? 0.84 : 0.89);
     const upper = ctx.createLinearGradient(side * wingRoot, -8, side * edge, 8);
-    upper.addColorStop(0, 'rgba(' + mixRgb(paint, HIGHLIGHT, 0.22) + ', 0.74)');
-    upper.addColorStop(0.55, 'rgba(' + mixRgb(paint, GRAPHITE, 0.35) + ', 0.76)');
-    upper.addColorStop(1, 'rgba(' + mixRgb(paint, SHADOW, 0.6) + ', 0.75)');
+    upper.addColorStop(0, 'rgba(' + mixRgb(paint, HIGHLIGHT, 0.22) + ', 0.32)');
+    upper.addColorStop(0.55, 'rgba(' + mixRgb(paint, GRAPHITE, 0.35) + ', 0.3)');
+    upper.addColorStop(1, 'rgba(' + mixRgb(paint, SHADOW, 0.6) + ', 0.34)');
     ctx.fillStyle = upper;
     polygon(ctx, [
       [side * wingRoot, -5.3],
@@ -73,11 +73,12 @@ function wingSurfaces(ctx, { kind, span, bank, yaw, paint, active }) {
     ]);
     ctx.fillStyle = 'rgb(' + mixRgb(paint, SHADOW, 0.66) + ')';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(' + STEEL + ', 0.72)';
-    ctx.lineWidth = 0.75;
+    // A seam round the surface, dark as a gap, with the light catching its hinge.
+    ctx.strokeStyle = 'rgba(' + SHADOW + ', 0.42)';
+    ctx.lineWidth = 0.45;
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(' + HIGHLIGHT + ', 0.42)';
+    ctx.strokeStyle = 'rgba(' + HIGHLIGHT + ', 0.3)';
     ctx.beginPath();
     ctx.moveTo(side * span * 0.47, hingeY - 0.6);
     ctx.lineTo(side * span * 0.82, hingeY - 0.3);
@@ -112,44 +113,21 @@ function wingSurfaces(ctx, { kind, span, bank, yaw, paint, active }) {
 }
 
 /**
- * Correctly shaded turbine mouths, inset intakes and a cool metal exhaust rim.
- * The nozzle's existing engine flame is untouched: these details sit on top of
- * its painted airframe and indicate where thrust actually emerges.
+ * Where thrust leaves the airframe: the nacelles and nozzles are the hull's own, so all this
+ * adds is the scorched collar between them, lit by the signature system while it runs.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {AirframeDetail} craft
  */
-function engineHardware(ctx, { engines, paint, active, pitch }) {
+function engineHardware(ctx, { engines, active }) {
+  // A collar of scorched metal where each nacelle meets its nozzle; while the signature system
+  // runs, a ring of its plasma round it.
   for (const [x, y, width] of engines) {
-    const radius = width * 1.6;
-    const intake = ctx.createRadialGradient(x - width * 0.18, y - 3, 0.4, x, y - 2, radius);
-    intake.addColorStop(0, 'rgb(' + mixRgb(paint, GRAPHITE, 0.82) + ')');
-    intake.addColorStop(0.65, 'rgb(' + mixRgb(paint, STEEL, 0.3) + ')');
-    intake.addColorStop(1, 'rgb(' + mixRgb(paint, SHADOW, 0.84) + ')');
-    ctx.fillStyle = intake;
+    ctx.strokeStyle = active ? 'rgba(' + PLASMA + ', 0.8)' : 'rgba(' + SHADOW + ', 0.55)';
+    ctx.lineWidth = active ? 1.1 : 0.8;
     ctx.beginPath();
-    ctx.ellipse(x, y - 3.2 - pitch * 2, radius * 0.84, radius * 0.67, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = 'rgba(' + STEEL + ', 0.78)';
-    ctx.lineWidth = 1;
+    ctx.ellipse(x, y - 1.2, width * 1.12, width * 0.6, 0, Math.PI, Math.PI * 2);
     ctx.stroke();
-
-    // A two-stage fan is a clear physical component, not an isolated glow dot.
-    ctx.strokeStyle = active ? 'rgba(' + PLASMA + ', 0.8)' : 'rgba(' + HIGHLIGHT + ', 0.37)';
-    ctx.lineWidth = 0.65;
-    for (let blade = 0; blade < 5; blade += 1) {
-      const angle = blade * (Math.PI * 2 / 5);
-      ctx.beginPath();
-      ctx.moveTo(x, y - 3.2);
-      ctx.lineTo(x + Math.cos(angle) * width * 0.67, y - 3.2 + Math.sin(angle) * width * 0.54);
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = active ? 'rgba(' + PLASMA + ', 0.75)' : 'rgba(' + GRAPHITE + ', 0.9)';
-    ctx.beginPath();
-    ctx.arc(x, y - 3.2, 0.8, 0, Math.PI * 2);
-    ctx.fill();
   }
 }
 
@@ -162,17 +140,24 @@ function engineHardware(ctx, { engines, paint, active, pitch }) {
  */
 function signatureHardware(ctx, { kind, paint, span, active }) {
   const panel = 'rgb(' + mixRgb(paint, GRAPHITE, 0.53) + ')';
-  const trim = 'rgba(' + STEEL + ', 0.8)';
+  // Bolted-on parts are edged by their seams, not outlined in light.
+  const trim = 'rgba(' + SHADOW + ', 0.45)';
   ctx.fillStyle = panel;
   ctx.strokeStyle = trim;
-  ctx.lineWidth = 0.85;
+  ctx.lineWidth = 0.45;
 
   if (kind === 'jet') {
-    // Twin detachable canard roots and a reinforced, pointed radar radome.
+    // Twin swept canards, lit along their leading edges, and a pointed radar radome.
     for (const side of [-1, 1]) {
-      polygon(ctx, [[side * 5, -17], [side * 15, -11], [side * 12, -7], [side * 5, -10]]);
+      polygon(ctx, [[side * 5, -16.5], [side * 12, -12], [side * 10.5, -9.5], [side * 5, -10.5]]);
       ctx.fill();
       ctx.stroke();
+      ctx.strokeStyle = 'rgba(' + HIGHLIGHT + ', 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(side * 5.4, -16.3);
+      ctx.lineTo(side * 11.6, -12.1);
+      ctx.stroke();
+      ctx.strokeStyle = trim;
     }
     ctx.strokeStyle = 'rgba(' + HIGHLIGHT + ', 0.55)';
     ctx.beginPath();
@@ -196,15 +181,20 @@ function signatureHardware(ctx, { kind, paint, span, active }) {
       ctx.strokeRect(side * 14 - 3, 0.5, 6, 3.7);
     }
   } else if (kind === 'heavy') {
-    // Bolt-on armour blocks shielding its turret mounts.
+    // Bolt-on armour blocks shielding its turret mounts, lit along their front edges.
+    const plate = ctx.createLinearGradient(0, -4, 0, 6);
+    plate.addColorStop(0, 'rgb(' + mixRgb(paint, HIGHLIGHT, 0.12) + ')');
+    plate.addColorStop(1, panel);
     for (const side of [-1, 1]) {
+      ctx.fillStyle = plate;
       polygon(ctx, [[side * 14, -4], [side * 24, -2], [side * 26, 6], [side * 14, 6]]);
       ctx.fill();
+      ctx.strokeStyle = trim;
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(' + HIGHLIGHT + ', 0.38)';
+      ctx.strokeStyle = 'rgba(' + HIGHLIGHT + ', 0.4)';
       ctx.beginPath();
-      ctx.moveTo(side * 17, -2);
-      ctx.lineTo(side * 21, 5);
+      ctx.moveTo(side * 14.4, -3.8);
+      ctx.lineTo(side * 23.8, -1.8);
       ctx.stroke();
     }
   } else {

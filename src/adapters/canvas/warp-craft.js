@@ -47,10 +47,11 @@ import { drawAirframeDetails } from './warp-airframe-details.js';
  * @property {number} rockets how many hang under its wings
  * @property {number} now milliseconds, for the lights that blink; 0 holds them still
  * @property {GlowSprites | null} glows the glow sprites, or null to shade each glow in place
+ * @property {string} [sky] "r, g, b": the sky its paint and glass reflect
  */
 
 /** How large the player's own craft is drawn: it is the nearest to the eye. */
-export const CRAFT_SCALE = 1.2;
+export const CRAFT_SCALE = 1.45;
 /** Smaller than this on the board, a craft is drawn without its details. */
 const DETAIL_SCALE = 0.42;
 const DARK = '5, 6, 15';
@@ -64,6 +65,31 @@ const PORT = '239, 68, 68';
 const STARBOARD = '74, 222, 128';
 /** The most a paint is lightened: any lighter, cyan would pass for a paddle's core. */
 const SHEEN = 0.4;
+/**
+ * Light off a polished surface. It is warm, its blue well under a paddle's core's, so that no
+ * highlight on a cyan paint, nor any blend of one, passes for that core; and it is not the
+ * ball's white either.
+ */
+const SHINE = '255, 238, 214';
+/** The strobe on a craft's tail: warm too, for the same reasons. */
+const STROBE = '255, 244, 228';
+/** What a craft's paint and glass reflect when nothing says which sky it flies under. */
+const SKY = '148, 163, 210';
+/** Heat-tinted titanium round a hot nozzle, and the gunmetal of a barrel. */
+const TITANIUM = '128, 104, 92';
+const GUNMETAL = '51, 65, 85';
+const TAU = Math.PI * 2;
+/**
+ * From this size up a craft shows its polish, the sky reflected in it and its panel seams lit,
+ * and the finest hardware of its airframe: the player's own craft always, a rival only when it
+ * is right alongside, so a pack of them close ahead costs no more than it must.
+ */
+const POLISH_SCALE = 1;
+/**
+ * From this size up the small parts are shaded too, the plume, the nozzles' glowing throats,
+ * the nacelles and the fins; smaller, they are a few pixels wide, and a flat color reads the same.
+ */
+const RICH_SCALE = 0.7;
 
 /** @type {Readonly<Record<Exclude<CraftKind, 'saucer'>, Blueprint>>} */
 const BLUEPRINTS = Object.freeze({
@@ -114,6 +140,14 @@ const SAUCER = Object.freeze({ engines: /** @type {readonly (readonly [number, n
 
 /**
  * @param {CraftKind} kind
+ * @returns {number} half a craft's width, to its wing tips, in its own units
+ */
+export function spanOf(kind) {
+  return kind === 'saucer' ? SAUCER.span : BLUEPRINTS[kind].span;
+}
+
+/**
+ * @param {CraftKind} kind
  * @returns {number[]} how far to each side of a craft's middle its guns are, in its own units
  */
 export function muzzlesOf(kind) {
@@ -146,6 +180,32 @@ const shade = (rgb, amount) => mixRgb(rgb, DARK, amount);
 const sheen = (rgb, amount) => mixRgb(rgb, LIGHT, amount * SHEEN);
 
 /**
+ * @param {string} rgb
+ * @param {number} alpha
+ */
+const rgba = (rgb, alpha) => `rgba(${rgb}, ${alpha})`;
+
+/**
+ * A straight gradient through the given stops.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x0
+ * @param {number} y0
+ * @param {number} x1
+ * @param {number} y1
+ * @param {readonly (readonly [number, string])[]} stops
+ */
+function gradient(ctx, x0, y0, x1, y1, stops) {
+  const paint = ctx.createLinearGradient(x0, y0, x1, y1);
+
+  for (const [at, color] of stops) {
+    paint.addColorStop(at, color);
+  }
+
+  return paint;
+}
+
+/**
  * A glow: a sprite laid over what is under it, or shaded in place where there are no sprites.
  *
  * @param {CanvasRenderingContext2D} ctx
@@ -173,57 +233,100 @@ function glow(ctx, glows, rgb, x, y, radius) {
 }
 
 /**
- * The fire out of an engine, toward the eye: a cone in the color of the craft's light round a
- * hot one. Nitro burns longer and blue, with the knots of a jet at full thrust in it. The
- * flames are painted over what is under them, never added to it: added, they would burn out
- * to the white kept for the ball.
+ * The fire out of an engine, toward the eye: a plume as wide as the nozzle where it leaves it,
+ * thinning to nothing and brightest at its root, round a shorter hot core; at full thrust, and
+ * always with nitro, which burns longer and blue, the shock diamonds of a jet stand in it. It
+ * flickers a little while the clock runs. The flames are painted over what is under them,
+ * never added to it: added, they would burn out to the white kept for the ball.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {CraftStyle} style
  * @param {readonly [number, number, number]} engine
+ * @param {boolean} rich whether it is near enough for its plume to be shaded
  */
-function exhaust(ctx, { flame, nitro, glow: rgb, glows }, [x, y, wide]) {
-  const length = wide * (1.2 + flame * (nitro ? 7.5 : 5.2));
+function exhaust(ctx, { flame, nitro, glow: rgb, glows, now }, [x, y, wide], rich) {
+  const flicker = now === 0 ? 1 : 1 + 0.06 * Math.sin(now / 23 + x * 1.7);
+  const length = wide * (1.2 + flame * (nitro ? 7.5 : 5.2)) * flicker;
+  const core = length * 0.5;
   const outer = nitro ? NITRO : rgb;
   const inner = nitro ? NITRO_HOT : HOT;
 
   glow(ctx, glows, outer, x, y + 4, 15 + wide * 1.5);
-  ctx.fillStyle = `rgba(${outer}, ${0.45 + Math.min(1, flame) * 0.35})`;
-  trace(ctx, [[x - wide, y], [x - wide * 0.55, y + length * 0.45], [x, y + length], [x + wide * 0.55, y + length * 0.45], [x + wide, y]]);
-  ctx.fill();
-  ctx.fillStyle = `rgba(${inner}, 0.92)`;
-  trace(ctx, [[x - wide * 0.55, y], [x, y + length * 0.55], [x + wide * 0.55, y]]);
+
+  ctx.beginPath();
+  ctx.moveTo(x - wide * 0.9, y);
+  ctx.quadraticCurveTo(x - wide * 0.75, y + length * 0.45, x, y + length);
+  ctx.quadraticCurveTo(x + wide * 0.75, y + length * 0.45, x + wide * 0.9, y);
+  ctx.closePath();
+  ctx.fillStyle = rich
+    ? gradient(ctx, 0, y, 0, y + length, [[0, rgba(outer, 0.88)], [0.55, rgba(outer, 0.42)], [1, rgba(outer, 0)]])
+    : rgba(outer, 0.45 + Math.min(1, flame) * 0.35);
   ctx.fill();
 
-  if (nitro) {
-    ctx.fillStyle = `rgba(${NITRO_HOT}, 0.85)`;
+  ctx.beginPath();
+  ctx.moveTo(x - wide * 0.5, y);
+  ctx.quadraticCurveTo(x - wide * 0.32, y + core * 0.55, x, y + core);
+  ctx.quadraticCurveTo(x + wide * 0.32, y + core * 0.55, x + wide * 0.5, y);
+  ctx.closePath();
+  ctx.fillStyle = rich ? gradient(ctx, 0, y, 0, y + core, [[0, rgba(inner, 0.95)], [1, rgba(inner, 0.1)]]) : rgba(inner, 0.92);
+  ctx.fill();
 
-    for (const along of [0.3, 0.5, 0.68]) {
+  if (nitro || flame > 1) {
+    for (const along of [0.24, 0.42, 0.58, 0.72]) {
+      ctx.fillStyle = rgba(inner, 0.85 - along * 0.75);
       ctx.beginPath();
-      ctx.ellipse(x, y + length * along, wide * (0.5 - along * 0.4), wide * 0.28, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y + length * along, wide * (0.46 - along * 0.38), wide * 0.24, 0, 0, TAU);
       ctx.fill();
     }
   }
 }
 
 /**
- * A nozzle: a dark ring with the fire in its throat.
+ * A nozzle, seen from behind: a shroud of heat-tinted metal cut into petals, round a throat
+ * that glows from its hot middle out to the color of the craft's light.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {CraftStyle} style
  * @param {readonly [number, number, number]} engine
+ * @param {boolean} rich whether it is near enough for its metal and its throat to be shaded
  */
-function nozzle(ctx, { nitro, glow: rgb }, [x, y, wide]) {
+function nozzle(ctx, { nitro, glow: rgb }, [x, y, wide], rich) {
   ctx.beginPath();
-  ctx.ellipse(x, y, wide, wide * 0.5, 0, 0, Math.PI * 2);
-  ctx.fillStyle = `rgb(${STEEL})`;
+  ctx.ellipse(x, y, wide * 1.08, wide * 0.56, 0, 0, TAU);
+  ctx.fillStyle = rich
+    ? gradient(ctx, x - wide, y, x + wide, y, [[0, `rgb(${mixRgb(STEEL, DARK, 0.3)})`], [0.35, `rgb(${mixRgb(STEEL, LIGHT, 0.45)})`], [0.62, `rgb(${TITANIUM})`], [1, `rgb(${mixRgb(STEEL, DARK, 0.5)})`]])
+    : `rgb(${STEEL})`;
   ctx.fill();
-  ctx.lineWidth = 0.9;
-  ctx.strokeStyle = `rgb(${mixRgb(STEEL, LIGHT, 0.35)})`;
-  ctx.stroke();
+
+  if (rich) {
+    // The petals of the shroud.
+    ctx.strokeStyle = rgba(DARK, 0.6);
+    ctx.lineWidth = 0.45;
+    ctx.beginPath();
+
+    for (let petal = 0; petal < 10; petal += 1) {
+      const angle = (petal / 10) * TAU;
+      ctx.moveTo(x + Math.cos(angle) * wide * 0.7, y + Math.sin(angle) * wide * 0.34);
+      ctx.lineTo(x + Math.cos(angle) * wide * 1.06, y + Math.sin(angle) * wide * 0.54);
+    }
+
+    ctx.stroke();
+  }
+
+  const hot = nitro ? NITRO_HOT : mixRgb(rgb, HOT, 0.6);
   ctx.beginPath();
-  ctx.ellipse(x, y, wide * 0.66, wide * 0.3, 0, 0, Math.PI * 2);
-  ctx.fillStyle = `rgb(${nitro ? NITRO_HOT : mixRgb(rgb, HOT, 0.6)})`;
+  ctx.ellipse(x, y, wide * 0.66, wide * 0.32, 0, 0, TAU);
+
+  if (rich) {
+    const throat = ctx.createRadialGradient(x, y, 0, x, y, wide * 0.66);
+    throat.addColorStop(0, `rgb(${nitro ? NITRO_HOT : HOT})`);
+    throat.addColorStop(0.55, `rgb(${hot})`);
+    throat.addColorStop(1, `rgb(${mixRgb(nitro ? NITRO : rgb, DARK, 0.45)})`);
+    ctx.fillStyle = throat;
+  } else {
+    ctx.fillStyle = `rgb(${hot})`;
+  }
+
   ctx.fill();
 }
 
@@ -376,9 +479,9 @@ function wingStructure(ctx, style, print) {
   const span = print.span;
   const close = style.scale >= 0.72;
   const highlight = ctx.createLinearGradient(-span, -5, span, 10);
-  highlight.addColorStop(0, 'rgba(' + shade(paint, 0.16) + ', 0.64)');
-  highlight.addColorStop(0.5, 'rgba(' + sheen(paint, 0.35) + ', 0.78)');
-  highlight.addColorStop(1, 'rgba(' + shade(paint, 0.38) + ', 0.62)');
+  highlight.addColorStop(0, 'rgba(' + shade(paint, 0.16) + ', 0.34)');
+  highlight.addColorStop(0.5, 'rgba(' + sheen(paint, 0.35) + ', 0.42)');
+  highlight.addColorStop(1, 'rgba(' + shade(paint, 0.38) + ', 0.34)');
 
   // Distinct trapezoidal upper wing skin, away from the very dark leading edge.
   for (const side of [-1, 1]) {
@@ -403,8 +506,8 @@ function wingStructure(ctx, style, print) {
     ctx.closePath();
     ctx.fillStyle = 'rgb(' + shade(paint, 0.48 - side * lean * 0.13) + ')';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(' + DARK + ', 0.68)';
-    ctx.lineWidth = 0.65;
+    ctx.strokeStyle = 'rgba(' + DARK + ', 0.45)';
+    ctx.lineWidth = 0.45;
     ctx.stroke();
 
     // A small de-icing/leading-edge metallic strip, rather than a neon outline.
@@ -427,75 +530,7 @@ function wingStructure(ctx, style, print) {
   }
 
 
-  // Airframe-specific hardware keeps the five hull families readable by silhouette.
-  // Kestrel has canards, Hornet a knife-edge keel, Manta raised tips, Bulwark armour.
-  if (close && kind === 'jet') {
-    ctx.fillStyle = 'rgb(' + shade(paint, 0.34) + ')';
-    for (const side of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(side * 5, -14);
-      ctx.lineTo(side * 12, -11);
-      ctx.lineTo(side * 10, -8);
-      ctx.lineTo(side * 5, -9);
-      ctx.closePath();
-      ctx.fill();
-    }
-  } else if (close && kind === 'dart') {
-    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.58) + ', 0.8)';
-    ctx.lineWidth = 1.05;
-    ctx.beginPath();
-    ctx.moveTo(0, -24);
-    ctx.lineTo(0, -16);
-    ctx.moveTo(-6, 5);
-    ctx.lineTo(6, 5);
-    ctx.stroke();
-  } else if (close && kind === 'wing') {
-    ctx.fillStyle = 'rgb(' + shade(paint, 0.52) + ')';
-    for (const side of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(side * 37, 4);
-      ctx.lineTo(side * 40, -7);
-      ctx.lineTo(side * 38, 6);
-      ctx.closePath();
-      ctx.fill();
-    }
-  } else if (close && kind === 'heavy') {
-    ctx.fillStyle = 'rgb(' + shade(paint, 0.58) + ')';
-    for (const side of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(side * 12, -8);
-      ctx.lineTo(side * 21, -3);
-      ctx.lineTo(side * 22, 5);
-      ctx.lineTo(side * 12, 5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.5) + ', 0.56)';
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
-    }
-  }
-
-  // Engines have intake ducts and heat ventilation, not just isolated light points.
-  for (const [x, y, wide] of print.engines) {
-    ctx.beginPath();
-    ctx.ellipse(x, y - 4, wide * 1.35, wide * 1.75, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgb(' + shade(paint, 0.56) + ')';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.37) + ', 0.7)';
-    ctx.lineWidth = 0.85;
-    ctx.stroke();
-
-    if (close) {
-      ctx.strokeStyle = 'rgba(' + DARK + ', 0.65)';
-      ctx.lineWidth = 0.7;
-      for (let vent = 0; vent < 3; vent += 1) {
-        ctx.beginPath();
-        ctx.moveTo(x - wide * 0.6, y - 7 + vent * 1.8);
-        ctx.lineTo(x + wide * 0.6, y - 7 + vent * 1.8);
-        ctx.stroke();
-      }
-    }
-  }
+  // Each family's own hardware (canards, keel, winglets, armour) is the airframe details' to draw.
 
   // The fuselage has a narrow raised spine and removable access panels.
   ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.53) + ', 0.54)';
@@ -509,35 +544,155 @@ function wingStructure(ctx, style, print) {
 }
 
 /**
- * A layered transparent canopy: dark tinted glass, a reflected skyline and a central frame
- * with restrained metal highlights. This stays below the player's unique cockpit beacon.
+ * A canopy of tinted glass in a metal frame: the sky reflected at its top, deepening to dark
+ * glass, a bright curve of light down one side and a glint at the other. It stays round, never
+ * over, the light on the canopy, which on the player's craft is the color of a paddle's core.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {string} paint
  * @param {number} bank
+ * @param {string} sky
  */
-function canopyMaterial(ctx, paint, bank) {
-  const glass = ctx.createLinearGradient(-7 + Math.sin(bank) * 3, -18, 8, 6);
-  glass.addColorStop(0, 'rgb(' + mixRgb(GLASS, STEEL, 0.5) + ')');
-  glass.addColorStop(0.32, 'rgb(' + mixRgb(GLASS, LIGHT, 0.3) + ')');
-  glass.addColorStop(0.48, 'rgb(' + GLASS + ')');
-  glass.addColorStop(1, 'rgb(' + mixRgb(GLASS, paint, 0.12) + ')');
-  ctx.fillStyle = glass;
+function canopyMaterial(ctx, paint, bank, sky) {
+  const lean = Math.sin(bank);
+
+  ctx.fillStyle = gradient(ctx, lean * 3, -18, -lean * 3, 5, [
+    [0, `rgb(${mixRgb(GLASS, sky, 0.55)})`],
+    [0.34, `rgb(${mixRgb(GLASS, sky, 0.2)})`],
+    [0.52, `rgb(${GLASS})`],
+    [1, `rgb(${mixRgb(GLASS, paint, 0.14)})`],
+  ]);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.65) + ', 0.62)';
-  ctx.lineWidth = 0.72;
+  // The frame round the glass.
+  ctx.strokeStyle = rgba(mixRgb(STEEL, LIGHT, 0.5), 0.85);
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+
+  // Light off the glass: a long curve down the side away from the bank, and a glint.
+  ctx.strokeStyle = rgba(SHINE, 0.6);
+  ctx.lineWidth = 0.75;
   ctx.beginPath();
-  ctx.moveTo(-2.8, -12.7);
-  ctx.quadraticCurveTo(-4.6, -7, -2.8, -1.5);
-  ctx.moveTo(2.5, -13.6);
-  ctx.lineTo(3.4, -7);
+  ctx.moveTo(-3.3 - lean, -14.5);
+  ctx.quadraticCurveTo(-4.5 - lean, -9, -3.7 - lean, -3.5);
+  ctx.moveTo(2.4, -15);
+  ctx.lineTo(3.3, -13);
   ctx.stroke();
 }
 
 /**
- * The plated crafts: wings shaded from root to tip, a body rounded by its shading, guns,
- * rockets, fins that lean with the craft, panel lines and a lit edge in the paint.
+ * What hangs under the wings, drawn before them so that the wings cover all but the ends: the
+ * guns' barrels poking out ahead of the leading edge, and the rockets it carries, their noses
+ * ahead of the wing, a red band behind each tip, and their fins behind the trailing edge.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {{ guns: readonly number[], pods: number }} mounts
+ * @param {number} rockets
+ * @param {(x: number) => [number, number]} edges where the wing's leading and trailing edges are, that far across
+ */
+function ordnance(ctx, { guns, pods }, rockets, edges) {
+  for (const out of guns) {
+    for (const side of [-1, 1]) {
+      const [front] = edges(side * out);
+      ctx.fillStyle = `rgb(${GUNMETAL})`;
+      ctx.fillRect(side * out - 0.7, front - 3.6, 1.4, 6);
+      ctx.fillStyle = `rgb(${mixRgb(STEEL, LIGHT, 0.5)})`;
+      ctx.fillRect(side * out - 0.9, front - 3.9, 1.8, 1);
+    }
+  }
+
+  for (let rocket = 0; rocket < Math.min(rockets, 4); rocket += 1) {
+    const side = rocket % 2 === 0 ? -1 : 1;
+    const at = side * (pods - Math.floor(rocket / 2) * 5);
+    // A rocket hangs from nose to fins under the wing: its nose a little ahead of the wing,
+    // its fins a little behind it.
+    const [front, back] = edges(at);
+    const nose = front - 3.6;
+    const tail = back + 2.4;
+
+    ctx.fillStyle = gradient(ctx, at - 1.3, 0, at + 1.3, 0, [[0, `rgb(${mixRgb(LIGHT, DARK, 0.55)})`], [0.42, `rgb(${LIGHT})`], [1, `rgb(${mixRgb(LIGHT, DARK, 0.62)})`]]);
+    roundedRect(ctx, at - 1.3, nose, 2.6, tail - nose, 1.3);
+    ctx.fill();
+    ctx.fillStyle = `rgb(${PORT})`;
+    ctx.fillRect(at - 1.3, nose + 1.4, 2.6, 1.3);
+    ctx.fillStyle = `rgb(${STEEL})`;
+    trace(ctx, [[at - 2.6, tail], [at - 1, tail - 2.6], [at + 1, tail - 2.6], [at + 2.6, tail]]);
+    ctx.fill();
+  }
+}
+
+/**
+ * Where the leading and the trailing edge of an outline are, that far across it.
+ *
+ * @param {Outline} outline
+ * @returns {(x: number) => [number, number]} the front and the back of it there
+ */
+function edgesOf(outline) {
+  return (x) => {
+    /** @type {number[]} */
+    const ys = [];
+
+    outline.forEach(([x1, y1], index) => {
+      const [x2, y2] = outline[(index + 1) % outline.length];
+
+      if ((x1 - x) * (x2 - x) <= 0 && x1 !== x2) {
+        ys.push(y1 + ((x - x1) / (x2 - x1)) * (y2 - y1));
+      }
+    });
+
+    return ys.length > 0 ? [Math.min(...ys), Math.max(...ys)] : [0, 0];
+  };
+}
+
+/**
+ * The polish on the paint, as on a car's clear coat: the sky reflected across the top of the
+ * craft down to a bright line where its horizon is, and the dark ground under that. The line
+ * tilts as the craft banks and moves as it climbs, as a reflection would.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {readonly Outline[]} outlines what the polish is on
+ * @param {number} span
+ * @param {string} sky
+ * @param {number} lean
+ * @param {number} pitch
+ */
+function clearcoat(ctx, outlines, span, sky, lean, pitch) {
+  ctx.save();
+  ctx.beginPath();
+
+  for (const outline of outlines) {
+    outline.forEach(([x, y], index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+    ctx.closePath();
+  }
+
+  ctx.clip();
+  const tilt = lean * 10;
+  const lift = pitch * 10;
+  ctx.fillStyle = gradient(ctx, tilt, -26 + lift, -tilt, 12 + lift, [
+    [0, rgba(sky, 0.26)], [0.55, rgba(sky, 0.1)], [0.6, rgba(SHINE, 0.32)], [0.64, rgba(DARK, 0.16)], [1, rgba(DARK, 0.34)],
+  ]);
+  ctx.fillRect(-span - 2, -28, span * 2 + 4, 42);
+  ctx.restore();
+}
+
+/**
+ * An edge lit where it faces the sky and dark where it turns away: along the leading edges and
+ * down to the trailing ones, in place of an outline.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} paint
+ * @param {number} top
+ * @param {number} bottom
+ */
+function litEdge(ctx, paint, top, bottom) {
+  return gradient(ctx, 0, top, 0, bottom, [[0, rgba(SHINE, 0.7)], [0.45, rgba(sheen(paint, 0.5), 0.55)], [1, rgba(DARK, 0.85)]]);
+}
+
+/**
+ * The plated crafts: the guns and rockets under the wings; the wings, metal lit from the front
+ * and from the side the craft leans away from, polished to reflect the sky, with their panel
+ * seams; a body rounded by its light, a gleam down its spine; the engines' nacelles and
+ * nozzles; fins that lean with the craft; and a glass canopy.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {CraftStyle} style
@@ -547,22 +702,28 @@ function canopyMaterial(ctx, paint, bank) {
 function plates(ctx, style, print, fine) {
   const { paint, decal, bank, rockets } = style;
   const lean = Math.sin(bank);
+  const sky = style.sky ?? SKY;
+  const close = fine && style.scale >= POLISH_SCALE;
+  const rich = fine && style.scale >= RICH_SCALE;
 
-  // The wings have physical thickness, dark underneath and lit on their top surfaces.
   if (fine) {
+    ordnance(ctx, print, rockets, edgesOf(print.wings));
+    // The wings have physical thickness, dark underneath and lit on their top surfaces.
     airframeVolume(ctx, print, paint);
   }
 
-  // The wings, lit along the span from the side the craft leans away from.
   trace(ctx, print.wings);
 
   if (fine) {
-    const across = ctx.createLinearGradient(-print.span, 0, print.span, 0);
+    ctx.fillStyle = gradient(ctx, 0, -14, 0, 11, [[0, `rgb(${sheen(paint, 0.55)})`], [0.45, `rgb(${shade(paint, 0.2)})`], [1, `rgb(${shade(paint, 0.62)})`]]);
 
-    across.addColorStop(0, `rgb(${shade(paint, 0.45 + lean * 0.2)})`);
-    across.addColorStop(0.5, `rgb(${shade(paint, 0.2)})`);
-    across.addColorStop(1, `rgb(${shade(paint, 0.45 - lean * 0.2)})`);
-    ctx.fillStyle = across;
+    if (rich) {
+      ctx.fill();
+      // Lit from the side it leans away from, and shadowed on the other.
+      const lit = rgba(SHINE, 0.1 + Math.abs(lean) * 0.25);
+      const dim = rgba(DARK, 0.18 + Math.abs(lean) * 0.4);
+      ctx.fillStyle = gradient(ctx, -print.span, 0, print.span, 0, [[0, lean > 0 ? dim : lit], [0.5, rgba(DARK, 0)], [1, lean > 0 ? lit : dim]]);
+    }
   } else {
     ctx.fillStyle = `rgb(${shade(paint, 0.35)})`;
   }
@@ -572,61 +733,51 @@ function plates(ctx, style, print, fine) {
   if (fine) {
     wingStructure(ctx, style, print);
 
-    // Panel lines, flaps and all.
-    ctx.strokeStyle = `rgba(${DARK}, 0.55)`;
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-
-    for (const side of [-1, 1]) {
-      ctx.moveTo(side * print.span * 0.36, -4);
-      ctx.lineTo(side * print.span * 0.42, 8);
-      ctx.moveTo(side * print.span * 0.66, 0);
-      ctx.lineTo(side * print.span * 0.7, 8);
-      ctx.moveTo(side * print.span * 0.4, 5.5);
-      ctx.lineTo(side * print.span * 0.86, 5.5);
+    if (close) {
+      clearcoat(ctx, [print.wings, print.body], print.span, sky, lean, style.pitch ?? 0);
     }
 
-    ctx.stroke();
+    // Panel seams, flaps and all; up close each with the light catching its far lip.
+    ctx.lineWidth = 0.6;
 
-    // Rockets under the wings, as many as it carries.
-    for (let rocket = 0; rocket < Math.min(rockets, 4); rocket += 1) {
-      const side = rocket % 2 === 0 ? -1 : 1;
-      const at = side * (print.pods - Math.floor(rocket / 2) * 5);
-
-      ctx.fillStyle = `rgb(${LIGHT})`;
-      roundedRect(ctx, at - 1.3, -3, 2.6, 11, 1.3);
-      ctx.fill();
-      ctx.fillStyle = `rgb(${PORT})`;
-      ctx.fillRect(at - 1.3, -3, 2.6, 2.4);
-    }
-
-    // The guns: barrels ahead of the wing, a spark of light at each muzzle.
-    for (const out of print.guns) {
-      for (const side of [-1, 1]) {
-        ctx.fillStyle = `rgb(${STEEL})`;
-        ctx.fillRect(side * out - 1, -9, 2, 10);
-        ctx.fillStyle = `rgb(${sheen(paint, 1)})`;
-        ctx.fillRect(side * out - 1, -9, 2, 1.6);
+    for (const [color, lip] of /** @type {const} */ ([[rgba(DARK, 0.6), 0], [rgba(SHINE, 0.16), 0.55]])) {
+      if (lip > 0 && !close) {
+        break;
       }
+
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+
+      for (const side of [-1, 1]) {
+        ctx.moveTo(side * print.span * 0.36, -4 + lip);
+        ctx.lineTo(side * print.span * 0.42, 8 + lip);
+        ctx.moveTo(side * print.span * 0.66, lip);
+        ctx.lineTo(side * print.span * 0.7, 8 + lip);
+        ctx.moveTo(side * print.span * 0.4, 5.5 + lip);
+        ctx.lineTo(side * print.span * 0.86, 5.5 + lip);
+      }
+
+      ctx.stroke();
     }
   }
 
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = `rgb(${paint})`;
-  ctx.lineWidth = fine ? 1.4 : 2;
+  ctx.strokeStyle = fine ? litEdge(ctx, paint, -14, 11) : `rgb(${paint})`;
+  ctx.lineWidth = fine ? 1.1 : 2;
   trace(ctx, print.wings);
   ctx.stroke();
 
-  // The body, rounded: dark at its sides and lit down its back.
+  // The body, rounded: dark at its sides, lit down its back toward the light.
   trace(ctx, print.body);
 
   if (fine) {
-    const round = ctx.createLinearGradient(-11, 0, 11, 0);
-
-    round.addColorStop(0, `rgb(${shade(paint, 0.55)})`);
-    round.addColorStop(0.5 - lean * 0.25, `rgb(${sheen(paint, 1)})`);
-    round.addColorStop(1, `rgb(${shade(paint, 0.55)})`);
-    ctx.fillStyle = round;
+    ctx.fillStyle = gradient(ctx, -11, 0, 11, 0, [
+      [0, `rgb(${shade(paint, 0.72)})`],
+      [0.3, `rgb(${shade(paint, 0.32)})`],
+      [0.5 - lean * 0.22, `rgb(${sheen(paint, 0.9)})`],
+      [0.68, `rgb(${shade(paint, 0.25)})`],
+      [1, `rgb(${shade(paint, 0.78)})`],
+    ]);
   } else {
     ctx.fillStyle = `rgb(${shade(paint, 0.15)})`;
   }
@@ -635,14 +786,29 @@ function plates(ctx, style, print, fine) {
 
   if (fine) {
     mark(ctx, print, decal, paint);
-    ctx.strokeStyle = `rgb(${shade(paint, 0.25)})`;
+
+    if (close) {
+      // A gleam down the spine, where the body faces the light.
+      ctx.strokeStyle = gradient(ctx, 0, -24, 0, 8, [[0, rgba(SHINE, 0)], [0.22, rgba(SHINE, 0.55)], [0.7, rgba(SHINE, 0.22)], [1, rgba(SHINE, 0)]]);
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(-lean * 2, -22);
+      ctx.lineTo(-lean * 2.6, 6);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = litEdge(ctx, paint, -24, 10);
     ctx.lineWidth = 1;
     trace(ctx, print.body);
     ctx.stroke();
   }
 
   for (const engine of print.engines) {
-    nozzle(ctx, style, engine);
+    if (fine) {
+      nacelle(ctx, paint, engine, rich);
+    }
+
+    nozzle(ctx, style, engine, rich);
   }
 
   // The fins stand up from the craft, so their tips go the way it leans.
@@ -650,31 +816,51 @@ function plates(ctx, style, print, fine) {
     const tip = tipX + lean * 7;
 
     trace(ctx, [[rootX - 1.6, rootY], [rootX + 1.6, rootY], [tip + 1, tipY + 5], [tip, tipY]]);
-    ctx.fillStyle = `rgb(${shade(paint, 0.3)})`;
+    ctx.fillStyle = rich
+      ? gradient(ctx, rootX - 1.6, 0, tip + 1, 0, [[0, `rgb(${shade(paint, 0.5)})`], [1, `rgb(${sheen(paint, 0.45)})`]])
+      : `rgb(${shade(paint, 0.3)})`;
     ctx.fill();
-    ctx.strokeStyle = `rgb(${paint})`;
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = fine ? litEdge(ctx, paint, tipY, rootY) : `rgb(${paint})`;
+    ctx.lineWidth = fine ? 1 : 1.2;
     ctx.stroke();
   }
 
-  // The canopy: layered tinted glass with a reflected sky, framed above the hull.
+  // The canopy: tinted glass in its frame, the sky in it.
   trace(ctx, print.canopy);
-  if (fine) {
-    canopyMaterial(ctx, paint, bank);
-  } else {
-    ctx.fillStyle = 'rgb(' + GLASS + ')';
-    ctx.fill();
-  }
 
   if (fine) {
-    ctx.strokeStyle = `rgba(${LIGHT}, 0.5)`;
-    ctx.lineWidth = 0.8;
-    ctx.stroke();
+    canopyMaterial(ctx, paint, bank, sky);
+  } else {
+    ctx.fillStyle = `rgb(${GLASS})`;
+    ctx.fill();
   }
 }
 
 /**
- * The saucer: a disc with lights running round its rim, a ring of plating, and a dome.
+ * An engine's nacelle over its nozzle: a rounded housing, lit down its top.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} paint
+ * @param {readonly [number, number, number]} engine
+ * @param {boolean} rich whether it is near enough to be shaded round
+ */
+function nacelle(ctx, paint, [x, y, wide], rich) {
+  ctx.beginPath();
+  ctx.ellipse(x, y - 4, wide * 1.25, wide * 1.6, 0, 0, TAU);
+  ctx.fillStyle = rich
+    ? gradient(ctx, x - wide * 1.25, 0, x + wide * 1.25, 0, [[0, `rgb(${shade(paint, 0.72)})`], [0.45, `rgb(${sheen(paint, 0.5)})`], [1, `rgb(${shade(paint, 0.78)})`]])
+    : `rgb(${shade(paint, 0.4)})`;
+  ctx.fill();
+  ctx.strokeStyle = rgba(DARK, 0.5);
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+}
+
+/**
+ * The saucer: rockets slung either side of its rim; a recessed underside; a disc of metal lit
+ * from the middle out toward its rim, from the side it leans away from, polished to reflect the
+ * sky, its rim lit where it faces the sky; a ring of plating, lights running round the rim, and
+ * a glass dome with the sky in it.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {CraftStyle} style
@@ -683,51 +869,70 @@ function plates(ctx, style, print, fine) {
 function disc(ctx, style, fine) {
   const { paint, decal, bank, now, rockets } = style;
   const lean = Math.sin(bank);
+  const sky = style.sky ?? SKY;
+  const close = fine && style.scale >= POLISH_SCALE;
+  const span = SAUCER.span;
 
   if (fine) {
+    // Slung either side of the rim.
+    ordnance(ctx, { guns: [], pods: SAUCER.pods + 10 }, rockets, () => [0, 4]);
     // The disc has a bevel and a recessed underside, not a single flat ellipse.
     ctx.beginPath();
-    ctx.ellipse(0, 5.5, SAUCER.span, 10, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgb(' + shade(paint, 0.8) + ')';
+    ctx.ellipse(0, 5.5, span, 10, 0, 0, TAU);
+    ctx.fillStyle = `rgb(${shade(paint, 0.82)})`;
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(0, 5.5, SAUCER.span * 0.8, 5.5, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(' + mixRgb(STEEL, LIGHT, 0.35) + ', 0.5)';
+    ctx.ellipse(0, 5.5, span * 0.8, 5.5, 0, 0, TAU);
+    ctx.strokeStyle = rgba(mixRgb(STEEL, LIGHT, 0.35), 0.5);
     ctx.lineWidth = 0.8;
     ctx.stroke();
   }
 
   ctx.beginPath();
-  ctx.ellipse(0, 2, SAUCER.span, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 2, span, 10, 0, 0, TAU);
 
   if (fine) {
-    const across = ctx.createLinearGradient(-SAUCER.span, 0, SAUCER.span, 0);
-
-    across.addColorStop(0, `rgb(${shade(paint, 0.55 + lean * 0.2)})`);
-    across.addColorStop(0.5, `rgb(${shade(paint, 0.15)})`);
-    across.addColorStop(1, `rgb(${shade(paint, 0.55 - lean * 0.2)})`);
-    ctx.fillStyle = across;
+    const metal = ctx.createRadialGradient(-lean * 6, -2, 2, 0, 2, span);
+    metal.addColorStop(0, `rgb(${sheen(paint, 0.7)})`);
+    metal.addColorStop(0.45, `rgb(${shade(paint, 0.2)})`);
+    metal.addColorStop(1, `rgb(${shade(paint, 0.7)})`);
+    ctx.fillStyle = metal;
+    ctx.fill();
+    ctx.fillStyle = gradient(ctx, -span, 0, span, 0, [[0, rgba(DARK, 0.1 + Math.max(0, lean) * 0.45)], [0.5, rgba(DARK, 0)], [1, rgba(DARK, 0.1 + Math.max(0, -lean) * 0.45)]]);
   } else {
     ctx.fillStyle = `rgb(${shade(paint, 0.3)})`;
   }
 
   ctx.fill();
-  ctx.strokeStyle = `rgb(${paint})`;
-  ctx.lineWidth = fine ? 1.4 : 2;
+
+  if (close) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 2, span, 10, 0, 0, TAU);
+    ctx.clip();
+    ctx.fillStyle = gradient(ctx, lean * 8, -9, -lean * 8, 12, [[0, rgba(sky, 0.28)], [0.45, rgba(sky, 0.1)], [0.5, rgba(SHINE, 0.3)], [0.55, rgba(DARK, 0.14)], [1, rgba(DARK, 0.3)]]);
+    ctx.fillRect(-span, -9, span * 2, 22);
+    ctx.restore();
+    ctx.beginPath();
+    ctx.ellipse(0, 2, span, 10, 0, 0, TAU);
+  }
+
+  ctx.strokeStyle = fine ? litEdge(ctx, paint, -8, 12) : `rgb(${paint})`;
+  ctx.lineWidth = fine ? 1.2 : 2;
   ctx.stroke();
 
   if (fine) {
     // The plating round the dome, and what the craft wears on it.
     ctx.beginPath();
-    ctx.ellipse(0, 0.5, 19, 6, 0, 0, Math.PI * 2);
-    ctx.fillStyle = `rgb(${sheen(paint, 0.7)})`;
+    ctx.ellipse(0, 0.5, 19, 6, 0, 0, TAU);
+    ctx.fillStyle = gradient(ctx, -19, -5, 19, 6, [[0, `rgb(${sheen(paint, 0.75)})`], [1, `rgb(${shade(paint, 0.3)})`]]);
     ctx.fill();
-    ctx.strokeStyle = `rgba(${DARK}, 0.55)`;
+    ctx.strokeStyle = rgba(DARK, 0.55);
     ctx.lineWidth = 0.7;
     ctx.stroke();
 
     if (decal !== 'none') {
-      const ink = decal === 'flames' ? `rgba(${PORT}, 0.9)` : `rgba(${DARK}, 0.7)`;
+      const ink = decal === 'flames' ? rgba(PORT, 0.9) : rgba(DARK, 0.7);
 
       ctx.strokeStyle = ink;
       ctx.lineWidth = decal === 'chevrons' ? 1.6 : 2.2;
@@ -753,57 +958,62 @@ function disc(ctx, style, fine) {
     }
 
     // Close-up armour segmentation; omit sub-pixel service joints on distant saucers.
-    if (style.scale >= 0.72) {
-      ctx.strokeStyle = 'rgba(' + DARK + ', 0.55)';
+    if (close) {
+      ctx.strokeStyle = rgba(DARK, 0.55);
       ctx.lineWidth = 0.8;
+      ctx.beginPath();
+
       for (let segment = 0; segment < 12; segment += 1) {
-        const angle = (segment / 12) * Math.PI * 2;
-        ctx.beginPath();
+        const angle = (segment / 12) * TAU;
         ctx.moveTo(Math.cos(angle) * 20, 1.2 + Math.sin(angle) * 6);
         ctx.lineTo(Math.cos(angle) * 29.5, 2 + Math.sin(angle) * 9);
-        ctx.stroke();
       }
+
+      ctx.stroke();
     }
 
-    // Lights round the rim, one after another.
+    // Lights round the rim, one after another, each a little lamp.
     const lit = now === 0 ? 0 : Math.floor(now / 140) % 7;
 
     for (let light = 0; light < 7; light += 1) {
       const at = -24 + light * 8;
+      const y = 6.3 - Math.abs(at) * 0.07;
+
+      if (light === lit) {
+        ctx.fillStyle = rgba(HOT, 0.3);
+        ctx.beginPath();
+        ctx.arc(at, y, 3.2, 0, TAU);
+        ctx.fill();
+      }
 
       ctx.fillStyle = light === lit ? `rgb(${HOT})` : `rgb(${sheen(paint, 1)})`;
-      ctx.fillRect(at - 1.3, 5.2 - Math.abs(at) * 0.07, 2.6, 2.2);
-    }
-
-    for (let rocket = 0; rocket < Math.min(rockets, 4); rocket += 1) {
-      const at = (rocket % 2 === 0 ? -1 : 1) * (SAUCER.pods - Math.floor(rocket / 2) * 5);
-
-      ctx.fillStyle = `rgb(${LIGHT})`;
-      roundedRect(ctx, at - 1.3, -5, 2.6, 10, 1.3);
+      ctx.beginPath();
+      ctx.arc(at, y, 1.25, 0, TAU);
       ctx.fill();
-      ctx.fillStyle = `rgb(${PORT})`;
-      ctx.fillRect(at - 1.3, -5, 2.6, 2.4);
     }
   }
 
-  // The dome.
+  // The dome: glass with the sky in it, a curve of light across it, in its frame.
   ctx.beginPath();
-  ctx.ellipse(0, -1, 10.5, 12, 0, Math.PI, Math.PI * 2);
+  ctx.ellipse(0, -1, 10.5, 12, 0, Math.PI, TAU);
   ctx.ellipse(0, -1, 10.5, 4, 0, 0, Math.PI);
+
   if (fine) {
-    const domeGlass = ctx.createLinearGradient(-10, -12, 12, 4);
-    domeGlass.addColorStop(0, 'rgb(' + mixRgb(GLASS, LIGHT, 0.25) + ')');
-    domeGlass.addColorStop(0.58, 'rgb(' + GLASS + ')');
-    domeGlass.addColorStop(1, 'rgb(' + mixRgb(GLASS, paint, 0.16) + ')');
-    ctx.fillStyle = domeGlass;
+    ctx.fillStyle = gradient(ctx, lean * 3, -13, -lean * 3, 3, [[0, `rgb(${mixRgb(GLASS, sky, 0.55)})`], [0.4, `rgb(${mixRgb(GLASS, sky, 0.18)})`], [0.62, `rgb(${GLASS})`], [1, `rgb(${mixRgb(GLASS, paint, 0.16)})`]]);
   } else {
-    ctx.fillStyle = 'rgb(' + GLASS + ')';
+    ctx.fillStyle = `rgb(${GLASS})`;
   }
+
   ctx.fill();
 
   if (fine) {
-    ctx.strokeStyle = `rgba(${LIGHT}, 0.5)`;
+    ctx.strokeStyle = rgba(mixRgb(STEEL, LIGHT, 0.5), 0.85);
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+    ctx.strokeStyle = rgba(SHINE, 0.55);
     ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.ellipse(0, -1, 8, 9.5, 0, Math.PI * 1.12, Math.PI * 1.45);
     ctx.stroke();
   }
 }
@@ -837,7 +1047,7 @@ export function drawHull(ctx, style) {
   }
 
   for (const engine of engines) {
-    exhaust(ctx, style, engine);
+    exhaust(ctx, style, engine, fine && scale >= RICH_SCALE);
   }
 
   if (print) {
@@ -848,7 +1058,7 @@ export function drawHull(ctx, style) {
 
   // Sculpted metal facets, actuated surfaces, turbine detail and battle wear.
   // The near-only pass is kept behind the unique cockpit beacon and navigation lights.
-  if (fine && scale >= 0.72) {
+  if (fine && scale >= POLISH_SCALE) {
     drawAirframeDetails(ctx, {
       kind, paint: style.paint, span, bank,
       yaw: style.yaw ?? 0, pitch: style.pitch ?? 0,
@@ -862,24 +1072,62 @@ export function drawHull(ctx, style) {
   ctx.fill();
 
   if (fine) {
-    // A glint down the glass, beside the light.
-    ctx.strokeStyle = `rgba(${LIGHT}, 0.45)`;
-    ctx.lineWidth = 0.7;
+    // Glass over the lit cockpit: the top of it reflects the sky and catches a curve of light.
+    // Only the top: the board is read for the player's craft along the bottom of the light.
+    ctx.fillStyle = gradient(ctx, 0, -11, 0, -4.6, [[0, rgba(mixRgb(GLASS, style.sky ?? SKY, 0.4), 0.62)], [1, rgba(GLASS, 0)]]);
+    roundedRect(ctx, -3.4, -11, 6.8, 6.4, 3.4);
+    ctx.fill();
+    ctx.strokeStyle = rgba(SHINE, 0.7);
+    ctx.lineWidth = 0.6;
     ctx.beginPath();
-    ctx.moveTo(-3.9, -9);
-    ctx.lineTo(-3.9, -2);
+    ctx.moveTo(-1.9, -10.2);
+    ctx.quadraticCurveTo(-2.9, -8.4, -2.6, -5.6);
     ctx.stroke();
+  }
 
-    // Wing-tip lights: they blink, port and starboard in turn.
+  if (fine) {
+    // Wing-tip lights: they blink, port and starboard in turn, each a lamp in its own glow.
     const blink = now === 0 ? 1 : Math.floor(now / 380) % 2;
 
-    ctx.fillStyle = `rgba(${PORT}, ${blink === 0 ? 1 : 0.45})`;
-    ctx.fillRect(-span - 0.5, 4.4, 2.8, 2.8);
-    ctx.fillStyle = `rgba(${STARBOARD}, ${blink === 1 ? 1 : 0.45})`;
-    ctx.fillRect(span - 2.3, 4.4, 2.8, 2.8);
+    navigationLight(ctx, PORT, -span + 0.9, 5.8, blink === 0);
+    navigationLight(ctx, STARBOARD, span - 0.9, 5.8, blink === 1);
+
+    // And the strobe on its tail, a short flash a little more than once a second; not with the
+    // clock stopped, so never with motion reduced.
+    if (now !== 0 && (now + span * 37) % STROBE_MS < STROBE_ON_MS) {
+      navigationLight(ctx, STROBE, 0, print ? Math.max(...print.body.map(([, y]) => y)) + 1.5 : -12, true);
+    }
   }
 
   ctx.restore();
+}
+
+/** The tail strobe flashes this long, this often, in milliseconds. */
+const STROBE_MS = 1300;
+const STROBE_ON_MS = 70;
+
+/**
+ * A navigation light: a small lamp, and round it, while it is lit, a soft glow painted over
+ * the craft, never added to it, so a green one cannot brighten a pink sky into a paddle's core.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} rgb
+ * @param {number} x
+ * @param {number} y
+ * @param {boolean} lit
+ */
+function navigationLight(ctx, rgb, x, y, lit) {
+  if (lit) {
+    ctx.fillStyle = rgba(rgb, 0.28);
+    ctx.beginPath();
+    ctx.arc(x, y, 3.6, 0, TAU);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = rgba(rgb, lit ? 1 : 0.45);
+  ctx.beginPath();
+  ctx.arc(x, y, 1.5, 0, TAU);
+  ctx.fill();
 }
 
 /**

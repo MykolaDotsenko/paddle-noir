@@ -12,6 +12,7 @@ import { createInitialState, GAME_PHASE } from '../src/domain/game.js';
 import { buildCourse, raceState } from '../src/domain/warp.js';
 import { HANGAR } from '../src/hangar.js';
 import { callsNamed, createRecordingContext, FakeCanvas, fakeGlows } from './support/fake-canvas.js';
+import { brushColors, colorsOf, filledIn, painted, tinted } from './support/paint.js';
 
 // The racing craft of the Warp game on the canvas, their weapons at work, and what the race's
 // display says of them.
@@ -36,21 +37,14 @@ const draw = (painter) => {
   return ctx;
 };
 const hull = (changes) => draw((ctx) => drawHull(ctx, style(changes)));
-const painted = (ctx) => ctx.calls.filter(({ name }) => ['fill', 'stroke', 'fillRect', 'strokeRect', 'fillText'].includes(name));
 const stroked = (ctx, color) => painted(ctx).filter(({ name, brush }) => name === 'stroke' && String(brush.strokeStyle).includes(color)).length;
 const filled = (ctx, color) => painted(ctx).filter(({ name, brush }) => name !== 'stroke' && String(brush.fillStyle).includes(color)).length;
 const texts = (ctx) => callsNamed(ctx, 'fillText').map((call) => call.args[0]);
 const picture = (ctx) => JSON.stringify(ctx.calls.map(({ name, args, brush }) => [name, args, brush.fillStyle, brush.strokeStyle]));
 
-/** Every color a picture was painted in, the stops of its gradients included, as [r, g, b]. */
-function colorsOf(ctx) {
-  const brushes = painted(ctx).flatMap(({ name, brush }) => [name === 'stroke' ? brush.strokeStyle : brush.fillStyle]);
-  const named = brushes.flatMap((brush) => (typeof brush === 'string' ? [brush] : brush.stops.map(([, color]) => color)));
-
-  return named.map((color) => (color.startsWith('#')
-    ? [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16))
-    : color.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number)));
-}
+const SHINE = '255, 238, 214';
+/** How many strokes are lit where they face the sky. */
+const litEdges = (ctx) => painted(ctx).filter(({ name, brush }) => name === 'stroke' && typeof brush.strokeStyle !== 'string' && brushColors(brush.strokeStyle).some((color) => color.startsWith(`rgba(${SHINE}`))).length;
 
 test('every kind of craft is built where its style says, in its paint, with the light on its canopy', () => {
   for (const kind of KINDS) {
@@ -59,7 +53,9 @@ test('every kind of craft is built where its style says, in its paint, with the 
     assert.deepEqual(callsNamed(ctx, 'translate')[0].args, [100, 200], kind);
     assert.deepEqual(callsNamed(ctx, 'scale')[0].args, [1.2, 1.2], kind);
     assert.deepEqual(callsNamed(ctx, 'rotate')[0].args, [0.2], kind);
-    assert.ok(stroked(ctx, `rgb(${CYAN})`) >= 1, `${kind} is edged in its paint`);
+    assert.ok(tinted(ctx, CYAN) >= 6, `${kind} is shaded in its paint`);
+    assert.ok(litEdges(ctx) >= 1, `${kind}: its edges catch the light, with no outline`);
+    assert.equal(stroked(ctx, `rgb(${CYAN})`), 0, `${kind} is not outlined in neon up close`);
     assert.equal(callsNamed(ctx, 'fill').filter(({ brush }) => brush.fillStyle === CORE).length, 1, `${kind} wears one light on its canopy`);
     assert.ok(callsNamed(ctx, 'createLinearGradient').length >= 1, `${kind} is shaded`);
     assert.equal(callsNamed(ctx, 'save').length, callsNamed(ctx, 'restore').length, kind);
@@ -151,7 +147,7 @@ test('the fire out of the engines is painted over what is under it, never added 
 });
 
 test('the flame grows with the thrust, and nitro burns longer and blue, with knots in it', () => {
-  const tip = (changes) => Math.max(...callsNamed(hull(changes), 'lineTo').map((call) => call.args[1]));
+  const tip = (changes) => Math.max(...callsNamed(hull(changes), 'quadraticCurveTo').map((call) => call.args[3]));
 
   assert.ok(tip({ flame: 1 }) > tip({ flame: 0.4 }));
   assert.ok(tip({ flame: 1, nitro: true }) > tip({ flame: 1 }));
@@ -159,10 +155,16 @@ test('the flame grows with the thrust, and nitro burns longer and blue, with kno
   const plain = hull({ flame: 1, glow: '244, 114, 182' });
   const burning = hull({ flame: 1, glow: '244, 114, 182', nitro: true });
 
-  assert.ok(filled(plain, 'rgba(244, 114, 182') >= 2, 'the flame is the color of the craft\'s light');
-  assert.equal(filled(plain, NITRO), 0);
-  assert.ok(filled(burning, `rgba(${NITRO}`) >= 2);
-  assert.equal(filled(burning, 'rgba(244, 114, 182'), 0);
+  assert.ok(filledIn(plain, 'rgba(244, 114, 182') >= 2, 'the flame is the color of the craft\'s light');
+  assert.equal(filledIn(plain, `rgba(${NITRO}`), 0);
+  assert.ok(filledIn(burning, `rgba(${NITRO}`) >= 2);
+  assert.equal(filledIn(burning, 'rgba(244, 114, 182'), 0);
+  // The plume is brightest where it leaves the nozzle and gone at its tip.
+  const plume = painted(plain).find(({ brush }) => typeof brush.fillStyle !== 'string' && brush.fillStyle.stops[0][1] === 'rgba(244, 114, 182, 0.88)');
+  assert.equal(plume.brush.fillStyle.stops.at(-1)[1], 'rgba(244, 114, 182, 0)');
+  // And it flickers while the clock runs, never with it stopped.
+  assert.notEqual(tip({ flame: 1, now: 100 }), tip({ flame: 1, now: 130 }));
+  assert.equal(tip({ flame: 1, now: 0 }), tip({ flame: 1 }));
   assert.ok(callsNamed(burning, 'ellipse').length > callsNamed(plain, 'ellipse').length, 'the knots of a jet at full thrust');
   assert.ok(callsNamed(burning, 'drawImage').every((call) => call.args[0].glow === NITRO));
   assert.ok(callsNamed(plain, 'drawImage').every((call) => call.args[0].glow === '244, 114, 182'));
@@ -184,13 +186,14 @@ test('a craft wears its decal within its own outline: stripes, chevrons, flames 
 
   // The signal: a beacon on each wing and its rings going out, none joined to the next.
   const signal = hull({ decal: 'signal' });
-  assert.equal(callsNamed(signal, 'clip').length, 1);
+  const clips = (ctx) => callsNamed(ctx, 'clip').length;
+  assert.equal(clips(signal), clips(hull({ decal: 'none' })) + 1, 'within the outline, as every decal is');
   assert.equal(callsNamed(signal, 'arc').filter((call) => call.args[2] === 1.7).length, 2);
   assert.equal(callsNamed(signal, 'arc').filter((call) => call.args[2] === 4.2 || call.args[2] === 7.6).length, 4);
   assert.equal(callsNamed(hull({ kind: 'saucer', decal: 'signal' }), 'ellipse').filter((call) => call.args[2] === 17 || call.args[2] === 22.5).length, 2);
 
-  assert.equal(callsNamed(hull({ decal: 'none' }), 'clip').length, 0);
-  assert.equal(callsNamed(hull({ decal: 'stripes' }), 'clip').length, 1);
+  assert.equal(clips(hull({ decal: 'none', scale: 0.5 })), 0, 'no decal, and too far for the polish');
+  assert.equal(clips(hull({ decal: 'stripes', scale: 0.5 })), 1);
   assert.ok(callsNamed(hull({ decal: 'flames' }), 'quadraticCurveTo').length >= 6);
   assert.ok(filled(hull({ decal: 'flames' }), `rgba(${THEME.amber}, 0.9)`) >= 2);
 
@@ -303,7 +306,7 @@ test('in the hangar a craft stands on a lit pad, as it is tuned and painted', ()
 
   assert.deepEqual(callsNamed(kestrel, 'clearRect')[0].args, [0, 0, 640, 320]);
   assert.equal(callsNamed(kestrel, 'fill').filter(({ brush }) => brush.fillStyle === CORE).length, 1);
-  assert.ok(stroked(kestrel, `rgb(${CYAN})`) >= 1);
+  assert.ok(tinted(kestrel, CYAN) >= 6);
   assert.ok(stroked(kestrel, `rgba(${CYAN}, 0.8)`) === 1, 'the pad is lit in the craft\'s glow');
   assert.equal(callsNamed(kestrel, 'drawImage').length, 0, 'it needs no sprites');
   assert.ok(callsNamed(kestrel, 'scale')[1].args[0] > 4, 'large enough to see');
@@ -314,7 +317,7 @@ test('in the hangar a craft stands on a lit pad, as it is tuned and painted', ()
   const amber = HANGAR.paints.find((paint) => paint.id === 'amber').rgb;
   const bulwark = portrait('bulwark', { paint: 'red', glow: 'amber', decal: 'flames' });
 
-  assert.ok(stroked(bulwark, `rgb(${red})`) >= 1);
+  assert.ok(tinted(bulwark, red) >= 6);
   assert.ok(stroked(bulwark, `rgba(${amber}, 0.8)`) === 1);
   assert.equal(stroked(bulwark, `rgba(${SHIELD}`), 1, 'a Bulwark comes with a shield');
   assert.equal(callsNamed(bulwark, 'fillRect').filter(({ brush }) => brush.fillStyle === 'rgb(239, 68, 68)').length, loadout('bulwark').rockets);
@@ -346,10 +349,9 @@ test('the player flies the craft of their loadout, in its paint, lit in its glow
   const kestrel = frame(game());
   const bulwark = frame(game({}, { loadout: { kind: 'heavy', paint: red, glow: amber, decal: 'flames' } }));
 
-  // The lane's own edges are cyan too: the craft's are those a red craft does not have.
-  assert.ok(stroked(kestrel, `rgb(${CYAN})`) - stroked(bulwark, `rgb(${CYAN})`) >= 2);
-  assert.equal(stroked(kestrel, `rgb(${red})`), 0);
-  assert.ok(stroked(bulwark, `rgb(${red})`) >= 2);
+  // The lane's own colors are cyan too: the craft's are those a red craft does not have.
+  assert.ok(tinted(kestrel, CYAN) - tinted(bulwark, CYAN) >= 6);
+  assert.ok(tinted(bulwark, red) - tinted(kestrel, red) >= 6);
   assert.equal(callsNamed(bulwark, 'drawImage').filter((call) => call.args[0].glow === amber).length, 3, 'a gunship\'s three engines');
   assert.equal(callsNamed(bulwark, 'clip').length, callsNamed(kestrel, 'clip').length + 1, 'and its decal');
   assert.deepEqual(callsNamed(bulwark, 'scale').find((call) => call.args[0] === CRAFT_SCALE).args, [CRAFT_SCALE, CRAFT_SCALE]);
@@ -370,8 +372,8 @@ test('nitro burns blue: the flames, the light on the lane, and streaks over the 
   const cruising = frame(game());
   const streaks = (ctx) => stroked(ctx, `rgba(${NITRO}, `);
 
-  assert.ok(filled(burning, `rgba(${NITRO}`) >= 2);
-  assert.equal(filled(cruising, `rgba(${NITRO}`), 0);
+  assert.ok(filledIn(burning, `rgba(${NITRO}`) >= 2);
+  assert.equal(filledIn(cruising, `rgba(${NITRO}`), 0);
   assert.ok(streaks(burning) >= 30, 'even at cruising speed');
   assert.equal(streaks(cruising), 0);
   assert.equal(streaks(frame(game({ nitroBurn: 1 }), 1000, true)), 0, 'nothing streams past with motion reduced');
@@ -495,7 +497,7 @@ test('rivals throw their own light on the lane, and each kind of craft is among 
   assert.equal(pilots.at(-1).craft, 'heavy', 'the Landlord flies a gunship');
 
   for (const pilot of pilots) {
-    assert.ok(stroked(ctx, `rgb(${pilot.rgb})`) >= 1, pilot.name);
+    assert.ok(tinted(ctx, pilot.rgb) >= 3, pilot.name);
     assert.ok(painted(ctx).some(({ brush }) => typeof brush.fillStyle !== 'string' && brush.fillStyle.kind === 'createRadialGradient' && brush.fillStyle.stops[0][1].startsWith(`rgba(${pilot.rgb}`)), `${pilot.name}'s light`);
   }
 });

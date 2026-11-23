@@ -1,7 +1,7 @@
 import { curveAt, heightAt, ITEM_RADIUS, itemX, laneX, onRumble } from '../../domain/warp.js';
 import { FONT, mixRgb, roundedRect, SUPER_STYLE, THEME } from './theme.js';
 import { drawCell, drawCrate, drawHullBar, weapons } from './warp-combat.js';
-import { CRAFT_SCALE, drawHull, drawShield, drawUnderglow } from './warp-craft.js';
+import { CRAFT_SCALE, drawHull, drawShield, drawUnderglow, spanOf } from './warp-craft.js';
 import { drawEngineWake, drawJumpLighting, drawTrackLighting } from './warp-lighting.js';
 import { drawSurfaceMaterial } from './warp-materials.js';
 import { CORE_LIGHT, drawDust, drawSky, fogLevel, hash, HORIZON, LOOKS, PAD, paletteOf, roadside } from './warp-scenery.js';
@@ -50,6 +50,10 @@ const JUMP_LIFT = 0.42;
 const AIR_RING_LIFT = 0.4;
 /** A rival's name shows above its craft while it is this near. */
 const NAME_TAG_METERS = 40;
+/** Rivals are drawn this much larger than the lane's own scale, in step with the player's craft. */
+const RIVAL_SIZE = 1.2;
+/** The white of condensed air off the wing tips: blue in it, never the ball's own white. */
+const VAPOR = '214, 233, 255';
 /** The blue of nitro: its fire, its light on the lane and its streaks. */
 const NITRO_LIGHT = '125, 211, 252';
 /** Lines on the ground beside the lane, in half lanes from its middle. */
@@ -802,10 +806,24 @@ function drawGate({ ctx, view, config, now, still }, item, { x, y, scale }, unit
  * @param {number} scale
  */
 function shadow(ctx, x, y, radius, scale) {
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  // Soft-edged, as the shadow of something above the ground is, a little off to the side away
+  // from the sky's light.
+  const cx = x + radius * 0.06;
+  const cy = y + 2 * scale;
+  const soft = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+
+  soft.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
+  soft.addColorStop(0.6, 'rgba(0, 0, 0, 0.32)');
+  soft.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, 0.22);
+  ctx.translate(-cx, -cy);
+  ctx.fillStyle = soft;
   ctx.beginPath();
-  ctx.ellipse(x, y + 2 * scale, radius, radius * 0.22, 0, 0, Math.PI * 2);
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 }
 
 /**
@@ -985,14 +1003,15 @@ function drawGantry({ ctx, look, view, now, still }, { x, y, scale }) {
  * @param {Spot} spot where the craft is
  * @param {Spot} ground where the lane is under it
  */
-function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot, ground) {
+function drawRival({ ctx, config, race, glows, now, still, look }, rival, pilot, spot, ground) {
   const rules = /** @type {WarpConfig} */ (config.warp);
   const turn = rival.spin > 0 ? (rival.spin / 1.2) * Math.PI * 3 : clamp((rival.line - rival.x) * 1.4, -0.35, 0.35);
+  const size = spot.scale * RIVAL_SIZE;
 
   ctx.save();
   ctx.globalAlpha = Math.min(1, spot.scale * 4) * (spot.depth < EYE_BEHIND ? Math.max(0.2, spot.depth / EYE_BEHIND) : 1);
-  shadow(ctx, ground.x, ground.y + 12 * ground.scale, 30 * ground.scale, ground.scale);
-  drawUnderglow(ctx, pilot.rgb, ground.x, ground.y + 12 * ground.scale, 40 * ground.scale, 0.8);
+  shadow(ctx, ground.x, ground.y + 12 * ground.scale, 30 * ground.scale * RIVAL_SIZE, ground.scale);
+  drawUnderglow(ctx, pilot.rgb, ground.x, ground.y + 12 * ground.scale, 40 * ground.scale * RIVAL_SIZE, 0.8);
   drawHull(ctx, {
     kind: pilot.craft,
     paint: pilot.rgb,
@@ -1001,7 +1020,7 @@ function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot,
     cockpit: `rgb(${mixRgb(pilot.rgb, CORE_LIGHT, 0.55)})`,
     x: spot.x,
     y: spot.y,
-    scale: spot.scale,
+    scale: size,
     bank: turn,
     yaw: clamp((rival.line - rival.x) * 0.28, -0.24, 0.24),
     pitch: clamp((heightAt(race.course, rival.z + 28) - heightAt(race.course, rival.z)) * 0.04, -0.16, 0.16),
@@ -1011,6 +1030,7 @@ function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot,
     damage: clamp(1 - rival.hull / rules.rivalHull, 0, 1),
     now: still ? 0 : now + rival.id * 130,
     glows,
+    sky: look.haze,
   });
 
   // Under fire, it shows how much of its hull is left.
@@ -1023,7 +1043,7 @@ function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot,
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = `rgba(${pilot.rgb}, ${0.85 * Math.min(1, (NAME_TAG_METERS - spot.depth) / 10)})`;
-    ctx.fillText(pilot.name.toUpperCase(), spot.x, spot.y - 34 * spot.scale - 4);
+    ctx.fillText(pilot.name.toUpperCase(), spot.x, spot.y - 34 * size - 4);
   }
 
   ctx.restore();
@@ -1041,7 +1061,7 @@ function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot,
  * @param {Scene} scene
  * @param {GameState} state
  */
-function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
+function drawCraft({ ctx, race, config, view, glows, now, still, look }, state) {
   const rules = /** @type {WarpConfig} */ (config.warp);
   const colors = THEME.side.player;
   const x = state.player.x;
@@ -1056,11 +1076,14 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
   const high = (ground - y) / (JUMP_LIFT * view.reach);
   const { loadout } = rules;
   const nitro = race.nitroBurn > 0;
+  // How far out its wing tips are on the board; everything round the craft is placed by them.
+  const tip = spanOf(loadout.kind) * CRAFT_SCALE;
+  const size = CRAFT_SCALE / 1.2;
 
   ctx.save();
   // Its shadow stays on the lane, smaller the higher the craft is, and so does its light.
-  shadow(ctx, x, ground + 15, 36 * (1 - high * 0.4), 1);
-  drawUnderglow(ctx, nitro ? NITRO_LIGHT : loadout.glow, x, ground + 15, 58 * (1 - high * 0.4), nitro ? 1 : 0.85);
+  shadow(ctx, x, ground + 15, tip * 0.95 * (1 - high * 0.4), 1);
+  drawUnderglow(ctx, nitro ? NITRO_LIGHT : loadout.glow, x, ground + 15, 58 * size * (1 - high * 0.4), nitro ? 1 : 0.85);
   drawJumpLighting(ctx, { x, y, groundY: ground + 15, glow: nitro ? NITRO_LIGHT : loadout.glow });
 
   if (race.burn > 0) {
@@ -1071,18 +1094,8 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
 
   ctx.lineCap = 'round';
 
-  if (rush > 0 && !still) {
-    // The air off its wing tips.
-    ctx.strokeStyle = `rgba(165, 243, 252, ${0.2 + rush * 0.4})`;
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-
-    for (const side of [-1, 1]) {
-      ctx.moveTo(x + side * 38, y + 8);
-      ctx.lineTo(x + side * 42, y + 20 + rush * 34);
-    }
-
-    ctx.stroke();
+  if (!still) {
+    drawVortices(ctx, { x, y, tip, bank, rush, nitro });
   }
 
   if (race.slip > 0) {
@@ -1093,7 +1106,7 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     for (let line = 0; line < 6; line += 1) {
       const side = line % 2 === 0 ? -1 : 1;
       const along = ((still ? 0 : now / 260) + line / 6) % 1;
-      const gap = 48 - race.slip * 16;
+      const gap = (48 - race.slip * 16) * size;
       ctx.beginPath();
       ctx.moveTo(x + side * gap, y - 40 + along * 60);
       ctx.lineTo(x + side * (gap - 4), y - 22 + along * 60);
@@ -1114,15 +1127,15 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     for (let spark = 0; spark < 6; spark += 1) {
       const angle = Math.PI / 2 + side * (0.2 + hash(spark, flicker) * 0.9);
       const reach = 8 + hash(flicker, spark) * 22 * (0.4 + race.drift);
-      ctx.moveTo(x + side * 36, y + 9);
-      ctx.lineTo(x + side * 36 + Math.cos(angle) * reach, y + 9 + Math.sin(angle) * reach);
+      ctx.moveTo(x + side * tip * 0.9, y + 9);
+      ctx.lineTo(x + side * tip * 0.9 + Math.cos(angle) * reach, y + 9 + Math.sin(angle) * reach);
     }
 
     ctx.stroke();
     ctx.strokeStyle = `rgba(${rgb}, 0.85)`;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(x, y + 2, 50, Math.PI * 0.2, Math.PI * (0.2 + 0.6 * race.drift));
+    ctx.arc(x, y + 2, 50 * size, Math.PI * 0.2, Math.PI * (0.2 + 0.6 * race.drift));
     ctx.stroke();
   }
 
@@ -1149,6 +1162,7 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     active: race.abilityTime > 0,
     now: still ? 0 : now,
     glows,
+    sky: look.haze,
   });
 
   if (race.shield > 0 || race.shieldTime > 0) {
@@ -1159,11 +1173,62 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     ctx.strokeStyle = `rgba(${SUPER_STYLE.phantom.rgb}, ${still ? 0.7 : 0.5 + 0.3 * Math.sin(now / 90)})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.ellipse(x, y - 2, 46, 24, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 2, 46 * size, 24 * size, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
 
   ctx.restore();
+}
+
+/**
+ * The air the craft tears through: a vortex trailing back off each wing tip once it is going
+ * faster than it cruises, the outer one in a turn the stronger, and with nitro a cone of
+ * condensed vapor round its middle, as at the edge of the speed of sound. Not with motion
+ * reduced. Their white has a blue in it, never the ball's own.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {{ x: number, y: number, tip: number, bank: number, rush: number, nitro: boolean }} flight
+ */
+function drawVortices(ctx, { x, y, tip, bank, rush, nitro }) {
+  const strength = Math.min(1, rush + (nitro ? 0.5 : 0));
+
+  for (const side of [-1, 1]) {
+    // Leaning one way swings the other tip up and round, and its vortex is the stronger.
+    const pull = clamp(strength * 0.7 + Math.max(0, -side * bank) * 1.6, 0, 1);
+
+    if (pull <= 0.05) {
+      continue;
+    }
+
+    const fromX = x + side * tip * 0.97;
+    const fromY = y + 6 - side * bank * tip * 0.35;
+    const length = 26 + pull * 70;
+    const trail = ctx.createLinearGradient(0, fromY, 0, fromY + length);
+    trail.addColorStop(0, `rgba(${VAPOR}, ${0.55 * pull})`);
+    trail.addColorStop(1, `rgba(${VAPOR}, 0)`);
+    ctx.strokeStyle = trail;
+    ctx.lineWidth = 1.2 + pull * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.quadraticCurveTo(fromX + side * 3, fromY + length * 0.5, fromX + side * (5 + pull * 4), fromY + length);
+    ctx.stroke();
+  }
+
+  if (nitro) {
+    const cone = ctx.createRadialGradient(x, y - 2, tip * 0.35, x, y - 2, tip * 1.05);
+    cone.addColorStop(0, `rgba(${VAPOR}, 0)`);
+    cone.addColorStop(0.75, `rgba(${VAPOR}, 0.16)`);
+    cone.addColorStop(1, `rgba(${VAPOR}, 0)`);
+    ctx.save();
+    ctx.translate(x, y - 2);
+    ctx.scale(1, 0.42);
+    ctx.translate(-x, -(y - 2));
+    ctx.fillStyle = cone;
+    ctx.beginPath();
+    ctx.arc(x, y - 2, tip * 1.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 /**

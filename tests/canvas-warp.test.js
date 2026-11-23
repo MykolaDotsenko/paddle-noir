@@ -11,6 +11,7 @@ import { WARP_COURSES } from '../src/courses.js';
 import { createInitialState, GAME_PHASE } from '../src/domain/game.js';
 import { buildCourse, heightAt, raceState } from '../src/domain/warp.js';
 import { callsNamed, createRecordingContext, fakeGlows } from './support/fake-canvas.js';
+import { brushColors, tinted } from './support/paint.js';
 
 // The Warp game on the canvas: the course in perspective, over its hills, what is on it and
 // round it, the craft, and the race's own display.
@@ -279,9 +280,10 @@ test('off a ramp the craft rises and comes down again, its shadow left on the la
 
   assert.ok(Math.abs(at(rules.airSeconds / 2) - (CRAFT_Y - 0.42 * REACH)) < 0.01, 'highest halfway');
   assert.ok(at(rules.airSeconds * 0.9) > at(rules.airSeconds / 2) && at(rules.airSeconds * 0.1) > at(rules.airSeconds / 2));
-  const shadows = (air) => callsNamed(frame(game({ z: 60, course: flat(), rivals: [], air })), 'ellipse').filter((call) => call.args[1] > CRAFT_Y);
+  // A soft shadow: dark in the middle, gone at its edge.
+  const shadows = (air) => callsNamed(frame(game({ z: 60, course: flat(), rivals: [], air })), 'createRadialGradient').filter((call) => call.args[1] > CRAFT_Y && call.args[5] > 0 && call.args[2] === 0 && call.args[0] !== 250);
   assert.equal(shadows(rules.airSeconds / 2).length, 1);
-  assert.ok(shadows(rules.airSeconds / 2)[0].args[2] < shadows(0)[0].args[2], 'smaller the higher the craft');
+  assert.ok(shadows(rules.airSeconds / 2)[0].args[5] < shadows(0)[0].args[5], 'smaller the higher the craft');
 });
 
 test('the craft shows what it is doing: an afterburner, a phantom, a slipstream, a drift, a spin and a moment to recover', () => {
@@ -369,7 +371,7 @@ test('every kind of craft is drawn, each in its pilot\'s color', () => {
     const ctx = frame(game({ race: index, z: 300, rivals: raceState(config, index).rivals.map((rival, at) => ({ ...rival, z: 306 + at * 5, x: -0.7 + at * 0.35 })) }), 1000, true);
 
     for (const pilot of course.pilots) {
-      assert.ok(stroked(ctx, `rgb(${pilot.rgb})`) > 0, `${course.name}: ${pilot.name}`);
+      assert.ok(tinted(ctx, pilot.rgb) >= 3, `${course.name}: ${pilot.name}`);
     }
   });
 
@@ -479,7 +481,7 @@ test('the board after the line says whether the player goes through', () => {
 test('a craft\'s flames never add their light to what is under them, so they cannot burn out to the white kept for the ball', () => {
   const ctx = frame(game({ z: 300, rivals: raceState(config, 0).rivals.map((rival, at) => ({ ...rival, z: 306 + at * 5, boost: 1 })) }), 1000, true);
   // A boosting rival's flames and the player's at its ease: the hot heart of each.
-  const flames = callsNamed(ctx, 'fill').filter(({ brush }) => brush.fillStyle === 'rgba(254, 240, 138, 0.92)');
+  const flames = callsNamed(ctx, 'fill').filter(({ brush }) => brushColors(brush.fillStyle).some((color) => color.startsWith('rgba(254, 240, 138, 0.9')));
 
   assert.ok(flames.length >= 6, 'a flame an engine');
   assert.ok(flames.every(({ brush }) => brush.globalCompositeOperation === 'source-over'));
