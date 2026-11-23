@@ -722,6 +722,10 @@ export class DomGameView {
       this.showHangarCard(presentation.warp);
     }
 
+    if (presentation.warp && (presentation.warp.signal !== previous?.warp?.signal || presentation.warp.chapters !== previous?.warp?.chapters)) {
+      this.showSignalCard(presentation.warp);
+    }
+
     if (presentation.stats !== previous?.stats || presentation.mode !== previous?.mode || careerChanged) {
       this.showStats(presentation);
     }
@@ -788,8 +792,10 @@ export class DomGameView {
       if (showMission && story?.message) {
         const sender = this.storyRadio.querySelector('[data-warp-sender]');
         const message = this.storyRadio.querySelector('[data-warp-message]');
-        const title = `${story.speaker} · INCOMING`;
+        // The Landlord breaks in on the channel: his lines read as an intercept, in red.
+        const title = `${story.speaker} · ${story.hostile ? 'INTERCEPT' : 'INCOMING'}`;
         if (sender && sender.textContent !== title) sender.textContent = title;
+        this.storyRadio.dataset.hostile = String(story.hostile === true);
         if (message && message.textContent !== story.message) message.textContent = story.message;
       }
     }
@@ -1032,6 +1038,23 @@ export class DomGameView {
     button.setAttribute('aria-label', `${id.toUpperCase()}: ${system.status}`);
     button.dataset.active = active;
     button.style?.setProperty('--charge', charge);
+  }
+
+  /**
+   * The Signal Log's card: how many of the story's fragments the player has ever recovered,
+   * and which, a diamond a chapter.
+   *
+   * @param {{ signal: number, chapters: number }} warp
+   */
+  showSignalCard({ signal, chapters }) {
+    const marks = Array.from({ length: chapters }, (_, chapter) => ((signal & (1 << chapter)) !== 0 ? '◆' : '◇'));
+    const count = this.root.querySelector('[data-signal-count]');
+    const dots = this.root.querySelector('[data-signal-dots]');
+    const card = this.root.querySelector('[data-show-signal]');
+
+    if (count) count.textContent = `${marks.filter((mark) => mark === '◆').length}/${chapters}`;
+    if (dots) dots.textContent = marks.join('');
+    card?.setAttribute('aria-label', `Signal Log: ${marks.filter((mark) => mark === '◆').length} of ${chapters} fragments recovered`);
   }
 
   /**

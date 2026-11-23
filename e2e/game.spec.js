@@ -1701,6 +1701,34 @@ test.describe('in Warp', () => {
     }
   });
 
+  test.describe('with every fragment of the story recovered', () => {
+    test.use({ stored: { mode: 'warp', signal: 0b11111, jokes: false } });
+
+    test('the Signal Log keeps the story between cups, and its decal is waiting in the hangar', async ({ page, hasTouch }) => {
+      await page.goto('/');
+      const press = (locator) => (hasTouch ? locator.tap() : locator.click());
+      const card = page.getByRole('button', { name: /Signal Log/ });
+      const log = page.getByRole('dialog', { name: 'The Last Signal' });
+
+      await expect(card).toContainText('5/5');
+      await press(card);
+      await expect(log).toBeVisible();
+      await expect(log.locator('[data-signal-summary]')).toHaveText('5 of 5 fragments recovered');
+      await expect(log.locator('li')).toHaveCount(5);
+      await expect(log.locator('li').first()).toContainText('This is HORIZON.');
+      await expect(log.locator('[data-signal-reward]')).toContainText('Signal decal');
+      await press(log.getByRole('button', { name: 'Close' }));
+      await expect(log).toBeHidden();
+
+      await press(page.getByRole('button', { name: /Hangar/ }));
+      const hangar = page.getByRole('dialog', { name: 'Hangar' });
+      await press(hangar.getByRole('button', { name: 'Paint', exact: true }));
+      await expect(hangar.locator('[data-hangar-decal="signal"]')).toBeEnabled();
+      await press(hangar.locator('[data-hangar-decal="signal"]'));
+      await expect(hangar.locator('[data-hangar-decal="signal"]')).toHaveAttribute('aria-pressed', 'true');
+    });
+  });
+
   test.describe('with tickets to spend', () => {
     test.use({ stored: { mode: 'warp', tickets: 9000, jokes: false } });
 

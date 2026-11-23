@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { WARP_CONFIG } from '../src/config.js';
 import { advanceGame, createInitialState, GAME_PHASE, startGame } from '../src/domain/game.js';
-import { advanceWarpStory, startWarpStory, WARP_STORY, warpStoryEnding, warpStoryView } from '../src/domain/warp-story.js';
+import { advanceWarpStory, startWarpStory, VILLAIN, WARP_STORY, warpStoryEnding, warpStoryView } from '../src/domain/warp-story.js';
 import { raceState } from '../src/domain/warp.js';
 
 const rules = WARP_CONFIG.warp;
@@ -17,12 +17,12 @@ const takedown = (by = 'guns') => ({ type: 'takedown', pilot: 1, z: 110, x: 0, p
 test('THE LAST SIGNAL provides five original chapters and different attainable optional goals', () => {
   assert.equal(WARP_STORY.length, rules.courses.length);
   assert.deepEqual(WARP_STORY.map((chapter) => chapter.objective), ['perfect', 'boost', 'air', 'ammo', 'takedown']);
-  assert.ok(WARP_STORY.every((chapter) => chapter.title && chapter.intro && chapter.reveal && chapter.warning && chapter.secured));
+  assert.ok(WARP_STORY.every((chapter) => chapter.title && chapter.intro && chapter.reveal && chapter.intercept && chapter.warning && chapter.secured && chapter.fragment));
   assert.equal(new Set(WARP_STORY.map((chapter) => chapter.title)).size, 5);
   assert.ok(WARP_STORY.every((chapter) => chapter.target > 1 && chapter.mission.length < 32), 'a feat, said in a few words');
   // Read at a glance, in flight.
   for (const chapter of WARP_STORY) {
-    for (const line of [chapter.intro, chapter.reveal, chapter.warning, chapter.secured]) {
+    for (const line of [chapter.intro, chapter.reveal, chapter.intercept, chapter.warning, chapter.secured, chapter.fragment]) {
       assert.ok(line.length <= 72, `${chapter.title}: ${line}`);
     }
   }
@@ -114,10 +114,21 @@ test('radio messages appear after launch and at plot checkpoints without timers 
   race.z = race.course.length * 0.37;
   advanceWarpStory(race, rules, [], 8);
   assert.equal(race.story.cue, 'reveal');
+  assert.equal(warpStoryView(race).hostile, false);
+
+  // Halfway the villain breaks in, on his own channel.
+  race.z = race.course.length * 0.55;
+  advanceWarpStory(race, rules, [], 8);
+  assert.equal(race.story.cue, 'intercept');
+  assert.equal(warpStoryView(race).speaker, VILLAIN);
+  assert.equal(warpStoryView(race).hostile, true);
+  assert.equal(warpStoryView(race).message, WARP_STORY[0].intercept);
+
   race.z = race.course.length * 0.72;
   advanceWarpStory(race, rules, [], 8);
   assert.equal(race.story.cue, 'warning');
-  assert.equal(race.story.beat, 3);
+  assert.equal(race.story.beat, 4);
+  assert.equal(warpStoryView(race).speaker, 'ECHO');
   advanceWarpStory(race, rules, [], 8);
   assert.equal(race.story.cue, '');
   assert.equal(warpStoryView(race).message, '', 'the player can see through the track again');
@@ -125,6 +136,28 @@ test('radio messages appear after launch and at plot checkpoints without timers 
   const ended = { ...race, finished: true, story: { ...race.story } };
   advanceWarpStory(ended, rules, [], 6);
   assert.deepEqual(ended.story, race.story, 'finish suspends radio updates');
+});
+
+test('a line the race flew past while another was up still plays, in order, never two at once', () => {
+  const race = raceState(WARP_CONFIG, 2);
+  race.launched = true;
+  race.z = 30;
+  advanceWarpStory(race, rules, [], 0.1);
+  assert.equal(race.story.cue, 'intro');
+
+  race.z = race.course.length * 0.8;
+  advanceWarpStory(race, rules, [], 1);
+  assert.equal(race.story.cue, 'intro', 'a line is never cut off');
+  const heard = [];
+  const radio = [];
+  for (let step = 0; step < 40; step += 1) {
+    const events = [];
+    advanceWarpStory(race, rules, events, 0.5);
+    radio.push(...events.filter((event) => event.type === 'radio'));
+    if (race.story.cue && heard.at(-1) !== race.story.cue) heard.push(race.story.cue);
+  }
+  assert.deepEqual(heard, ['intro', 'reveal', 'intercept', 'warning']);
+  assert.deepEqual(radio.map(({ cue, hostile }) => [cue, hostile]), [['reveal', false], ['intercept', true], ['warning', false]], 'each line opens the channel once, the villain\'s his own way');
 });
 
 test('story fragment counts survive race transitions but not a failed retry', () => {

@@ -304,15 +304,24 @@
                     </span>
                     <span class="scores-card__more" aria-hidden="true">›</span>
                   </button>
-                  <button type="button" class="scores-card" data-warp-only data-show-hangar hidden>
-                    <svg class="scores-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.8l2.3 8.2 7.2 5.2v2l-7.6-2.1-.6 3.4h-2.6l-.6-3.4-7.6 2.1v-2l7.2-5.2z"/><path d="M12 7.2v4.3"/></svg>
-                    <span class="scores-card__text">
-                      <span class="scores-card__title">Hangar</span>
-                      <strong class="scores-card__place" data-hangar-craft>Kestrel</strong>
-                      <span class="scores-card__next" data-hangar-tickets>0 tickets</span>
-                    </span>
-                    <span class="scores-card__more" aria-hidden="true">›</span>
-                  </button>
+                  <div class="card-pair" data-warp-only hidden>
+                    <button type="button" class="scores-card" data-show-hangar>
+                      <svg class="scores-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.8l2.3 8.2 7.2 5.2v2l-7.6-2.1-.6 3.4h-2.6l-.6-3.4-7.6 2.1v-2l7.2-5.2z"/><path d="M12 7.2v4.3"/></svg>
+                      <span class="scores-card__text">
+                        <span class="scores-card__title">Hangar</span>
+                        <strong class="scores-card__place" data-hangar-craft>Kestrel</strong>
+                        <span class="scores-card__next" data-hangar-tickets>0 tickets</span>
+                      </span>
+                    </button>
+                    <button type="button" class="scores-card" data-show-signal>
+                      <svg class="scores-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="15" r="1.8"/><path d="M8.4 11.4a5 5 0 0 1 7.2 0M5.6 8.6a9 9 0 0 1 12.8 0M12 16.8v4.4"/></svg>
+                      <span class="scores-card__text">
+                        <span class="scores-card__title">Signal</span>
+                        <strong class="scores-card__place" data-signal-count>0/5</strong>
+                        <span class="scores-card__next" data-signal-dots>◇◇◇◇◇</span>
+                      </span>
+                    </button>
+                  </div>
                   <button type="button" class="cta" data-command="start">Play</button>
                   <div class="panel__row panel__row--menu">
                     <button type="button" class="ghost ghost--small" data-show-tutorial>
@@ -347,6 +356,16 @@
               </div>
             </dialog>
 
+            <dialog class="dialog" data-overlay="signal" aria-labelledby="signal-title">
+              <div class="panel panel--signal">
+                <h2 class="panel__title" id="signal-title">The Last Signal</h2>
+                <p class="signal__summary" data-signal-summary>0 of 5 fragments recovered</p>
+                <ol class="signal" data-signal-entries></ol>
+                <p class="signal__reward" data-signal-reward>Recover all five for the Signal decal in the hangar.</p>
+                <button type="button" class="cta" data-dismiss-signal autofocus>Close</button>
+              </div>
+            </dialog>
+
             <dialog class="dialog" data-overlay="hangar" aria-labelledby="hangar-title">
               <div class="panel panel--hangar">
                 <div class="hangar__head">
@@ -374,7 +393,7 @@
                   <div class="hangar__bench hangar__bench--paint" data-hangar-bench="paint" hidden>
                     <p class="hangar__label" id="hangar-paint">Paint</p>
                     <div class="swatches" role="group" aria-labelledby="hangar-paint" data-hangar-paints></div>
-                    <p class="hangar__label" id="hangar-decal">Decal</p>
+                    <p class="hangar__label hangar__label--split"><span id="hangar-decal">Decal</span><span class="hangar__earn" data-hangar-earn hidden></span></p>
                     <div class="segmented hangar__decals" role="group" aria-labelledby="hangar-decal" data-hangar-decals></div>
                   </div>
                   <div class="hangar__bench hangar__bench--paint" data-hangar-bench="glow" hidden>

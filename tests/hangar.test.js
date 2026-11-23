@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buyCraft, chosenCraft, flyCraft, hangarView, loadoutFor, loadoutOf, owns, paintCraft, setupOf, ticketsFor, TOP_RATING, tuneCraft } from '../src/application/hangar.js';
+import { buyCraft, chosenCraft, decalOpen, flyCraft, fragmentsIn, hangarView, loadoutFor, loadoutOf, owns, paintCraft, setupOf, ticketsFor, TOP_RATING, tuneCraft } from '../src/application/hangar.js';
 import { CRAFT_SYSTEMS } from '../src/application/ports.js';
 import { WARP_LOADOUT } from '../src/config.js';
 import { HANGAR } from '../src/hangar.js';
@@ -160,6 +160,21 @@ test('paint is free, and only what the shop has goes on', () => {
   assert.equal(paintCraft(HANGAR, wallet, KESTREL.id, { decal: 'skulls' }), null);
   assert.equal(paintCraft(HANGAR, wallet, HORNET.id, { paint: 'red' }), null, 'not theirs to paint');
   assert.equal(paintCraft(HANGAR, wallet, 'tricycle', { paint: 'red' }), null);
+});
+
+test('one decal is earned, by recovering every fragment of the story\'s signal, never bought', () => {
+  const wallet = { tickets: 99999, hangar: EMPTY };
+  const signal = HANGAR.decals.find((decal) => decal.fragments !== undefined);
+
+  assert.deepEqual([signal.id, signal.fragments], ['signal', 5]);
+  assert.deepEqual([fragmentsIn(0), fragmentsIn(0b10101), fragmentsIn(0b11111), fragmentsIn(-3)], [0, 3, 5, 0]);
+  assert.equal(decalOpen(signal, 4), false);
+  assert.equal(decalOpen(signal, 5), true);
+  assert.ok(HANGAR.decals.filter((decal) => decal !== signal).every((decal) => decalOpen(decal, 0)));
+
+  assert.equal(paintCraft(HANGAR, wallet, KESTREL.id, { decal: 'signal' }, 4), null, 'tickets do not buy it');
+  assert.equal(paintCraft(HANGAR, wallet, KESTREL.id, { decal: 'signal' }), null);
+  assert.equal(paintCraft(HANGAR, wallet, KESTREL.id, { decal: 'signal' }, 5).hangar.owned[KESTREL.id].decal, 'signal');
 });
 
 test('the hangar shows every craft as it stands for the player', () => {

@@ -20,6 +20,8 @@ const PAPER = 'rgba(248, 250, 252, 0.95)';
 const NITRO = '125, 211, 252';
 const ROCKET = '251, 146, 60';
 const SHIELD = '96, 165, 250';
+// A fragment of the story's signal, recovered: the green the mission turns once it is done.
+const RECOVERED = '190, 242, 100';
 
 /**
  * @param {number} place
@@ -43,8 +45,9 @@ function clamp(value, min, max) {
  * @param {GameState} state
  * @param {GameConfig} config
  * @param {number} pop 1 right after a change of place, settling to 0
+ * @param {readonly number[]} [records] the best time on each course before this race, in seconds, 0 for none
  */
-export function drawWarpHud(ctx, state, config, pop) {
+export function drawWarpHud(ctx, state, config, pop, records = []) {
   const race = state.warp;
   const rules = config.warp;
 
@@ -90,10 +93,12 @@ export function drawWarpHud(ctx, state, config, pop) {
   drawArsenal(ctx, race, rules);
   ctx.restore();
 
+  const record = records[race.race] ?? 0;
+
   if (state.serveCountdown > 0 && state.serveNumber === 0) {
-    drawStartLights(ctx, state, config, layout.name, layout.qualify, race.race);
+    drawStartLights(ctx, state, config, layout.name, layout.qualify, race.race, record);
   } else if (race.finished && race.calm > 0) {
-    drawResults(ctx, race, rules, config);
+    drawResults(ctx, race, rules, config, record);
   }
 }
 
@@ -260,8 +265,10 @@ function drawProgress(ctx, race, rules, config) {
  * @param {GameConfig} config
  * @param {string} name
  * @param {number} qualify
+ * @param {number} raceIndex
+ * @param {number} record the course's best time, in seconds, 0 for none
  */
-function drawStartLights(ctx, state, config, name, qualify, raceIndex = 0) {
+function drawStartLights(ctx, state, config, name, qualify, raceIndex, record) {
   const lit = Math.min(3, Math.floor(config.startDelaySeconds - state.serveCountdown) + 1);
   const x = config.width / 2;
   const y = 150;
@@ -300,6 +307,13 @@ function drawStartLights(ctx, state, config, name, qualify, raceIndex = 0) {
     ctx.fillText(`MISSION: ${chapter.mission.toUpperCase()}`, x, y + 84);
   }
 
+  // The time to beat on this course, once the player has one.
+  if (record > 0) {
+    ctx.font = `850 11px ${FONT}`;
+    ctx.fillStyle = `rgba(${THEME.amber}, 0.9)`;
+    ctx.fillText(`COURSE RECORD ${record.toFixed(2)}s`, x, y + 110);
+  }
+
   ctx.restore();
 }
 
@@ -329,8 +343,9 @@ export function standings(race, rules) {
  * @param {WarpState} race
  * @param {WarpConfig} rules
  * @param {GameConfig} config
+ * @param {number} record the course's best time before this race, in seconds, 0 for none
  */
-function drawResults(ctx, race, rules, config) {
+function drawResults(ctx, race, rules, config, record) {
   const x = config.width / 2;
   const top = 112;
   const qualified = !race.retry;
@@ -341,7 +356,7 @@ function drawResults(ctx, race, rules, config) {
 
   ctx.save();
   ctx.fillStyle = 'rgba(5, 6, 15, 0.8)';
-  roundedRect(ctx, x - 150, top, 300, 232, 16);
+  roundedRect(ctx, x - 150, top, 300, 268, 16);
   ctx.fill();
   ctx.strokeStyle = `rgba(${rgb}, 0.7)`;
   ctx.lineWidth = 1.5;
@@ -375,8 +390,28 @@ function drawResults(ctx, race, rules, config) {
   });
 
   ctx.textAlign = 'center';
+
+  // The player's time against the course record: a new one, or how far off it they were.
+  const time = race.finishTime;
+  if (time > 0) {
+    const beaten = record === 0 || time < record;
+    ctx.font = `850 11px ${FONT}`;
+    ctx.fillStyle = beaten ? `rgb(${THEME.amber})` : `rgba(${THEME.text}, 0.7)`;
+    ctx.fillText(beaten ? `★ NEW COURSE RECORD ${time.toFixed(2)}s` : `RECORD ${record.toFixed(2)}s · +${(time - record).toFixed(2)}`, x, top + 206);
+  }
+
+  // What the race did for the story: the chapter's fragment of the signal, recovered or lost.
+  const chapter = WARP_STORY[race.race];
+  if (chapter) {
+    const number = String(race.race + 1).padStart(2, '0');
+    const recovered = race.story?.done === true;
+    ctx.font = `850 11px ${FONT}`;
+    ctx.fillStyle = recovered ? `rgba(${RECOVERED}, 0.95)` : `rgba(${THEME.rose}, 0.75)`;
+    ctx.fillText(recovered ? `◆ FRAGMENT ${number} RECOVERED` : `◇ FRAGMENT ${number} LOST`, x, top + 225);
+  }
+
   ctx.font = `800 12px ${FONT}`;
   ctx.fillStyle = `rgba(${rgb}, 0.95)`;
-  ctx.fillText(qualified ? (next ? `THROUGH · NEXT: ${next.name.toUpperCase()}` : 'CUP WON!') : 'NOT THROUGH · ONE MORE GO', x, top + 216);
+  ctx.fillText(qualified ? (next ? `THROUGH · NEXT: ${next.name.toUpperCase()}` : 'CUP WON!') : 'NOT THROUGH · ONE MORE GO', x, top + 252);
   ctx.restore();
 }

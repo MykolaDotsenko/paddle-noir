@@ -86,6 +86,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and trade-offs
 │   │   ├── canvas-renderer.js
 │   │   ├── dom-game-view.js
 │   │   ├── dom-hangar.js
+│   │   ├── dom-signal-log.js
 │   │   ├── effects.js
 │   │   ├── finisher.js
 │   │   ├── frame-pace.js

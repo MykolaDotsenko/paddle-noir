@@ -87,7 +87,8 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {Readonly<Record<CraftSystem, string>>} systems what each system is called
  * @property {readonly number[]} prices what each level of a system costs, the first level first
  * @property {readonly { id: string, name: string, rgb: string }[]} paints
- * @property {readonly { id: string, name: string }[]} decals the first is none
+ * @property {readonly { id: string, name: string, fragments?: number }[]} decals the first is none; one with
+ *   fragments is earned by recovering that many fragments of the Warp story's signal
  * @property {number} pointsPerTicket points of a cup that pay out a ticket
  *
  * @typedef {object} MatchStats Solo results, kept across visits.
@@ -115,6 +116,9 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {number} bestWarp most points in a Warp cup
  * @property {number} tickets what the cabinet has paid out for Warp cups, to spend in the hangar
  * @property {HangarChoices} hangar the crafts the player owns, how each is set up, and which they fly
+ * @property {readonly number[]} warpTimes the best time on each Warp course, in seconds, 0 for none
+ * @property {number} signal the chapters of the Warp story whose fragment of the signal has ever been
+ *   recovered, a bit a chapter, the first chapter the lowest
  * @property {string} initials the three letters the player signs the high-score table with, or '' until they do
  * @property {MatchStats} stats
  * @property {number} rival the career rival the next career match is against, as a place on the ladder from 0
@@ -205,8 +209,10 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {boolean} newBest whether the cup just finished set a new record
  * @property {string} craft the craft being flown, by name
  * @property {WarpSteeringMode} steering selected flight control scheme
- * @property {{ chapter: number, title: string, mission: string, progress: number, target: number, completed: boolean, recovered: number, speaker: string, message: string, active: boolean }} story the chapter mission and short radio transcript
+ * @property {{ chapter: number, title: string, mission: string, progress: number, target: number, completed: boolean, recovered: number, speaker: string, hostile: boolean, message: string, active: boolean }} story the chapter mission and short radio transcript; hostile when the villain breaks in
  * @property {{ title: string, text: string }} ending how the story ends, shown once the cup is won
+ * @property {number} signal the chapters whose fragment of the story's signal has ever been recovered, a bit a chapter
+ * @property {number} chapters how many chapters the story has
  * @property {number} abilityCooldown seconds before its signature system can be fired again
  * @property {number} abilityTime seconds remaining of the active signature system
  * @property {Record<'nitro' | 'guns' | 'rockets' | 'shield' | 'warp', { ready: boolean, status: string, charge: number }>} controls the live readiness of the five bridge buttons, and how far each has recharged

@@ -408,6 +408,11 @@ canvas:focus-visible {
   -webkit-line-clamp: 3;
   line-clamp: 3;
 }
+.board .warp-radio[data-hostile="true"] {
+  border-left-color: #f87171;
+  background: rgba(40, 6, 14, 0.78);
+}
+.board .warp-radio[data-hostile="true"] .warp-radio__sender { color: #fca5a5; }
 .board .warp-mission[hidden],
 .board .warp-radio[hidden] { display: none; }
 .warp-ending {
@@ -839,7 +844,7 @@ kbd {
 .panel--menu [data-solo-only],
 .panel--menu [data-career-only],
 .panel--menu [data-rush-only],
-.panel--menu [data-show-hangar] { order: 3; }
+.panel--menu .card-pair { order: 3; }
 .panel--menu .cta { order: 4; }
 .panel--menu .panel__meta { order: 5; }
 .panel--menu .panel__stats { order: 6; }
@@ -1688,6 +1693,25 @@ kbd {
   line-height: 1;
 }
 
+/* In the Warp menu the hangar and the story's Signal Log stand side by side, half a card each. */
+.card-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(2 * var(--u));
+  width: min(100%, max(24rem, calc(76 * var(--u))));
+}
+
+.card-pair[hidden] {
+  display: none;
+}
+
+.card-pair .scores-card {
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: calc(2 * var(--u));
+  padding: calc(1.4 * var(--u)) calc(2.2 * var(--u));
+}
+
 /* On the result screen of a run: the rows around the player's, and what the run did to them. */
 .standing {
   display: grid;
@@ -2092,6 +2116,87 @@ kbd {
   background: radial-gradient(circle at 50% 42%, rgba(9, 11, 28, 0.55), rgba(5, 6, 15, 0.88));
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+}
+
+/* The Signal Log: the story's five fragments, decoded or still to recover. Like the tutorial's
+   steps, the list scrolls on a short screen while the title and the button stay put. */
+.panel--signal {
+  gap: 3cqw;
+  min-height: 0;
+  max-height: calc(min(88dvh, 46rem) - 12cqw - 2px);
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+}
+
+.panel--signal .panel__title {
+  font-size: 9cqw;
+}
+
+.signal__summary,
+.signal__reward {
+  margin: 0;
+  font-size: max(12px, 3.4cqw);
+}
+
+.signal__summary {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.signal__reward {
+  color: var(--muted);
+}
+
+.signal__reward[data-earned="true"] {
+  color: var(--amber);
+}
+
+.signal {
+  display: grid;
+  align-content: start;
+  gap: 2cqw;
+  width: 100%;
+  margin: 0;
+  padding: 0 1cqw 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  text-align: left;
+}
+
+.signal li {
+  display: grid;
+  gap: 0.8cqw;
+  padding: 2.4cqw 3cqw;
+  border: 1px solid var(--line);
+  border-radius: 3cqw;
+  background: rgba(15, 18, 40, 0.7);
+}
+
+.signal li[data-recovered="true"] {
+  border-color: rgba(190, 242, 100, 0.45);
+}
+
+.signal__title {
+  font-size: max(11px, 3cqw);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--violet);
+}
+
+.signal li[data-recovered="true"] .signal__title {
+  color: #bef264;
+}
+
+.signal__text {
+  font-size: max(13px, 3.6cqw);
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.signal li[data-recovered="false"] .signal__text {
+  color: var(--muted);
 }
 
 /* The steps scroll when the dialog is taller than a small screen; the title and button stay put. */
@@ -2561,6 +2666,22 @@ kbd {
   color: var(--violet);
 }
 
+/* The decal earned from the story says, beside the decals' label, how near the player is to it. */
+.hangar__label--split {
+  display: flex;
+  justify-content: space-between;
+  gap: 2cqw;
+}
+
+.hangar__earn {
+  letter-spacing: 0.08em;
+  color: var(--amber);
+}
+
+.hangar__earn[hidden] {
+  display: none;
+}
+
 .swatches {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2588,12 +2709,15 @@ kbd {
   transform: scale(0.94);
 }
 
+/* Five decals do not fit a small screen's row: the last goes on to a second. */
 .dialog .hangar__decals {
+  flex-wrap: wrap;
   width: 100%;
+  border-radius: 22px;
 }
 
 .dialog .hangar__decals button {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 44px;
   min-height: 44px;
   padding: 0 1cqw;
@@ -2944,19 +3068,37 @@ kbd {
 
   .panel--tutorial,
   .panel--settings,
-  .panel--scores {
+  .panel--scores,
+  .panel--signal {
     gap: 10px;
     max-height: calc(94dvh - 26px);
   }
 
   .panel--tutorial .panel__title,
   .panel--settings .panel__title,
-  .panel--scores .panel__title {
+  .panel--scores .panel__title,
+  .panel--signal .panel__title {
     font-size: 26px;
   }
 
+  .signal li {
+    padding: 8px 12px;
+    border-radius: 12px;
+  }
+
+  .signal__title,
+  .signal__summary,
+  .signal__reward {
+    font-size: 12px;
+  }
+
+  .signal__text {
+    font-size: 13px;
+  }
+
   .tutorial,
-  .settings {
+  .settings,
+  .signal {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }

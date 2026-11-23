@@ -5,7 +5,8 @@
  * shop. Each craft is good at something: its systems are rated from 1 to 5 untuned, and each
  * can be tuned three levels up. The first craft is everyone's, and the cup is tuned for it as
  * it comes; the rest are bought with the tickets the cabinet pays out for a cup. Paint, decals
- * and the light under a craft cost nothing: they are only for show.
+ * and the light under a craft cost nothing: they are only for show. One decal is earned instead:
+ * the Signal, for recovering every fragment of the story's signal.
  *
  * The prices come from flying the cup with human-like pilots: a cup scores forty to fifty-five
  * thousand points, races flown again included, so it pays about two thousand tickets. That is
@@ -40,6 +41,8 @@ export const HANGAR = Object.freeze({
     Object.freeze({ id: 'stripes', name: 'Stripes' }),
     Object.freeze({ id: 'chevrons', name: 'Chevrons' }),
     Object.freeze({ id: 'flames', name: 'Flames' }),
+    // HORIZON's own mark, worn by the pilot who brought it home: earned, never bought.
+    Object.freeze({ id: 'signal', name: 'Signal', fragments: 5 }),
   ]),
   pointsPerTicket: 25,
 });

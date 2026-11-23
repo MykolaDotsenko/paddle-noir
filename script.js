@@ -7,6 +7,7 @@ import { CanvasRenderer } from './src/adapters/canvas-renderer.js';
 import { drawCraftPortrait } from './src/adapters/canvas/warp-craft.js';
 import { DomGameView } from './src/adapters/dom-game-view.js';
 import { DomHangar } from './src/adapters/dom-hangar.js';
+import { DomSignalLog } from './src/adapters/dom-signal-log.js';
 import { Haptics } from './src/adapters/haptics.js';
 import { InputController } from './src/adapters/input-controller.js';
 import { LocalPreferences } from './src/adapters/local-preferences.js';
@@ -16,6 +17,7 @@ import { SoundBoard } from './src/adapters/sound-board.js';
 import { WakeLock } from './src/adapters/wake-lock.js';
 import { GameController } from './src/application/game-controller.js';
 import { GAME_COMMAND } from './src/application/ports.js';
+import { WARP_STORY } from './src/domain/warp-story.js';
 
 // Browser globals are resolved here, once, and injected everywhere else.
 
@@ -67,10 +69,11 @@ const controller = new GameController({
   seed: () => Math.floor(Math.random() * 2 ** 31),
 });
 
-// The hangar is a view of its own: it saves what the player buys and tunes, and has the menu
-// drawn again so the next cup flies the craft as it now is.
+// The hangar saves what the player buys and tunes and has the menu drawn again, so the next cup
+// flies the craft as it now is; the Signal Log keeps the story between cups.
 const redraw = () => controller.handleCommand(GAME_COMMAND.RESET);
 const hangar = new DomHangar({ root: arena, catalog: MATCH_CATALOG.hangar, preferences, portrait: drawCraftPortrait, onChange: redraw });
 
 controller.connect();
 hangar.connect();
+new DomSignalLog({ root: arena, story: WARP_STORY, decals: MATCH_CATALOG.hangar.decals, preferences }).connect();

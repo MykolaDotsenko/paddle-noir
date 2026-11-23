@@ -19,6 +19,8 @@ const SPARKS = '254, 240, 138';
 const NITRO = '125, 211, 252';
 const ROCKET = '251, 146, 60';
 const SHIELD = '96, 165, 250';
+// Where a change of place is called out, as a share of the board's height.
+const PLACE_CALLOUT = 0.38;
 /** What the board calls a rival taken down, by how. */
 const TAKEN_DOWN = Object.freeze({ guns: 'SHOT DOWN', rocket: 'BLOWN UP', ram: 'RAMMED', super: 'DOWN' });
 
@@ -39,10 +41,11 @@ function craftAt(state, config) {
  * @param {GameConfig} config
  * @param {number} z
  * @param {number} x
+ * @param {boolean} [still] whether motion is reduced, which keeps the view from stretching at speed
  */
-function spotOf(state, config, z, x) {
+function spotOf(state, config, z, x, still = false) {
   const race = state.warp;
-  const spot = race ? viewOf(race, config).project(z, x) : null;
+  const spot = race ? viewOf(race, config, still).project(z, x) : null;
   return spot ? { x: spot.x, y: spot.y - 18 * spot.scale, scale: spot.scale } : { ...craftAt(state, config), scale: 1 };
 }
 
@@ -105,7 +108,7 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
     case 'crash': {
       if (event.pilot !== undefined) {
         // A rival, where it crashed.
-        const at = spotOf(state, config, event.z, event.x);
+        const at = spotOf(state, config, event.z, event.x, effects.reducedMotion);
         const rgb = pilots[event.pilot]?.rgb ?? THEME.rose;
         effects.burst({ x: at.x, y: at.y, color: `rgb(${rgb})`, count: Math.round(8 + 14 * at.scale), speed: 90 + 200 * at.scale, life: 0.45, size: 1.6 });
         effects.ring({ x: at.x, y: at.y, color: `rgba(${THEME.amber}, 0.7)`, radius: 4, growth: 60 + 200 * at.scale, life: 0.35, width: 2 });
@@ -161,7 +164,7 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       return true;
     }
     case 'mine-drop': {
-      const at = spotOf(state, config, event.z, event.x);
+      const at = spotOf(state, config, event.z, event.x, effects.reducedMotion);
       effects.ring({ x: at.x, y: at.y, color: `rgba(${THEME.red}, 0.9)`, radius: 3, growth: 80 + 240 * at.scale, life: 0.5, width: 2 });
       effects.label({ text: jokes ? 'EVICTION NOTICE!' : 'MINE!', x: width / 2, y: height * 0.4, color: `rgb(${THEME.red})`, life: 0.7, size: 22 });
       return true;
@@ -171,13 +174,13 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       effects.label({ text: `CLOSE! +${event.points}`, x: craft.x, y: craft.y - 86, color: `rgb(${CYAN})`, life: 0.6, size: 17 });
       return true;
     case 'bump': {
-      const at = spotOf(state, config, event.z, event.x);
+      const at = spotOf(state, config, event.z, event.x, effects.reducedMotion);
       effects.burst({ x: at.x, y: at.y, color: `rgb(${SPARKS})`, count: 18, speed: 300, life: 0.35, size: 1.8 });
       effects.shake(0.35);
       return true;
     }
     case 'takedown': {
-      const at = spotOf(state, config, event.z, event.x);
+      const at = spotOf(state, config, event.z, event.x, effects.reducedMotion);
       const pilot = pilots[event.pilot];
       const rgb = pilot?.rgb ?? THEME.rose;
       effects.burst({ x: at.x, y: at.y, color: `rgb(${rgb})`, count: 36, speed: 140 + 260 * at.scale, life: 0.7, size: 2.2 });
@@ -240,7 +243,7 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       effects.label({ text: 'ROCKET AWAY!', x: craft.x, y: craft.y - 92, color: `rgb(${ROCKET})`, life: 0.6, size: 17 });
       return true;
     case 'explosion': {
-      const at = spotOf(state, config, event.z, event.x);
+      const at = spotOf(state, config, event.z, event.x, effects.reducedMotion);
       const size = 0.4 + at.scale;
 
       effects.burst({ x: at.x, y: at.y, color: `rgb(${ROCKET})`, count: 44, speed: 160 + 320 * at.scale, life: 0.7, size: 2.6 });
@@ -269,12 +272,14 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       effects.label({ text: `SMASH +${event.points}`, x: craft.x, y: craft.y - 92, color: `rgb(${SUPER_STYLE.fireball.rgb})`, life: 0.6, size: 18 });
       effects.shake(0.3);
       return true;
+    // Up in the sky, where the other callouts are: under the place itself they ran over the
+    // arsenal's lines as they rose.
     case 'overtake':
       effects.pop();
-      effects.label({ text: `P${event.place}!`, x: 60, y: 150, color: `rgb(${event.place === 1 ? THEME.amber : CYAN})`, life: 0.7, size: 26 });
+      effects.label({ text: `P${event.place}!`, x: width / 2, y: height * PLACE_CALLOUT, color: `rgb(${event.place === 1 ? THEME.amber : CYAN})`, life: 0.7, size: 26 });
       return true;
     case 'overtaken':
-      effects.label({ text: `P${event.place}`, x: 60, y: 150, color: `rgb(${THEME.rose})`, life: 0.6, size: 22 });
+      effects.label({ text: `P${event.place}`, x: width / 2, y: height * PLACE_CALLOUT, color: `rgb(${THEME.rose})`, life: 0.6, size: 22 });
       return true;
     case 'slipstream':
       return true;
@@ -283,7 +288,7 @@ export function playWarpEvent(effects, event, { config, state, random, jokes = f
       const from = { x: craft.x, y: craft.y - 20 };
 
       for (const target of event.targets) {
-        const at = spotOf(state, config, target.z, target.x);
+        const at = spotOf(state, config, target.z, target.x, effects.reducedMotion);
         effects.bolt({ x1: from.x, y1: from.y, x2: at.x, y2: at.y, color, segments: 9, jag: 16, life: 0.45, width: 3 });
         effects.bolt({ x1: from.x, y1: from.y, x2: at.x, y2: at.y, color: THEME.spark, segments: 6, jag: 9, life: 0.3, width: 1.5 });
       }
@@ -327,7 +332,8 @@ function finishLine(effects, event, rules, config, random) {
 
   // Side by side over the line.
   if (event.margin < PHOTO_FINISH && event.place <= 2) {
-    effects.label({ text: 'PHOTO FINISH!', x: width / 2, y: height * 0.5, color: `rgb(${THEME.amber})`, life: 1.4, size: 30 });
+    // Under the board of results that comes up with it, even at the top of its rise.
+    effects.label({ text: 'PHOTO FINISH!', x: width / 2, y: height * 0.58, color: `rgb(${THEME.amber})`, life: 1.4, size: 30 });
   }
 
   if (!event.qualified) {

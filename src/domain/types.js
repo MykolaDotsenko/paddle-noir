@@ -326,6 +326,7 @@
  *   | { type: 'warp-system', system: 'guns' | 'shield', z: number, x: number }
  *   | { type: 'craft-ability', kind: CraftKind, z: number, x: number }
  *   | { type: 'story-complete', race: number, points: number, reward: 'nitro' | 'shield' | 'rocket' }
+ *   | { type: 'radio', cue: 'intro' | 'reveal' | 'intercept' | 'warning', hostile: boolean }
  *   | { type: 'gun-fire', z: number, x: number }
  *   | { type: 'rocket-launch', pilot: number, z: number, x: number }
  *   | { type: 'explosion', z: number, x: number }

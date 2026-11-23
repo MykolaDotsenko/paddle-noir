@@ -348,6 +348,16 @@ export class SoundBoard {
         this.tone({ frequency: 110, endFrequency: 1760, duration: 0.6, type: 'sine', volume: 0.12 });
         this.arpeggio([NOTE.C6, NOTE.G6, NOTE.C6 * 2], 0.07, 'triangle', 0.14, 0.42);
         return true;
+      case 'radio':
+        if (event.hostile) {
+          // The Landlord jamming his way onto the channel: a low, rough buzz.
+          this.tone({ frequency: 92, endFrequency: 70, duration: 0.24, type: 'sawtooth', volume: 0.09 });
+          this.tone({ frequency: 138, duration: 0.12, type: 'square', volume: 0.05, delay: 0.08 });
+        } else {
+          // A friendly channel opening: two soft clicks of a radio.
+          this.arpeggio([1480, 1180], 0.03, 'square', 0.035);
+        }
+        return true;
       case 'story-complete':
         // A fragment of the signal decoded: a radio chirp, then a chime.
         this.arpeggio([1320, 990, 1320], 0.035, 'square', 0.06);

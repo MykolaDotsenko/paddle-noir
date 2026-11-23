@@ -68,6 +68,8 @@ function createPreferences(initial = {}) {
     bestWarp: 0,
     tickets: 0,
     hangar: { craft: '', owned: {} },
+    warpTimes: [],
+    signal: 0,
     stats: DEFAULT_STATS,
     rival: 0,
     careerStars: [],
@@ -1292,7 +1294,7 @@ test('Warp races on its own tuning, with supers as the player chose', () => {
 });
 
 test('in the menu Warp tells what there is to do', () => {
-  const { view, controller } = setup({ mode: 'warp', bestWarp: 8800 });
+  const { view, controller } = setup({ mode: 'warp', bestWarp: 8800, signal: 0b00011 });
   const presentation = lastOf(view.presentations);
 
   assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
@@ -1301,7 +1303,7 @@ test('in the menu Warp tells what there is to do', () => {
   assert.equal(story.mission, 'Fly 12 rings dead center');
   assert.deepEqual([story.progress, story.target, story.completed, story.active], [0, 12, false, false]);
   assert.equal(ending.title, 'THE SIGNAL SURVIVES');
-  assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', steering: 'buttons', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0 });
+  assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', steering: 'buttons', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0, signal: 0b00011, chapters: 5 });
   assert.deepEqual(Object.keys(controls), ['nitro', 'guns', 'rockets', 'shield', 'warp']);
   assert.ok(Object.values(controls).every((control) => !control.ready), 'bridge controls start disabled in the menu');
   assert.deepEqual(presentation.opponent, { label: 'Race', name: 'The field', proper: false });
@@ -1349,6 +1351,44 @@ test('a cup out of credits records the points, and a record is celebrated', () =
   assert.equal(presentation.status, `Out of credits in race 3 of ${WARP.courses.length} — ${2400 + WARP.placePoints[5]} points.`);
   assert.deepEqual({ best: presentation.warp.best, newBest: presentation.warp.newBest }, { best: 2400 + WARP.placePoints[5], newBest: true });
   assert.deepEqual(lastOf(preferences.writes), { bestWarp: 2400 + WARP.placePoints[5], tickets: ticketsFor(HANGAR, 2400 + WARP.placePoints[5]) });
+  assert.equal(preferences.get().warpTimes[2], controller.state.warp.finishTime, 'the last race flown sets its course\'s first record');
+  assert.ok(preferences.get().warpTimes[2] > 0);
+});
+
+test('a race\'s time is kept as its course\'s record once its results are off the board, if it beats the one before', () => {
+  const { controller, preferences } = setup({ mode: 'warp', warpTimes: [50, 0, 61] });
+  const race = controller.state.warp;
+  const running = (warp, events = [], phase = GAME_PHASE.RUNNING) => ({ ...controller.state, phase, events, warp: { ...race, ...warp } });
+
+  controller.recordWarpProgress(running({ finished: true, finishTime: 48.5 }, [{ type: 'race-finish', race: 0, place: 1, points: 1000, qualified: true, last: false, margin: 1 }]));
+  assert.deepEqual(preferences.get().warpTimes, [50, 0, 61], 'while the board compares it with the record before it');
+  controller.recordWarpProgress(running({ finished: true, finishTime: 48.5 }));
+  assert.deepEqual(preferences.get().warpTimes, [50, 0, 61]);
+  controller.recordWarpProgress(running({ race: 1, finished: false }));
+  assert.deepEqual(preferences.get().warpTimes, [48.5, 0, 61], 'the next race on the grid: kept');
+
+  controller.recordWarpProgress(running({ race: 2, finished: true, finishTime: 64 }, [{ type: 'race-finish', race: 2, place: 5, points: 100, qualified: false, last: false, margin: 1 }]));
+  controller.recordWarpProgress(running({ race: 2, finished: false }));
+  assert.deepEqual(preferences.get().warpTimes, [48.5, 0, 61], 'a slower time, flown again: the record stands');
+
+  controller.recordWarpProgress(running({ race: 4, finished: true, finishTime: 70 }, [{ type: 'race-finish', race: 4, place: 1, points: 1000, qualified: true, last: true, margin: 1 }], GAME_PHASE.GAME_OVER));
+  assert.deepEqual(preferences.get().warpTimes, [48.5, 0, 61, 0, 70], 'the cup over: kept, the courses between with none');
+
+  controller.recordWarpProgress(running({ race: 1, finished: true, finishTime: 55 }, [{ type: 'race-finish', race: 1, place: 1, points: 1000, qualified: true, last: false, margin: 1 }]));
+  controller.handleCommand(GAME_COMMAND.RESET);
+  assert.equal(preferences.get().warpTimes[1], 55, 'and when the player leaves with its results up');
+});
+
+test('a fragment of the signal recovered is kept in the Signal Log at once, for good', () => {
+  const { controller, preferences } = setup({ mode: 'warp', signal: 0b00100 });
+  const recovered = (chapter) => ({ ...controller.state, events: [{ type: 'story-complete', race: chapter, points: 180, reward: 'nitro' }] });
+
+  controller.recordWarpProgress(recovered(0));
+  assert.equal(preferences.get().signal, 0b00101);
+  controller.recordWarpProgress(recovered(2));
+  assert.equal(preferences.get().signal, 0b00101, 'one already in the log stays as it is');
+  controller.recordWarpProgress(recovered(4));
+  assert.equal(preferences.get().signal, 0b10101);
 });
 
 test('a cup short of the record changes nothing', () => {

@@ -90,6 +90,7 @@ const PARTS = {
   systems: { 'data-hangar-systems': '' },
   paints: { 'data-hangar-paints': '' },
   decals: { 'data-hangar-decals': '' },
+  earn: { 'data-hangar-earn': '' },
   glows: { 'data-hangar-glows': '' },
   locked: { 'data-hangar-locked': '' },
   buy: { 'data-hangar-buy': '' },
@@ -114,8 +115,8 @@ function createRoot({ modal = true, without = [] } = {}) {
   };
 }
 
-function setup({ tickets = 0, hangar = { craft: '', owned: {} }, ...rootOptions } = {}) {
-  let values = { tickets, hangar };
+function setup({ tickets = 0, hangar = { craft: '', owned: {} }, signal = 0, ...rootOptions } = {}) {
+  let values = { tickets, hangar, signal };
   const preferences = { writes: [], get: () => values, set(changes) { this.writes.push(changes); values = { ...values, ...changes }; } };
   const dom = createRoot(rootOptions);
   const portraits = [];
@@ -320,6 +321,30 @@ test('a craft the player owns takes a paint, a decal and a light, each at a pres
 
   const { loadout } = portraits.at(-1);
   assert.deepEqual([loadout.paint, loadout.decal, loadout.glow], [rgb('red'), 'flames', rgb('amber')]);
+});
+
+test('the Signal decal is earned from the story: until then it says how far the player is from it', () => {
+  const locked = setup({ signal: 0b01001 });
+  click(locked.dom.card);
+  click(locked.dom.paintTab);
+  const signal = locked.chip('decals', 'signal');
+
+  assert.equal(signal.textContent, 'Signal', 'short, so five decals fit a small screen');
+  assert.ok(signal.hasAttribute('disabled'));
+  assert.equal(signal.getAttribute('aria-label'), 'Signal, earned by recovering all 5 fragments of The Last Signal: 2 so far');
+  assert.deepEqual([locked.dom.earn.hidden, locked.dom.earn.textContent], [false, 'Signal: 2/5 fragments']);
+  click(signal);
+  assert.deepEqual(locked.preferences.writes, [], 'not worn before it is earned');
+
+  const earned = setup({ signal: 0b11111 });
+  click(earned.dom.card);
+  click(earned.dom.paintTab);
+  const worn = earned.chip('decals', 'signal');
+  assert.deepEqual([worn.textContent, worn.hasAttribute('disabled'), worn.getAttribute('aria-label')], ['Signal', false, 'Signal']);
+  assert.equal(earned.dom.earn.hidden, true);
+  click(worn);
+  assert.equal(earned.preferences.get().hangar.owned[KESTREL.id].decal, 'signal');
+  assert.equal(earned.chip('decals', 'signal').getAttribute('aria-pressed'), 'true');
 });
 
 test('disconnecting takes the hangar\'s hands off the page', () => {
