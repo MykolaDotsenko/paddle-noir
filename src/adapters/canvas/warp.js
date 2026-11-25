@@ -2,7 +2,7 @@ import { curveAt, heightAt, ITEM_RADIUS, itemX, laneX, onRumble } from '../../do
 import { FONT, mixRgb, roundedRect, SUPER_STYLE, THEME } from './theme.js';
 import { drawCell, drawCrate, drawHullBar, weapons } from './warp-combat.js';
 import { CRAFT_SCALE, drawHull, drawShield, drawUnderglow } from './warp-craft.js';
-import { drawEngineWake, drawJumpLighting, drawTrackLighting } from './warp-lighting.js';
+import { airframeLight, drawCinematicGrade, drawEngineWake, drawFlightAtmosphere, drawJumpLighting, drawTrackLighting } from './warp-lighting.js';
 import { drawSurfaceMaterial } from './warp-materials.js';
 import { CORE_LIGHT, drawDust, drawSky, fogLevel, hash, HORIZON, LOOKS, PAD, paletteOf, roadside } from './warp-scenery.js';
 
@@ -256,6 +256,7 @@ export function drawWarp(ctx, state, config, now, glows, reducedMotion = false) 
   if (!reducedMotion) {
     drawRush(scene);
   }
+  drawCinematicGrade(scene);
 }
 
 /**
@@ -985,7 +986,8 @@ function drawGantry({ ctx, look, view, now, still }, { x, y, scale }) {
  * @param {Spot} spot where the craft is
  * @param {Spot} ground where the lane is under it
  */
-function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot, ground) {
+function drawRival(scene, rival, pilot, spot, ground) {
+  const { ctx, config, race, glows, now, still } = scene;
   const rules = /** @type {WarpConfig} */ (config.warp);
   const turn = rival.spin > 0 ? (rival.spin / 1.2) * Math.PI * 3 : clamp((rival.line - rival.x) * 1.4, -0.35, 0.35);
 
@@ -1009,6 +1011,7 @@ function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot,
     nitro: false,
     rockets: 0,
     damage: clamp(1 - rival.hull / rules.rivalHull, 0, 1),
+    lighting: airframeLight(scene, pilot.rgb, rival.boost > 0, clamp(1 - rival.hull / rules.rivalHull, 0, 1)),
     now: still ? 0 : now + rival.id * 130,
     glows,
   });
@@ -1041,7 +1044,8 @@ function drawRival({ ctx, config, race, glows, now, still }, rival, pilot, spot,
  * @param {Scene} scene
  * @param {GameState} state
  */
-function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
+function drawCraft(scene, state) {
+  const { ctx, race, config, view, glows, now, still } = scene;
   const rules = /** @type {WarpConfig} */ (config.warp);
   const colors = THEME.side.player;
   const x = state.player.x;
@@ -1128,6 +1132,8 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
 
   drawEngineWake(ctx, { x, y, glow: nitro ? NITRO_LIGHT : race.abilityTime > 0 ? '216, 180, 254' : loadout.glow, speed: race.speed, boost: nitro || race.burn > 0 || race.abilityTime > 0, now, still });
 
+  drawFlightAtmosphere(scene, { x, y, glow: nitro ? NITRO_LIGHT : loadout.glow, boost: nitro || race.burn > 0 || race.abilityTime > 0 });
+
   ctx.globalAlpha = race.ghost > 0 ? 0.5 : race.safe > 0 && race.spin === 0 ? 0.55 + (still ? 0 : 0.25 * Math.sin(now / 120)) : 1;
   drawHull(ctx, {
     kind: loadout.kind,
@@ -1147,6 +1153,8 @@ function drawCraft({ ctx, race, config, view, glows, now, still }, state) {
     nitro,
     rockets: race.rockets,
     active: race.abilityTime > 0,
+    damage: race.spin > 0 ? Math.min(1, race.spin / rules.spinSeconds) : 0,
+    lighting: airframeLight(scene, loadout.glow, nitro || race.burn > 0 || race.abilityTime > 0, race.spin > 0 ? 1 : 0),
     now: still ? 0 : now,
     glows,
   });

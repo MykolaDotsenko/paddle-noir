@@ -346,6 +346,7 @@ export function drawBackdrop(scene) {
     case 'core': tunnel(scene); break;
     default: break;
   }
+  drawDistantInfrastructure(scene);
 }
 
 /**
@@ -416,5 +417,49 @@ export function drawPlanetaryLandmark(scene, biome) {
       ctx.fillRect(x + 24, y - h * 0.35, 18, 11);
     }
   }
+  ctx.restore();
+}
+
+
+/**
+ * Mid-distance silhouettes with batched struts and sparse window lights.
+ * @param {Scene} scene
+ */
+function drawDistantInfrastructure(scene) {
+  const { ctx, look, config, still, now } = scene;
+  const width = config.width + PAD * 2;
+  const shift = offsetOf(scene, 0.45);
+  const suspended = look.skyline === 'planet' || look.skyline === 'core' || look.skyline === 'clouds';
+  const base = HORIZON - 19;
+  ctx.save();
+  ctx.fillStyle = 'rgba(23, 32, 45, 0.33)';
+  ctx.beginPath();
+  for (let i = 0; i < 9; i += 1) {
+    const x = wrap(i * width / 9 + shift, width) - PAD;
+    const h = 16 + sample(i, 155) * 42;
+    ctx.rect(x - 5, base - h, 10, h);
+    ctx.rect(x - 9, base - h, 18, 3);
+  }
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(' + look.haze + ', 0.20)';
+  ctx.lineWidth = 0.85;
+  ctx.beginPath();
+  for (let i = 0; i < 9; i += 1) {
+    const x = wrap(i * width / 9 + shift, width) - PAD;
+    const h = 16 + sample(i, 155) * 42;
+    ctx.moveTo(x, base - h);
+    ctx.lineTo(x + (suspended ? 24 : 12), base - h * 0.35);
+    ctx.lineTo(x + (suspended ? 45 : 23), base - h * 0.35);
+  }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(' + look.edge + ', 0.38)';
+  ctx.beginPath();
+  for (let i = 0; i < 9; i += 1) {
+    const x = wrap(i * width / 9 + shift, width) - PAD;
+    const h = 16 + sample(i, 155) * 42;
+    const travel = still ? 0 : (now / 900 + i) % 3;
+    ctx.rect(x - 1, base - h + 4 + travel, 2, 1.5);
+  }
+  ctx.fill();
   ctx.restore();
 }

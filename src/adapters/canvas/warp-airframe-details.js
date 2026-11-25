@@ -19,6 +19,7 @@ import { mixRgb } from './theme.js';
  * @property {number} pitch longitudinal pitch
  * @property {number} damage 0 to 1: how worn the rival hull is
  * @property {boolean} active whether the craft's signature system is running
+ * @property {{ key: string, bounce: string, engine: string, direction: number, heat: number }} lighting
  * @property {readonly (readonly [number, number, number])[]} engines engine positions
  */
 
@@ -380,6 +381,55 @@ function precisionMachining(ctx, { kind, span, paint, engines, bank, active, dam
   ctx.restore();
 }
 
+
+/**
+ * Wide matte highlights, polished bevels, dark ceramic inserts and hot metal.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {AirframeDetail} craft
+ */
+function materialResponse(ctx, { kind, span, paint, engines, bank, lighting }) {
+  const { key, bounce, engine, direction, heat } = lighting;
+  const light = Math.max(-1, Math.min(1, direction - Math.sin(bank) * 0.45));
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 0.8;
+  for (const side of [-1, 1]) {
+    const strength = 0.17 + (1 + side * light) * 0.17;
+    const inside = span * (kind === 'saucer' ? 0.58 : 0.32);
+    const outside = span * 0.81;
+    const top = kind === 'saucer' ? 0.7 : 1.7;
+    const gradient = ctx.createLinearGradient(side * inside, top, side * outside, top + 5);
+    gradient.addColorStop(0, 'rgba(' + mixRgb(paint, key, 0.48) + ', ' + strength + ')');
+    gradient.addColorStop(0.5, 'rgba(' + mixRgb(paint, key, 0.25) + ', 0.12)');
+    gradient.addColorStop(1, 'rgba(10, 15, 25, 0.27)');
+    ctx.fillStyle = gradient;
+    polygon(ctx, [[side * inside, top], [side * outside, top + 3], [side * outside * 0.92, top + 5], [side * inside, top + 3.8]]);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(' + key + ', ' + (strength + 0.08) + ')';
+    ctx.beginPath();
+    ctx.moveTo(side * inside, top);
+    ctx.lineTo(side * outside, top + 3);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(24, 30, 42, 0.72)';
+    const at = side * span * (kind === 'saucer' ? 0.72 : 0.58);
+    ctx.fillRect(at - 1.5, 5.2, 3, 1.25);
+    ctx.strokeStyle = 'rgba(' + bounce + ', 0.48)';
+    ctx.beginPath();
+    ctx.moveTo(side * inside, top + 4.1);
+    ctx.lineTo(side * outside * 0.92, top + 5.2);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(' + engine + ', ' + (0.25 + heat * 0.46) + ')';
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  for (const [x, y, width] of engines) {
+    ctx.moveTo(x + width * 0.92, y);
+    ctx.ellipse(x, y, width * 0.92, width * 0.47, 0, 0, Math.PI);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 /**
  * @param {CanvasRenderingContext2D} ctx
  * @param {AirframeDetail} craft
@@ -389,5 +439,6 @@ export function drawAirframeDetails(ctx, craft) {
   engineHardware(ctx, craft);
   signatureHardware(ctx, craft);
   precisionMachining(ctx, craft);
+  materialResponse(ctx, craft);
   wear(ctx, craft);
 }

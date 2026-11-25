@@ -502,3 +502,20 @@ test('the three expansion worlds have unique sky caches and planetary landmarks'
     assert.ok(sky.args[0].key.startsWith(WARP_COURSES[race].theme + ' '));
   }
 });
+
+
+test('cinematic grading is cached for each world and animated effects respect reduced motion', () => {
+  const grade = (ctx) => callsNamed(ctx, 'drawImage').find((call) => call.args[0].layer === 'warp-cinematic-grade');
+  const normal = frame(game({ race: 5, nitroBurn: 1 }), 1000, false);
+  const still = frame(game({ race: 5, nitroBurn: 1 }), 1000, true);
+  assert.ok(grade(normal).args[0].key.startsWith('ice '));
+  assert.equal(grade(normal).args[0].calls.filter((call) => call.name === 'createRadialGradient').length, 1);
+  const fringe = (ctx) => callsNamed(ctx, 'fillRect').filter(({ brush }) => brush.fillStyle?.stops?.some(([, color]) => color === 'rgba(222, 95, 137, 0.13)'));
+  assert.equal(fringe(normal).length, 1);
+  assert.equal(fringe(still).length, 0);
+  assert.equal(fringe(frame(game({ race: 5 }), 1000, false)).length, 0);
+  assert.ok(stroked(normal, 'rgba(190, 218, 234, 0.30)') > 0);
+  assert.equal(stroked(still, 'rgba(190, 218, 234, 0.30)'), 0);
+  assert.ok(stroked(frame(game({ race: 6 }), 1000, false), 'rgba(223, 115, 58, 0.30)') > 0);
+  assert.ok(filled(frame(game({ spin: 0.5 }), 1000, false), 'rgba(57, 63, 76, 0.24)') > 0);
+});

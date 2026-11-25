@@ -184,6 +184,15 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
     ctx.stroke();
   }
 
+  // Projected landing-skid traces and material-specific edge weathering.
+  if (scale > 0.32 && index % 3 === 0) {
+    const grit = look.biome === 'ice' ? 'rgba(178, 210, 230, 0.26)' : look.biome === 'lava' ? 'rgba(211, 97, 47, 0.23)' : 'rgba(120, 132, 145, 0.19)';
+    ctx.lineWidth = Math.max(0.65, scale * 1.25);
+    seams(ctx, near, far, [[0.08, 0.088], [0.92, 0.912]], grit);
+    ctx.lineWidth = Math.max(0.65, scale * 1.9);
+    seams(ctx, near, far, [[0.26, 0.267], [0.74, 0.733]], 'rgba(5, 9, 16, 0.20)');
+  }
+
   // Extremely faint isolated wear flecks: seeded by distance, never by time.
   // Four marks maximum per near segment, irrespective of device resolution.
   if (scale > 0.38) {
