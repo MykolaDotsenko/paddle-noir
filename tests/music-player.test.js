@@ -447,7 +447,7 @@ test('Warp defaults to its original rock soundtrack and rotates by course withou
   assert.equal(player.track.id, 'redline');
   player.handle(events('serve'), race(4));
   assert.equal(player.track.id, 'rift-rock');
-  player.handle(events('paused'), race(4));
+  player.handle(events('paused'), { ...race(4), phase: 'paused' });
   player.handle(events('resumed'), race(4));
   assert.equal(player.track.id, 'rift-rock');
   assert.equal(preferences.get().track, 'neon');
@@ -461,7 +461,7 @@ test('explicit music picks override automatic Warp rock and new tracks can be pr
   const racing = { phase: 'running', warp: { race: 4 } };
   player.handle(events('match-start', 'serve'), racing);
   assert.equal(player.track.id, 'iron');
-  player.handle(events('paused'), racing);
+  player.handle(events('paused'), { ...racing, phase: 'paused' });
   preferences.set({ track: 'redline' });
   player.preview('redline');
   assert.equal(player.track.id, 'redline');
