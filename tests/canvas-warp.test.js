@@ -484,3 +484,10 @@ test('a craft\'s flames never add their light to what is under them, so they can
   assert.ok(flames.length >= 6, 'a flame an engine');
   assert.ok(flames.every(({ brush }) => brush.globalCompositeOperation === 'source-over'));
 });
+
+test('near-field deck panels use perspective-aligned beveled edges on every course', () => {
+  for (let race = 0; race < 5; race += 1) {
+    const ctx = frame(game({ race, z: 300, rivals: [] }), 0, true);
+    assert.ok(stroked(ctx, 'rgba(156, 169, 189, 0.24)') > 0, 'course ' + race);
+  }
+});
