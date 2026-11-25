@@ -537,3 +537,17 @@ test('close-up precision hardware has metal louvers and segmented exhaust collar
     assert.ok(stroked(hull({ kind, damage: 1 }), 'rgba(173, 184, 197, 0.52)') >= 1, kind);
   }
 });
+
+
+test('near craft use different directional metal, ceramic and hot nozzle responses without changing the beacon', () => {
+  const lighting = { key: '201, 140, 90', bounce: '83, 117, 153', engine: '165, 96, 65', direction: 0.8, heat: 0.8 };
+  for (const kind of KINDS) {
+    const near = hull({ kind, lighting });
+    const far = hull({ kind, lighting, scale: 0.3 });
+    assert.ok(stroked(near, 'rgba(83, 117, 153, 0.48)') >= 2, kind);
+    assert.ok(filled(near, 'rgba(24, 30, 42, 0.72)') >= 2, kind);
+    assert.equal(stroked(far, 'rgba(83, 117, 153, 0.48)'), 0, kind);
+    assert.notEqual(picture(near), picture(hull({ kind, lighting: { ...lighting, direction: -0.8 } })), kind);
+    assert.equal(callsNamed(near, 'fill').filter(({ brush }) => brush.fillStyle === CORE).length, 1, kind);
+  }
+});

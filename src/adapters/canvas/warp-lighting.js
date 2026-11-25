@@ -8,6 +8,8 @@
  * @import { Look, Scene } from './warp-scenery.js'
  */
 
+import { mixRgb } from './theme.js';
+
 /** @typedef {{ x: number, y: number, scale: number, depth: number }} Point */
 /** @typedef {{ left: Point, right: Point, stretch: number }} RoadRow */
 
@@ -242,5 +244,120 @@ export function drawJumpLighting(ctx, { x, y, groundY, glow }) {
   ctx.lineTo(x - spread, groundY);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+
+/**
+ * Cached edge-weighted color grade and vignette, applied before HUD.
+ * @param {Scene} scene
+ */
+export function drawCinematicGrade({ ctx, look, config, glows, race, still }) {
+  const { width, height } = config;
+  const key = (look.biome ?? look.skyline) + ' ' + width + ' ' + height;
+  const grade = glows.layer('warp-cinematic-grade', key, width, height, (layer) => {
+    const vignette = layer.createRadialGradient(width / 2, height * 0.53, height * 0.26, width / 2, height * 0.53, height * 0.78);
+    vignette.addColorStop(0, 'rgba(5, 9, 17, 0)');
+    vignette.addColorStop(0.65, 'rgba(5, 9, 17, 0.035)');
+    vignette.addColorStop(1, 'rgba(5, 9, 17, 0.24)');
+    layer.fillStyle = vignette;
+    layer.fillRect(0, 0, width, height);
+    const tint = layer.createLinearGradient(0, 0, 0, height);
+    tint.addColorStop(0, 'rgba(' + look.haze + ', 0.08)');
+    tint.addColorStop(0.38, 'rgba(' + look.haze + ', 0)');
+    tint.addColorStop(0.76, 'rgba(' + look.edge + ', 0)');
+    tint.addColorStop(1, 'rgba(' + look.edge + ', 0.07)');
+    layer.fillStyle = tint;
+    layer.fillRect(0, 0, width, height);
+  });
+  ctx.save();
+  ctx.drawImage(grade, 0, 0);
+  // Edge-only optical fringe, not a displaced framebuffer.
+  if (!still && (race.nitroBurn > 0 || race.abilityTime > 0)) {
+    const fringe = ctx.createLinearGradient(0, 0, width, 0);
+    fringe.addColorStop(0, 'rgba(222, 95, 137, 0.13)');
+    fringe.addColorStop(0.075, 'rgba(222, 95, 137, 0)');
+    fringe.addColorStop(0.925, 'rgba(83, 171, 230, 0)');
+    fringe.addColorStop(1, 'rgba(83, 171, 230, 0.13)');
+    ctx.fillStyle = fringe;
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.restore();
+}
+
+/**
+ * Course-aware key, fill and exhaust light.
+ * @param {Scene} scene
+ * @param {string} engine
+ * @param {boolean} boost
+ * @param {number} damage
+ */
+export function airframeLight({ look, view }, engine, boost, damage) {
+  return {
+    key: mixRgb(look.haze, '192, 184, 174', 0.4),
+    bounce: mixRgb(look.edge, '87, 97, 112', 0.42),
+    engine: boost ? '123, 173, 220' : mixRgb(engine, '193, 111, 63', 0.42),
+    direction: clamp((look.skyline === 'planet' ? -0.75 : 0.65) - view.heading * 0.19, -1, 1),
+    heat: clamp((boost ? 0.9 : 0.35) + damage * 0.35, 0, 1),
+  };
+}
+
+/**
+ * Bounded, deterministic smoke, exhaust turbulence and biome particles.
+ * @param {Scene} scene
+ * @param {{ x: number, y: number, glow: string, boost: boolean }} flight
+ */
+export function drawFlightAtmosphere({ ctx, race, look, now, still }, { x, y, glow, boost }) {
+  if (still || race.speed <= 0) return;
+  const power = clamp(race.speed / 75, 0, 1);
+  const biome = look.biome;
+  const tint = biome === 'ice' ? '190, 218, 234' : biome === 'lava' ? '223, 115, 58' : '141, 153, 170';
+  ctx.save();
+  ctx.lineCap = 'round';
+  if (race.spin > 0) {
+    ctx.fillStyle = 'rgba(57, 63, 76, 0.24)';
+    ctx.beginPath();
+    for (let puff = 0; puff < 5; puff += 1) {
+      const t = (now / 750 + puff / 5) % 1;
+      const r = 3 + t * 9;
+      const px = x + Math.sin(puff * 2.4 + t * 3) * 13;
+      const py = y + 15 + t * 46;
+      ctx.moveTo(px + r, py);
+      ctx.ellipse(px, py, r, r * 0.67, 0, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+  // Heat shimmer approximation: transparent curved bands of exhaust light.
+  if (boost) {
+    const trail = ctx.createLinearGradient(x, y + 8, x, y + 98);
+    trail.addColorStop(0, 'rgba(' + glow + ', 0.24)');
+    trail.addColorStop(0.55, 'rgba(' + glow + ', 0.08)');
+    trail.addColorStop(1, 'rgba(' + glow + ', 0)');
+    ctx.strokeStyle = trail;
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    for (const side of [-1, 1]) {
+      for (let band = 0; band < 3; band += 1) {
+        const at = (now / 220 + band / 3) % 1;
+        const yy = y + 17 + at * 69;
+        const xx = x + side * (10 + band * 5 + at * 8);
+        ctx.moveTo(xx - 3, yy);
+        ctx.quadraticCurveTo(xx + Math.sin(at * 9) * 5, yy + 7, xx + 4, yy + 12);
+      }
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(' + tint + ', 0.30)';
+  ctx.lineWidth = biome === 'ice' ? 1.6 : 1.1;
+  ctx.beginPath();
+  for (let i = 0; i < 12; i += 1) {
+    const side = i % 2 ? -1 : 1;
+    const t = ((race.z * 0.016 + i * 0.618) % 1 + 1) % 1;
+    const xx = x + side * (34 + t * 24);
+    const yy = y + 12 + t * 55;
+    ctx.moveTo(xx, yy);
+    ctx.lineTo(xx + side * power * 4, yy + (biome === 'ice' ? 3 : 7) * power);
+  }
+  ctx.stroke();
   ctx.restore();
 }

@@ -1,6 +1,6 @@
 import { mixRgb, THEME } from './theme.js';
 import { drawSkyLighting, LIGHT_FLOOR, LIGHT_SWAY, lightShift, paintSkyLight } from './warp-lighting.js';
-import { drawBackdrop, drawPlanetaryLandmark } from './warp-backdrop.js';
+import { drawBackdrop, drawDistantInfrastructure, drawPlanetaryLandmark } from './warp-backdrop.js';
 import { drawWorldArchitecture } from './warp-materials.js';
 
 /**
@@ -324,6 +324,7 @@ export function drawSky(scene) {
   // Distant procedural planes: they move more slowly than the existing skyline.
   // Draw before landmarks so mountains, towers and planets retain correct occlusion.
   drawBackdrop(scene);
+  drawDistantInfrastructure(scene);
 
   switch (look.skyline) {
     case 'city':

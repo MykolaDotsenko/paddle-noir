@@ -42,6 +42,7 @@ import { drawAirframeDetails } from './warp-airframe-details.js';
  * @property {number} [pitch] nose-up attitude, for a small depth change in the silhouette
  * @property {boolean} [active] signature system is engaged
  * @property {number} [damage] visible airframe wear, 0 fresh to 1 heavily damaged
+ * @property {{ key: string, bounce: string, engine: string, direction: number, heat: number }} [lighting] directional scene lighting
  * @property {number} flame 0 to 1 and a little more
  * @property {boolean} nitro whether it burns nitro: a longer, blue flame
  * @property {number} rockets how many hang under its wings
@@ -853,6 +854,7 @@ export function drawHull(ctx, style) {
       kind, paint: style.paint, span, bank,
       yaw: style.yaw ?? 0, pitch: style.pitch ?? 0,
       active: style.active ?? false, damage: style.damage ?? 0, engines,
+      lighting: style.lighting ?? { key: '171, 180, 193', bounce: '91, 107, 126', engine: '185, 113, 70', direction: 0.6, heat: 0.35 },
     });
   }
 
