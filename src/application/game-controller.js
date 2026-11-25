@@ -686,6 +686,7 @@ export class GameController {
       craft: chosenCraft(this.catalog.hangar, this.preferences.get().hangar).name,
       steering: this.preferences.get().warpSteering ?? 'buttons',
       story: { ...warpStoryView(race), active: this.state.phase === GAME_PHASE.RUNNING && this.state.serveCountdown <= 0 && !race.finished },
+      bounty: { name: rules.courses[race.race].pilots.at(-1)?.name ?? '', claimed: race.story.bountyClaimed },
       ending: warpStoryEnding((race.story?.recovered ?? 0) + Number(race.story?.done ?? false)),
       abilityCooldown: race.abilityCooldown,
       abilityTime: race.abilityTime,

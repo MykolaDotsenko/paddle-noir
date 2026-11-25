@@ -210,6 +210,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @property {string} craft the craft being flown, by name
  * @property {WarpSteeringMode} steering selected flight control scheme
  * @property {{ chapter: number, title: string, mission: string, progress: number, target: number, completed: boolean, recovered: number, speaker: string, hostile: boolean, message: string, active: boolean }} story the chapter mission and short radio transcript; hostile when the villain breaks in
+ * @property {{ name: string, claimed: boolean }} [bounty] optional race-side rival contract
  * @property {{ title: string, text: string }} ending how the story ends, shown once the cup is won
  * @property {number} signal the chapters whose fragment of the story's signal has ever been recovered, a bit a chapter
  * @property {number} chapters how many chapters the story has

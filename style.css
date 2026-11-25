@@ -369,6 +369,12 @@ canvas:focus-visible {
 .board .warp-mission__task {
   font: 750 clamp(8px, 1.95cqw, 11px)/1.2 system-ui, sans-serif;
 }
+.board .warp-mission__bounty {
+  color: #fbbf24;
+  font: 800 clamp(7px, 1.55cqw, 9px)/1.15 system-ui, sans-serif;
+  white-space: nowrap;
+}
+.board .warp-mission__bounty:empty { display: none; }
 .board .warp-mission[data-completed="true"] {
   border-color: rgba(163, 230, 53, 0.6);
   background: rgba(20, 40, 22, 0.78);

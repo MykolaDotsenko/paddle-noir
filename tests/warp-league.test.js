@@ -31,6 +31,8 @@ test('both service relays refill once per crossing, never beyond the loadout', (
 test('one bounty per race, announced by name and paid only for the target', () => {
   const race = raceState(WARP_CONFIG, 0);
   race.z = race.course.length * 0.12 + 1;
+  race.story.leagueTime = 3;
+  race.story.leagueCall = 'An earlier call';
   step(race, race.z - 2);
   assert.match(race.story.leagueCall, /Hryts/);
   step(race, race.z, [down(0)]);
@@ -72,4 +74,11 @@ test('VOLT FM responds to the race without interrupting the plot or spamming', (
   race.finished = true;
   step(race, 299, [], 7);
   assert.match(race.story.leagueCall, /FINAL STRETCH/);
+});
+
+test('a custom empty rival field safely skips league contracts', () => {
+  const race = raceState(WARP_CONFIG, 0);
+  const empty = { ...rules, courses: [{ ...rules.courses[0], pilots: [] }, ...rules.courses.slice(1)] };
+  advanceWarpLeague(race, empty, [], 0, 0.1);
+  assert.equal(race.story.bountyClaimed, false);
 });

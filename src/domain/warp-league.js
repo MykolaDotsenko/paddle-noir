@@ -28,7 +28,8 @@ export function advanceWarpLeague(race, rules, events, from, seconds) {
   story.leagueTime = Math.max(0, story.leagueTime - seconds);
   const pilots = rules.courses[race.race].pilots;
   const target = pilots.length - 1;
-  const bounty = pilots[target].name;
+  const bounty = pilots[target]?.name;
+  if (!bounty) return;
   let call = '';
   for (const fraction of SERVICE_RELAYS) {
     const relay = race.course.length * fraction;
@@ -45,11 +46,12 @@ export function advanceWarpLeague(race, rules, events, from, seconds) {
     call = `BOUNTY CLAIMED: ${bounty}! +300 points and a supply refill.`;
   }
 
+  const marker = race.course.length * 0.12;
+  if (!call && from < marker && race.z >= marker && !story.bountyClaimed) {
+    call = `OUTLAW BOUNTY: take down ${bounty} for 300 points and supplies!`;
+  }
   if (!call && story.leagueTime === 0) {
-    const marker = race.course.length * 0.12;
-    if (from < marker && race.z >= marker && !story.bountyClaimed) {
-      call = `OUTLAW BOUNTY: take down ${bounty} for 300 points and supplies!`;
-    } else if (events.some((event) => event.type === 'final-stretch')) {
+    if (events.some((event) => event.type === 'final-stretch')) {
       call = 'FINAL STRETCH! Burn that fuel. Make the finish yours!';
     } else if (events.some((event) => event.type === 'takedown')) {
       call = 'RIVAL DOWN! That is how the Outlaw League races!';
