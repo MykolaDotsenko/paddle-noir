@@ -785,6 +785,12 @@ export class DomGameView {
         if (heading && heading.textContent !== label) heading.textContent = label;
         if (task && task.textContent !== progress) task.textContent = progress;
         this.storyMission.dataset.completed = String(story.completed);
+        const contract = this.storyMission.querySelector('[data-warp-bounty]');
+        const bounty = presentation.warp?.bounty;
+        if (contract) {
+          const label = bounty?.name ? (bounty.claimed ? 'BOUNTY CLAIMED · +300' : `BOUNTY: ${bounty.name.toUpperCase()} · +300`) : '';
+          if (contract.textContent !== label) contract.textContent = label;
+        }
       }
     }
     if (this.storyRadio) {
@@ -793,7 +799,7 @@ export class DomGameView {
         const sender = this.storyRadio.querySelector('[data-warp-sender]');
         const message = this.storyRadio.querySelector('[data-warp-message]');
         // The Landlord breaks in on the channel: his lines read as an intercept, in red.
-        const title = `${story.speaker} · ${story.hostile ? 'INTERCEPT' : 'INCOMING'}`;
+        const title = `${story.speaker} · ${story.hostile ? 'INTERCEPT' : story.speaker === 'VOLT FM' ? 'LIVE' : 'INCOMING'}`;
         if (sender && sender.textContent !== title) sender.textContent = title;
         this.storyRadio.dataset.hostile = String(story.hostile === true);
         if (message && message.textContent !== story.message) message.textContent = story.message;

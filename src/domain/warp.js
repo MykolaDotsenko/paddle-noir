@@ -1,6 +1,7 @@
 import { clamp } from './physics.js';
 import { nextRandom } from './random.js';
 import { advanceWarpStory, startWarpStory } from './warp-story.js';
+import { advanceWarpLeague } from './warp-league.js';
 import { chargeMeter, isLoaded } from './supers.js';
 
 /**
@@ -1353,6 +1354,7 @@ export function advanceWarp(state, deltaSeconds, config, events, action = false)
   // Dispatch the chapter's optional objective and short, timed radio messages
   // before the finish so collecting the last fragment still counts.
   advanceWarpStory(race, rules, events, deltaSeconds);
+  advanceWarpLeague(race, rules, events, from, deltaSeconds);
 
   if (race.z >= race.course.length) {
     finish(lap);
