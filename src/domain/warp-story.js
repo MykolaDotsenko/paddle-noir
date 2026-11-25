@@ -1,5 +1,5 @@
 /**
- * THE LAST SIGNAL — Warp's original five-chapter story.
+ * THE LAST SIGNAL — Warp's eight-chapter story.
  *
  * Missions are optional, approachable flight feats that reuse the existing
  * rings, boosters, launch ramps, caches and Warp drive. The story never pauses
@@ -92,7 +92,7 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     intro: 'Our pit crew smuggled HORIZON’s flight map into supply caches.',
     reveal: 'LANDLORD rigged the league to hide his reactor blockade.',
     intercept: 'My sponsors paid for that map. Cross me and you’ll pay them.',
-    warning: 'The outer ring is sealed. The final race is our only way inside.',
+    warning: 'The outer ring is sealed. The next race is our only way inside.',
     secured: 'Map decrypted: a route through the reactor grid. Shield restored.',
     fragment: 'The way home runs through the reactor grid. Follow the rings.',
   },
@@ -106,9 +106,51 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     intro: 'Your engine is on our scope! His escorts block the rescue lane.',
     reveal: 'Reactor failing. Every escort you disable opens our escape window.',
     intercept: 'My league, my reactor, my gate. No one walks away a champion.',
-    warning: 'The gate is closing. Give the crowd a champion and us a way home!',
+    warning: 'The gate is closing. Get HORIZON through to the outer colonies!',
     secured: 'Blockade broken. HORIZON’s way home is open. Shields reinforced.',
-    fragment: 'Thank you, pilot. Whoever you are, HORIZON is coming home.',
+    fragment: 'We escaped the core. Three relay worlds stand between us and home.',
+  },
+  {
+    title: '06 · FROZEN FREQUENCY',
+    mission: 'Fly through 6 air rings',
+    objective: 'air',
+    target: 6,
+    reward: 'nitro',
+    commander: 'CAPTAIN LYRA',
+    intro: 'The ice moon hides our distress beacon. Jump to the relay.',
+    reveal: 'Frost knows the glaciers. Follow the high route to the signal.',
+    intercept: 'You think a little ice will stop my league?',
+    warning: 'The beacon is almost clear. Keep climbing!',
+    secured: 'Polar beacon linked. Nitro restored.',
+    fragment: 'The ice relay carries the first proof of our escape.',
+  },
+  {
+    title: '07 · BURNING EVIDENCE',
+    mission: 'Collect 4 supply caches',
+    objective: 'ammo',
+    target: 4,
+    reward: 'shield',
+    commander: 'ECHO',
+    intro: 'The foundry has evidence of the stolen reactor. Find the caches.',
+    reveal: 'Cinder guards the smelter. His crew is loading our stolen cargo.',
+    intercept: 'The foundry belongs to me. So does everything inside it.',
+    warning: 'Our courier is ready. Carry the proof out of the furnace.',
+    secured: 'Foundry records secured. Shield restored.',
+    fragment: 'The records name the sponsors who financed the blockade.',
+  },
+  {
+    title: '08 · THE LAST OUTLAW',
+    mission: 'Take down 7 rivals',
+    objective: 'takedown',
+    target: 7,
+    reward: 'shield',
+    commander: 'CAPTAIN LYRA',
+    intro: 'The scrapyard is our final escape corridor. Break their blockade.',
+    reveal: 'Rivet has the convoy pinned. Clear the lane for HORIZON.',
+    intercept: 'One last race, pilot. Nobody leaves my dominion!',
+    warning: 'We can see the exit! Win the race and bring us home.',
+    secured: 'Escape corridor clear. Shields reinforced.',
+    fragment: 'HORIZON is home. The league belongs to its pilots again.',
   },
 ]).map((chapter) => Object.freeze(chapter)));
 

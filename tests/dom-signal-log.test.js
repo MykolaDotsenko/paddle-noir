@@ -80,10 +80,10 @@ test('the log opens from its card and lists every chapter: decoded once recovere
   assert.equal(dialog.hasAttribute('open'), false);
   click(card);
   assert.equal(dialog.hasAttribute('open'), true);
-  assert.equal(summary.textContent, '2 of 5 fragments recovered');
+  assert.equal(summary.textContent, '2 of 8 fragments recovered');
   assert.deepEqual(shown(entries)[0], ['true', `◆ ${WARP_STORY[0].title}`, `“${WARP_STORY[0].fragment}”`]);
   assert.deepEqual(shown(entries)[1], ['false', `◇ ${WARP_STORY[1].title}`, 'Encrypted. Fly its mission to decode it: hit 9 boost pads.']);
-  assert.deepEqual(shown(entries).map(([recovered]) => recovered), ['true', 'false', 'true', 'false', 'false']);
+  assert.deepEqual(shown(entries).map(([recovered]) => recovered), ['true', 'false', 'true', 'false', 'false', 'false', 'false', 'false']);
   assert.equal(reward.textContent, 'Recover all 5 for the Signal decal in the hangar.');
   assert.equal(reward.dataset.earned, 'false');
 
@@ -98,7 +98,7 @@ test('read fresh each time it opens, and once every fragment is in, the decal is
   click(close);
   preferences.set({ signal: 0b11111 });
   click(card);
-  assert.equal(summary.textContent, '5 of 5 fragments recovered');
+  assert.equal(summary.textContent, '5 of 8 fragments recovered');
   assert.equal(reward.dataset.earned, 'true');
   assert.match(reward.textContent, /Signal decal waits on the hangar's paint bench/);
 });

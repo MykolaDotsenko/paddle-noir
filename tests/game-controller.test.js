@@ -1304,7 +1304,7 @@ test('in the menu Warp tells what there is to do', () => {
   assert.equal(story.mission, 'Fly 12 rings dead center');
   assert.deepEqual([story.progress, story.target, story.completed, story.active], [0, 12, false, false]);
   assert.equal(ending.title, 'THE SIGNAL SURVIVES');
-  assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', steering: 'buttons', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0, signal: 0b00011, chapters: 5 });
+  assert.deepEqual(overview, { race: 1, races: WARP.courses.length, name: WARP.courses[0].name, place: 6, points: 0, best: 8800, newBest: false, craft: 'Kestrel', steering: 'buttons', abilityCooldown: 0, abilityTime: 0, tickets: 0, earned: 0, signal: 0b00011, chapters: 8 });
   assert.deepEqual(Object.keys(controls), ['nitro', 'guns', 'rockets', 'shield', 'warp']);
   assert.ok(Object.values(controls).every((control) => !control.ready), 'bridge controls start disabled in the menu');
   assert.deepEqual(presentation.opponent, { label: 'Race', name: 'The field', proper: false });

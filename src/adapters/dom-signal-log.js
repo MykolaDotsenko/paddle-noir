@@ -116,7 +116,7 @@ export class DomSignalLog {
     const earned = found >= this.reward;
     reward.dataset.earned = String(earned);
     reward.textContent = earned
-      ? 'HORIZON is home. Its Signal decal waits on the hangar\'s paint bench.'
+      ? 'Five fragments decoded. The Signal decal waits on the hangar\'s paint bench.'
       : `Recover all ${this.reward} for the Signal decal in the hangar.`;
   }
 }

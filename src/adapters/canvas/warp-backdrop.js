@@ -347,3 +347,74 @@ export function drawBackdrop(scene) {
     default: break;
   }
 }
+
+/**
+ * A distinct foreground skyline for each new league world. These are scenic,
+ * non-collidable silhouettes that stay above the road and move with parallax.
+ * @param {Scene} scene
+ * @param {'ice' | 'lava' | 'scrap'} biome
+ */
+export function drawPlanetaryLandmark(scene, biome) {
+  const { ctx, config } = scene;
+  const span = config.width + PAD * 2;
+  const shift = offsetOf(scene, 0.82);
+  ctx.save();
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 7; i += 1) {
+    const x = wrap(i * span / 7 + shift, span) - PAD;
+    const h = 34 + sample(i, 91) * 55;
+    const y = HORIZON - 6;
+    if (biome === 'ice') {
+      // Angular glacier spires, with pale facets and deep blue crevasses.
+      ctx.fillStyle = 'rgba(24, 62, 89, 0.92)';
+      ctx.beginPath();
+      ctx.moveTo(x - 25, y);
+      ctx.lineTo(x - 9, y - h * 0.65);
+      ctx.lineTo(x + 5, y - h);
+      ctx.lineTo(x + 29, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(174, 210, 228, 0.76)';
+      ctx.beginPath();
+      ctx.moveTo(x + 5, y - h);
+      ctx.lineTo(x + 29, y);
+      ctx.lineTo(x + 8, y - h * 0.32);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(88, 161, 197, 0.82)';
+      ctx.stroke();
+    } else if (biome === 'lava') {
+      // Slag mountains with luminous magma channels in their fractured faces.
+      ctx.fillStyle = 'rgba(48, 19, 17, 0.96)';
+      ctx.beginPath();
+      ctx.moveTo(x - 40, y);
+      ctx.lineTo(x - 10, y - h);
+      ctx.lineTo(x + 12, y - h * 0.92);
+      ctx.lineTo(x + 38, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(249, 105, 35, 0.86)';
+      ctx.beginPath();
+      ctx.moveTo(x + 2, y - h * 0.85);
+      ctx.lineTo(x - 4, y - h * 0.52);
+      ctx.lineTo(x + 13, y - h * 0.31);
+      ctx.lineTo(x + 9, y);
+      ctx.stroke();
+    } else {
+      // Salvage cranes and suspended cargo frames silhouette the scrapyard.
+      ctx.fillStyle = 'rgba(34, 41, 31, 0.96)';
+      ctx.fillRect(x - 8, y - h, 16, h);
+      ctx.fillRect(x - 8, y - h, 48, 6);
+      ctx.strokeStyle = 'rgba(162, 175, 108, 0.84)';
+      ctx.beginPath();
+      ctx.moveTo(x, y - h + 8);
+      ctx.lineTo(x + 38, y - h + 6);
+      ctx.lineTo(x + 38, y - h * 0.4);
+      ctx.lineTo(x + 30, y - h * 0.35);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(105, 83, 49, 0.9)';
+      ctx.fillRect(x + 24, y - h * 0.35, 18, 11);
+    }
+  }
+  ctx.restore();
+}

@@ -1701,7 +1701,7 @@ test.describe('in Warp', () => {
     }
   });
 
-  test.describe('with every fragment of the story recovered', () => {
+  test.describe('with the original five fragments recovered', () => {
     test.use({ stored: { mode: 'warp', signal: 0b11111, jokes: false } });
 
     test('the Signal Log keeps the story between cups, and its decal is waiting in the hangar', async ({ page, hasTouch }) => {
@@ -1710,11 +1710,11 @@ test.describe('in Warp', () => {
       const card = page.getByRole('button', { name: /Signal Log/ });
       const log = page.getByRole('dialog', { name: 'The Last Signal' });
 
-      await expect(card).toContainText('5/5');
+      await expect(card).toContainText('5/8');
       await press(card);
       await expect(log).toBeVisible();
-      await expect(log.locator('[data-signal-summary]')).toHaveText('5 of 5 fragments recovered');
-      await expect(log.locator('li')).toHaveCount(5);
+      await expect(log.locator('[data-signal-summary]')).toHaveText('5 of 8 fragments recovered');
+      await expect(log.locator('li')).toHaveCount(8);
       await expect(log.locator('li').first()).toContainText('This is HORIZON.');
       await expect(log.locator('[data-signal-reward]')).toContainText('Signal decal');
       await press(log.getByRole('button', { name: 'Close' }));

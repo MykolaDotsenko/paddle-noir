@@ -1,6 +1,6 @@
 import { mixRgb, THEME } from './theme.js';
 import { drawSkyLighting, LIGHT_FLOOR, LIGHT_SWAY, lightShift, paintSkyLight } from './warp-lighting.js';
-import { drawBackdrop } from './warp-backdrop.js';
+import { drawBackdrop, drawPlanetaryLandmark } from './warp-backdrop.js';
 import { drawWorldArchitecture } from './warp-materials.js';
 
 /**
@@ -47,6 +47,7 @@ import { drawWorldArchitecture } from './warp-materials.js';
  * @property {string} skylineRgb
  * @property {'palms' | 'cliffs' | 'pylons' | 'station' | 'tunnel'} side what stands beside the lane
  * @property {string} dust "r, g, b" of what flies past
+ * @property {'ice' | 'lava' | 'scrap'} [biome] extra planetary landmark layer
  * @property {boolean} stars
  *
  * @typedef {object} Palette a look's colors, ready to paint with
@@ -172,6 +173,30 @@ export const LOOKS = Object.freeze({
     dust: '253, 164, 175',
     stars: false,
   }),
+  ice: Object.freeze({
+    sky: ['#061226', '#164365', '#477e9a', '#a8d5e0'],
+    haze: '144, 198, 222', ground: ['23, 49, 68', '17, 36, 55'],
+    depths: '', grid: '94, 148, 181', lane: ['18, 38, 58', '29, 55, 74'],
+    edge: '125, 211, 252', stripe: '148, 163, 184', ring: '251, 191, 36',
+    skyline: 'mesas', skylineRgb: '125, 165, 189', side: 'cliffs',
+    dust: '186, 218, 233', stars: true, biome: 'ice',
+  }),
+  lava: Object.freeze({
+    sky: ['#180806', '#47130b', '#a2340b', '#df791a'],
+    haze: '238, 112, 46', ground: ['45, 16, 11', '26, 10, 9'],
+    depths: '', grid: '143, 49, 18', lane: ['35, 18, 20', '55, 29, 25'],
+    edge: '249, 115, 22', stripe: '250, 204, 21', ring: '125, 211, 252',
+    skyline: 'mesas', skylineRgb: '168, 71, 41', side: 'cliffs',
+    dust: '251, 146, 60', stars: false, biome: 'lava',
+  }),
+  scrap: Object.freeze({
+    sky: ['#0c1415', '#24322a', '#596047', '#9c9564'],
+    haze: '164, 174, 105', ground: ['38, 41, 31', '24, 28, 23'],
+    depths: '', grid: '101, 125, 67', lane: ['26, 34, 31', '43, 48, 36'],
+    edge: '163, 230, 53', stripe: '251, 146, 60', ring: '232, 121, 249',
+    skyline: 'city', skylineRgb: '123, 140, 101', side: 'station',
+    dust: '205, 190, 133', stars: false, biome: 'scrap',
+  }),
 });
 
 /**
@@ -273,7 +298,7 @@ export function drawSky(scene) {
   // race, so they are painted once and copied each frame, slid with the light as the lane turns.
   const left = -PAD - LIGHT_SWAY;
   const right = width + PAD + LIGHT_SWAY;
-  const kept = glows.layer('warp-sky', `${look.skyline} ${width} ${height}`, right - left, LIGHT_FLOOR + PAD, (layer) => {
+  const kept = glows.layer('warp-sky', `${look.biome ?? look.skyline} ${width} ${height}`, right - left, LIGHT_FLOOR + PAD, (layer) => {
     layer.translate(-left, PAD);
     paintSkyColors(layer, look, height, left, right, -PAD, LIGHT_FLOOR);
     paintSkyLight(layer, look, width, left, right);
@@ -328,6 +353,7 @@ export function drawSky(scene) {
 
   // Mid-depth structural silhouettes enrich the five worlds without adding hazards.
   drawWorldArchitecture(scene);
+  if (look.biome) drawPlanetaryLandmark(scene, look.biome);
 
   // Atmospheric scatter sits behind the track, but over the distant skyline.
   drawSkyLighting(scene);
