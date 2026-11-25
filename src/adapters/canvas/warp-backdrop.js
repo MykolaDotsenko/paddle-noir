@@ -346,7 +346,6 @@ export function drawBackdrop(scene) {
     case 'core': tunnel(scene); break;
     default: break;
   }
-  drawDistantInfrastructure(scene);
 }
 
 /**
@@ -425,7 +424,7 @@ export function drawPlanetaryLandmark(scene, biome) {
  * Mid-distance silhouettes with batched struts and sparse window lights.
  * @param {Scene} scene
  */
-function drawDistantInfrastructure(scene) {
+export function drawDistantInfrastructure(scene) {
   const { ctx, look, config, still, now } = scene;
   const width = config.width + PAD * 2;
   const shift = offsetOf(scene, 0.45);

@@ -19,7 +19,7 @@ import { mixRgb } from './theme.js';
  * @property {number} pitch longitudinal pitch
  * @property {number} damage 0 to 1: how worn the rival hull is
  * @property {boolean} active whether the craft's signature system is running
- * @property {{ key: string, bounce: string, engine: string, direction: number, heat: number }} lighting
+ * @property {{ key: string, bounce: string, engine: string, direction: number, heat: number }} [lighting]
  * @property {readonly (readonly [number, number, number])[]} engines engine positions
  */
 
@@ -388,7 +388,7 @@ function precisionMachining(ctx, { kind, span, paint, engines, bank, active, dam
  * @param {AirframeDetail} craft
  */
 function materialResponse(ctx, { kind, span, paint, engines, bank, lighting }) {
-  const { key, bounce, engine, direction, heat } = lighting;
+  const { key, bounce, engine, direction, heat } = lighting ?? { key: '171, 180, 193', bounce: '91, 107, 126', engine: '185, 113, 70', direction: 0.6, heat: 0.35 };
   const light = Math.max(-1, Math.min(1, direction - Math.sin(bank) * 0.45));
   ctx.save();
   ctx.lineJoin = 'round';
