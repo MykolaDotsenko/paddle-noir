@@ -16,6 +16,8 @@ const SCHEDULE_INTERVAL_MS = 80;
 const PREVIEW_MS = 4000;
 const PREVIEW_RALLY = 6;
 const NOISE_SECONDS = 0.5;
+/** @type {readonly TrackId[]} */
+const WARP_ROCK = Object.freeze(['outlaw', 'redline', 'outlaw', 'redline', 'rift-rock']);
 /** Peak gains of the synthesized drums. */
 const DRUM_GAIN = Object.freeze({ kick: 0.16, snare: 0.07, hat: 0.03 });
 
@@ -73,6 +75,8 @@ export class MusicPlayer {
     /** @type {ReturnType<typeof setTimeout> | null} */
     this.previewTimer = null;
     this.rallyBeforePreview = 0;
+    /** @type {number | null} null outside Warp; otherwise the current course index */
+    this.warpCourse = null;
   }
 
   get enabled() {
@@ -88,6 +92,7 @@ export class MusicPlayer {
    * @param {GameState} state
    */
   handle(events, state) {
+    this.warpCourse = state.warp ? (state.warp.race ?? 0) : null;
     for (const event of events) {
       switch (event.type) {
         case 'match-start':
@@ -120,7 +125,10 @@ export class MusicPlayer {
         // A race has no rallies: the chords come in as the lights go green, the lead for the
         // final stretch, and the chords alone again past the line.
         case 'serve':
-          if (state.warp) this.setIntensity(3);
+          if (state.warp) {
+            this.useTrack(this.raceTrack());
+            this.setIntensity(3);
+          }
           break;
         case 'final-stretch':
           this.setIntensity(6);
@@ -219,13 +227,22 @@ export class MusicPlayer {
     return true;
   }
 
+  /** Default Neon is a mode-aware pick; explicit non-default selections always win. */
+  raceTrack() {
+    const selected = this.preferences.get().track;
+    if (this.warpCourse !== null && (!selected || selected === 'neon')) {
+      return WARP_ROCK[this.warpCourse % WARP_ROCK.length];
+    }
+    return selected;
+  }
+
   start() {
     if (this.playing || !this.enabled || !this.ensureContext()) {
       return;
     }
 
     if (!this.previewing) {
-      this.useTrack(this.preferences.get().track);
+      this.useTrack(this.raceTrack());
     }
 
     const context = /** @type {AudioContext} */ (this.context);

@@ -1195,7 +1195,7 @@ test('the track button cycles the music, plays a sample of each track and rememb
   await expect(track).toContainText('Arena');
   await expect.poll(() => page.evaluate(() => window.scheduledNotes)).toBeGreaterThan(0);
 
-  for (const name of ['Anthem', 'Contender', 'Iron', 'Eurodance', 'Rave', 'Trance', 'Rondo', 'Cancan', 'Ode', 'Shchedryk', 'Neon', 'Arena']) {
+  for (const name of ['Anthem', 'Contender', 'Iron', 'Eurodance', 'Rave', 'Trance', 'Rondo', 'Cancan', 'Ode', 'Shchedryk', 'Outlaw Rock', 'Redline Riot', 'Rift Thunder', 'Neon', 'Arena']) {
     await track.click();
     await expect(track).toHaveAccessibleName(`Music track: ${name}`);
   }

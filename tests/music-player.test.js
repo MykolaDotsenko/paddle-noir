@@ -437,3 +437,34 @@ test('in a race the chords come in as the lights go green, the lead for the fina
   player.handle(events('race-finish'), racing);
   assert.deepEqual([layerGain(player, 'chord'), layerGain(player, 'lead')], [1, 0]);
 });
+
+test('Warp defaults to its original rock soundtrack and rotates by course without changing preferences', () => {
+  const { player, preferences } = setup({ track: 'neon' });
+  const race = (index) => ({ phase: 'running', warp: { race: index } });
+  player.handle(events('match-start'), race(0));
+  assert.equal(player.track.id, 'outlaw');
+  player.handle(events('serve'), race(1));
+  assert.equal(player.track.id, 'redline');
+  player.handle(events('serve'), race(4));
+  assert.equal(player.track.id, 'rift-rock');
+  player.handle(events('paused'), race(4));
+  player.handle(events('resumed'), race(4));
+  assert.equal(player.track.id, 'rift-rock');
+  assert.equal(preferences.get().track, 'neon');
+  player.handle(events('menu'), running);
+  player.handle(events('match-start'), running);
+  assert.equal(player.track.id, 'neon');
+});
+
+test('explicit music picks override automatic Warp rock and new tracks can be previewed', () => {
+  const { player, preferences } = setup({ track: 'iron' });
+  const racing = { phase: 'running', warp: { race: 4 } };
+  player.handle(events('match-start', 'serve'), racing);
+  assert.equal(player.track.id, 'iron');
+  player.handle(events('paused'), racing);
+  preferences.set({ track: 'redline' });
+  player.preview('redline');
+  assert.equal(player.track.id, 'redline');
+  player.handle(events('resumed'), racing);
+  assert.equal(player.track.id, 'redline');
+});

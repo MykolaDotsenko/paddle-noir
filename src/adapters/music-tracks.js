@@ -1,7 +1,7 @@
 /** @import { TrackId } from '../application/ports.js' */
 
 /**
- * Backing tracks for the music player, written as step sequences. Five are original; the seven
+ * Backing tracks for the music player, written as step sequences. Eight are original; the seven
  * in nineties dance styles arrange melodies long in the public domain, so nothing here is
  * taken from a record. A step is a sixteenth note and a bar has 16 of them. Pitches are
  * semitones above the track's root frequency; null is a rest. Every part loops, so a pattern
@@ -395,6 +395,69 @@ export const MUSIC_TRACKS = Object.freeze([
       ],
     },
     drums: { kick: 'x...x...x...', snare: '....x.......', hat: '..x...x...x.' },
+  },
+  {
+    // Original sixteen-bit hard rock: palm-muted-style pulses and power chords.
+    id: 'outlaw',
+    label: 'Outlaw Rock',
+    bpm: 146,
+    root: 82.41,
+    bars: [0,0,3,-2,0,5,3,-2],
+    bass: { wave: 'square', volume: 0.095, length: 0.85, notes: [0, 0, _, 0, 7, _, 0, 0, 0, _, 3, 0, 5, 7, _, 0] },
+    chord: { wave: 'sawtooth', volume: 0.043, length: 1.65, hits: 'x..x..x.x..x.x..', chords: [[12, 19, 24]] },
+    lead: { wave: 'sawtooth', volume: 0.052, length: 1.7, every: 2, notes: [
+      24, _, 27, 29, 31, 29, 27, _,
+      24, 31, 34, 31, 29, _, 27, 24,
+      27, 29, 31, _, 34, 36, 34, 31,
+      22, 24, 26, 29, 31, _, 26, 22,
+      24, _, 29, 31, 34, 31, 29, 27,
+      29, 31, 36, 34, 36, _, 31, 29,
+      27, 34, 36, 34, 31, 29, 27, _,
+      26, 29, 31, 34, 31, 26, 24, _,
+    ] },
+    drums: { kick: 'x.x...x.x.x...x.', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xx' },
+  },
+  {
+    // Original sixteen-bit hard rock: palm-muted-style pulses and power chords.
+    id: 'redline',
+    label: 'Redline Riot',
+    bpm: 158,
+    root: 73.42,
+    bars: [0,0,5,3,0,0,-2,3],
+    bass: { wave: 'square', volume: 0.095, length: 0.85, notes: [0, _, 0, 0, 0, 0, _, 0, 7, _, 0, 0, 5, 3, 0, _] },
+    chord: { wave: 'sawtooth', volume: 0.043, length: 1.65, hits: 'x.x.x..xx.x..x..', chords: [[12, 19, 24]] },
+    lead: { wave: 'sawtooth', volume: 0.052, length: 1.7, every: 2, notes: [
+      24, 24, 27, 31, 29, _, 27, 24,
+      24, 29, 31, 34, 31, 29, 27, _,
+      29, 31, 36, 34, 36, 31, 29, _,
+      27, 31, 34, 39, 36, 34, 31, 27,
+      24, _, 24, 29, 31, 34, 31, 29,
+      24, 27, 31, 36, 34, 31, 27, _,
+      22, 24, 29, 31, 29, 26, 24, 22,
+      27, 31, 34, 36, 34, 31, 27, _,
+    ] },
+    drums: { kick: 'x.x.x.x.x.x.xx..', snare: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx' },
+  },
+  {
+    // Original sixteen-bit hard rock: palm-muted-style pulses and power chords.
+    id: 'rift-rock',
+    label: 'Rift Thunder',
+    bpm: 138,
+    root: 98,
+    bars: [0,-2,-5,-3,0,-2,-5,-3],
+    bass: { wave: 'square', volume: 0.095, length: 0.85, notes: [0, _, 0, 0, 7, _, 0, _, 0, 0, 3, _, 5, 0, 7, _] },
+    chord: { wave: 'sawtooth', volume: 0.043, length: 1.65, hits: 'x...x.x.x..x..x.', chords: [[12, 19, 24]] },
+    lead: { wave: 'sawtooth', volume: 0.052, length: 1.7, every: 2, notes: [
+      24, _, 31, 34, 31, 29, 27, _,
+      22, 29, 31, 34, 31, 29, 26, _,
+      19, 24, 26, 31, 29, 26, 24, _,
+      21, 24, 28, 31, 33, 31, 28, _,
+      24, 27, 31, 36, 34, 31, 29, 27,
+      22, 26, 29, 34, 31, 29, 26, _,
+      19, 26, 31, 29, 26, 24, 26, 19,
+      21, 28, 33, 36, 33, 31, 28, 24,
+    ] },
+    drums: { kick: 'x...x.x.x.x...x.', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
   },
 ]);
 
