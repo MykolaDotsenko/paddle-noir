@@ -147,7 +147,7 @@ test('WARP drives every craft forward and briefly phases it while retaining its 
 
 test('the intro races offer safe opening space, more rewards and fewer early hazards', () => {
   assert.equal(WARP_LIVES, 4, 'four credits to the cup');
-  assert.deepEqual(WARP_COURSES.map((course) => course.qualify), [3, 3, 3, 3, 2]);
+  assert.deepEqual(WARP_COURSES.map((course) => course.qualify), [3, 3, 3, 3, 2, 3, 3, 2]);
 
   const course = buildCourse(WARP_CONFIG, 0);
   const hazards = course.items.filter((item) => ['mine', 'debris', 'cargo', 'gate'].includes(item.kind));
