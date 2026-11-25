@@ -263,6 +263,124 @@ function wear(ctx, { damage, span }) {
 }
 
 /**
+ * Close-up layered mechanical construction. All dimensions are local to the
+ * airframe; the outer silhouette, weapons, canopy marker and collision model
+ * stay unchanged. Fixed loops batch small machining details into paths.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {AirframeDetail} craft
+ */
+function precisionMachining(ctx, { kind, span, paint, engines, bank, active, damage }) {
+  const lean = Math.sin(bank);
+  const metal = 'rgb(' + mixRgb(paint, STEEL, 0.38) + ')';
+  const recess = 'rgba(7, 11, 20, 0.88)';
+  const edge = 'rgba(176, 190, 208, 0.66)';
+  ctx.save();
+  ctx.lineWidth = 0.65;
+  ctx.lineJoin = 'round';
+
+  if (kind === 'saucer') {
+    // Radial heat-exchanger cassettes on the annulus, outside the glass dome.
+    ctx.fillStyle = recess;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i += 1) {
+      const angle = (i + 0.5) * Math.PI / 5;
+      const x = Math.cos(angle) * 24;
+      const y = 2 + Math.sin(angle) * 7.3;
+      ctx.rect(x - 1.15, y - 0.65, 2.3, 1.3);
+    }
+    ctx.fill();
+    ctx.strokeStyle = edge;
+    ctx.beginPath();
+    ctx.ellipse(0, 3.8, 28, 8.3, 0, Math.PI * 0.12, Math.PI * 0.88);
+    ctx.stroke();
+  } else {
+    // The intake geometry is different for each hull: fighter nacelles,
+    // a narrow interceptor spine, buried wing intakes and heavy armour blocks.
+    const inset = kind === 'dart' ? 0.37 : kind === 'wing' ? 0.45 : kind === 'heavy' ? 0.49 : 0.39;
+    const length = kind === 'heavy' ? 7.2 : kind === 'wing' ? 6.2 : kind === 'dart' ? 4.3 : 5.4;
+    for (const side of [-1, 1]) {
+      const x = side * span * inset;
+      const y = kind === 'dart' ? 3.6 : kind === 'heavy' ? 0.2 : 1.8;
+      const width = kind === 'heavy' ? 7 : kind === 'wing' ? 6 : 4.4;
+      const shell = ctx.createLinearGradient(x, y - 2, x + side * width, y + length);
+      shell.addColorStop(0, metal);
+      shell.addColorStop(0.35, 'rgb(' + mixRgb(paint, GRAPHITE, 0.44 + side * lean * 0.12) + ')');
+      shell.addColorStop(1, 'rgb(' + mixRgb(paint, SHADOW, 0.77) + ')');
+      ctx.fillStyle = shell;
+      polygon(ctx, [[x, y - 2], [x + side * width, y], [x + side * width * 0.84, y + length], [x - side, y + length - 0.8]]);
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.stroke();
+
+      // Recessed cooling louvers and their illuminated bevels.
+      ctx.fillStyle = recess;
+      ctx.beginPath();
+      for (let slit = 0; slit < 4; slit += 1) {
+        ctx.rect(Math.min(x, x + side * width * 0.72), y + slit * length / 5, width * 0.72, 0.48);
+      }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(132, 149, 170, 0.72)';
+      ctx.beginPath();
+      for (let slit = 0; slit < 4; slit += 1) {
+        const yy = y + slit * length / 5 + 0.7;
+        ctx.moveTo(x, yy);
+        ctx.lineTo(x + side * width * 0.7, yy);
+      }
+      ctx.stroke();
+
+      // A restrained warning stencil along the wing root, not a gameplay light.
+      ctx.strokeStyle = 'rgba(196, 146, 66, 0.67)';
+      ctx.beginPath();
+      for (let stripe = 0; stripe < 3; stripe += 1) {
+        const at = side * span * (0.25 + stripe * 0.038);
+        ctx.moveTo(at, 5.4);
+        ctx.lineTo(at + side * 0.9, 6.6);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Machined exhaust collars: dark throat, segmented actuator petals and an
+  // exposed metallic rim. The existing animated exhaust remains behind them.
+  for (const [x, y, width] of engines) {
+    ctx.strokeStyle = 'rgba(8, 12, 21, 0.9)';
+    ctx.lineWidth = 1.45;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 0.1, width * 1.08, width * 0.57, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 0.65;
+    ctx.beginPath();
+    for (let petal = 0; petal < 8; petal += 1) {
+      const angle = petal * Math.PI / 4;
+      ctx.moveTo(x + Math.cos(angle) * width * 0.76, y + Math.sin(angle) * width * 0.38);
+      ctx.lineTo(x + Math.cos(angle) * width * 1.04, y + Math.sin(angle) * width * 0.54);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = active ? 'rgba(154, 120, 236, 0.94)' : 'rgba(175, 113, 63, 0.62)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, width * 0.79, width * 0.41, 0, Math.PI * 0.13, Math.PI * 0.87);
+    ctx.stroke();
+  }
+
+  // Fine, deterministic scratches stay on the outer panels; battle wear grows
+  // with the same damage value already supplied by the race.
+  ctx.strokeStyle = 'rgba(173, 184, 197, ' + (0.21 + Math.max(0, Math.min(1, damage)) * 0.31) + ')';
+  ctx.lineWidth = 0.43;
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    for (let mark = 0; mark < 4; mark += 1) {
+      const x = side * span * (0.55 + mark * 0.07);
+      const y = 4.6 + (mark % 2) * 0.9;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + side * 1.3, y - 0.45);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
  * @param {CanvasRenderingContext2D} ctx
  * @param {AirframeDetail} craft
  */
@@ -270,5 +388,6 @@ export function drawAirframeDetails(ctx, craft) {
   if (craft.kind !== 'saucer') wingSurfaces(ctx, craft);
   engineHardware(ctx, craft);
   signatureHardware(ctx, craft);
+  precisionMachining(ctx, craft);
   wear(ctx, craft);
 }

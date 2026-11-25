@@ -153,6 +153,37 @@ export function drawSurfaceMaterial({ ctx, look }, near, far) {
     }
   }
 
+  // Near-field inlaid deck modules: a two-tone recessed joint and a narrow
+  // metallic chamfer. Only the shoulders receive extra structure, so rings
+  // and obstacles stay legible. Project all corners with the same road rows.
+  if (scale > 0.45 && index % 2 === 0) {
+    ctx.lineWidth = 0.7;
+    const metalDeck = kind === 'city' || kind === 'planet' || kind === 'core';
+    ctx.fillStyle = metalDeck ? 'rgba(7, 14, 26, 0.34)' : 'rgba(12, 18, 30, 0.16)';
+    ctx.beginPath();
+    for (const side of [0.09, 0.85]) {
+      const a = across(near, side);
+      const b = across(near, side + 0.06);
+      const c = across(far, side + 0.06);
+      const d = across(far, side);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(156, 169, 189, 0.24)';
+    ctx.beginPath();
+    for (const side of [0.09, 0.85]) {
+      const a = across(near, side + 0.006);
+      const b = across(far, side + 0.006);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
+  }
+
   // Extremely faint isolated wear flecks: seeded by distance, never by time.
   // Four marks maximum per near segment, irrespective of device resolution.
   if (scale > 0.38) {

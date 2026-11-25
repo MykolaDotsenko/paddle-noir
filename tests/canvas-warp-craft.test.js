@@ -523,3 +523,17 @@ test('under the place: the nitro in the tank, the rockets aboard and the shields
   assert.equal(line(0).length, 0);
   assert.ok(line(rules.loadout.nitroSeconds)[0].args[2] > line(rules.loadout.nitroSeconds / 3)[0].args[2]);
 });
+
+test('close-up precision hardware has metal louvers and segmented exhaust collars, but distant ships omit them', () => {
+  for (const kind of KINDS) {
+    const near = hull({ kind, scale: 1.2 });
+    const far = hull({ kind, scale: 0.5 });
+    assert.ok(stroked(near, 'rgba(176, 190, 208, 0.66)') >= 1, kind);
+    assert.equal(stroked(far, 'rgba(176, 190, 208, 0.66)'), 0, kind);
+    assert.ok(filled(near, 'rgba(7, 11, 20, 0.88)') >= 1, kind);
+    assert.equal(filled(far, 'rgba(7, 11, 20, 0.88)'), 0, kind);
+    assert.ok(stroked(hull({ kind, active: true }), 'rgba(154, 120, 236, 0.94)') >= 1, kind);
+    assert.equal(stroked(near, 'rgba(154, 120, 236, 0.94)'), 0, kind);
+    assert.ok(stroked(hull({ kind, damage: 1 }), 'rgba(173, 184, 197, 0.52)') >= 1, kind);
+  }
+});
