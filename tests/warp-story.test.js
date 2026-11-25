@@ -14,11 +14,11 @@ const boost = (by = 'pad') => ({ type: 'boost', z: 110, x: 0, by });
 const ammo = (kind = 'nitro') => ({ type: 'ammo', kind, z: 110, x: 0 });
 const takedown = (by = 'guns') => ({ type: 'takedown', pilot: 1, z: 110, x: 0, points: 150, by });
 
-test('THE LAST SIGNAL provides five original chapters and different attainable optional goals', () => {
+test('THE LAST SIGNAL provides eight original chapters and different attainable optional goals', () => {
   assert.equal(WARP_STORY.length, rules.courses.length);
-  assert.deepEqual(WARP_STORY.map((chapter) => chapter.objective), ['perfect', 'boost', 'air', 'ammo', 'takedown']);
+  assert.deepEqual(WARP_STORY.map((chapter) => chapter.objective), ['perfect', 'boost', 'air', 'ammo', 'takedown', 'air', 'ammo', 'takedown']);
   assert.ok(WARP_STORY.every((chapter) => chapter.title && chapter.intro && chapter.reveal && chapter.intercept && chapter.warning && chapter.secured && chapter.fragment));
-  assert.equal(new Set(WARP_STORY.map((chapter) => chapter.title)).size, 5);
+  assert.equal(new Set(WARP_STORY.map((chapter) => chapter.title)).size, 8);
   assert.ok(WARP_STORY.every((chapter) => chapter.target > 1 && chapter.mission.length < 32), 'a feat, said in a few words');
   // Read at a glance, in flight.
   for (const chapter of WARP_STORY) {
@@ -67,6 +67,9 @@ test('every later chapter counts its own feat, and only that', () => {
     [(_, index) => ring(index % 2 ? 'good' : 'perfect', true), [ring('perfect'), ring('miss', true)]],
     [(_, index) => ammo(index % 2 ? 'rocket' : 'nitro'), [boost(), ring()]],
     [(_, index) => takedown(['guns', 'rocket', 'ram', 'super'][index % 4]), [{ type: 'crash', z: 110, x: 0, kind: 'mine', pilot: 2 }, { type: 'bump', z: 110, x: 0 }]],
+    [() => ring('good', true), [ring('perfect')]],
+    [() => ammo(), [boost()]],
+    [() => takedown(), [ring()]],
   ];
 
   feats.forEach(([make, ignored], index) => {
@@ -176,11 +179,11 @@ test('story fragment counts survive race transitions but not a failed retry', ()
 });
 
 test('the ending rescues HORIZON only with every fragment, and otherwise says how many were found', () => {
-  assert.equal(warpStoryEnding(5).title, 'HORIZON RESCUED');
-  assert.match(warpStoryEnding(5).text, /All 5 fragments/);
-  assert.equal(warpStoryEnding(4).title, 'THE SIGNAL SURVIVES', 'four of five is not all of them');
-  assert.match(warpStoryEnding(4).text, /^4 of 5 fragments recovered/);
-  assert.match(warpStoryEnding(0).text, /^0 of 5 .*fly again/);
-  assert.match(warpStoryEnding(9).text, /All 5/, 'never more than there are');
-  assert.match(warpStoryEnding(-2).text, /^0 of 5/);
+  assert.equal(warpStoryEnding(8).title, 'HORIZON RESCUED');
+  assert.match(warpStoryEnding(8).text, /All 8 fragments/);
+  assert.equal(warpStoryEnding(7).title, 'THE SIGNAL SURVIVES', 'seven of eight is not all of them');
+  assert.match(warpStoryEnding(7).text, /^7 of 8 fragments recovered/);
+  assert.match(warpStoryEnding(0).text, /^0 of 8 .*fly again/);
+  assert.match(warpStoryEnding(9).text, /All 8/, 'never more than there are');
+  assert.match(warpStoryEnding(-2).text, /^0 of 8/);
 });

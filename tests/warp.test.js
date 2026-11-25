@@ -445,8 +445,8 @@ test('a course is laid out the same every time: its bends a stretch at a time, e
   });
 });
 
-test('the game\'s own cup is well made: five courses, named, faster fields and the Landlord last', () => {
-  assert.equal(WARP_COURSES.length, 5);
+test('the game\'s own cup is well made: eight courses, named, faster fields and the Landlord last', () => {
+  assert.equal(WARP_COURSES.length, 8);
   assert.equal(new Set(WARP_COURSES.map((course) => course.name)).size, WARP_COURSES.length);
 
   for (const course of WARP_COURSES) {

@@ -447,6 +447,12 @@ test('Warp defaults to its original rock soundtrack and rotates by course withou
   assert.equal(player.track.id, 'redline');
   player.handle(events('serve'), race(4));
   assert.equal(player.track.id, 'rift-rock');
+  player.handle(events('serve'), race(5));
+  assert.equal(player.track.id, 'outlaw');
+  player.handle(events('serve'), race(6));
+  assert.equal(player.track.id, 'redline');
+  player.handle(events('serve'), race(7));
+  assert.equal(player.track.id, 'rift-rock');
   player.handle(events('paused'), { ...race(4), phase: 'paused' });
   player.handle(events('resumed'), race(4));
   assert.equal(player.track.id, 'rift-rock');

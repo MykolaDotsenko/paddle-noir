@@ -385,7 +385,7 @@ test('over the race: the place out of the field, how well to place, the speed an
   assert.ok(said.includes('P3') && said.includes('/6'));
   assert.ok(said.includes(`TOP ${WARP_COURSES[0].qualify} GO THROUGH`));
   assert.ok(said.includes(String(Math.round(42 * 16))) && said.includes('KM/H'));
-  assert.ok(said.includes(`RACE 1/5 · ${WARP_COURSES[0].name.toUpperCase()}`));
+  assert.ok(said.includes(`RACE 1/${WARP_COURSES.length} · ${WARP_COURSES[0].name.toUpperCase()}`));
   assert.equal(callsNamed(ctx, 'arc').length, 5, 'a dot for each rival');
   assert.ok(texts(hud(game({ race: 4, place: 1 }))).includes('TOP 2 GO THROUGH'));
 });
@@ -471,7 +471,7 @@ test('the board after the line says whether the player goes through', () => {
   const verdict = (changes) => texts(hud(game({ finished: true, finishTime: 50, calm: 2, ...changes }))).at(-1);
 
   assert.equal(verdict({ place: 5, retry: true }), 'NOT THROUGH · ONE MORE GO');
-  assert.equal(verdict({ race: 4, place: 1 }), 'CUP WON!');
+  assert.equal(verdict({ race: WARP_COURSES.length - 1, place: 1 }), 'CUP WON!');
   assert.deepEqual([ordinal(1), ordinal(2), ordinal(3), ordinal(4), ordinal(6)], ['1ST', '2ND', '3RD', '4TH', '6TH']);
   assert.equal(texts(hud(game({ finished: true, calm: 0 }))).includes('1ST'), false, 'and is gone once the pause is over');
 });
@@ -486,8 +486,19 @@ test('a craft\'s flames never add their light to what is under them, so they can
 });
 
 test('near-field deck panels use perspective-aligned beveled edges on every course', () => {
-  for (let race = 0; race < 5; race += 1) {
+  for (let race = 0; race < WARP_COURSES.length; race += 1) {
     const ctx = frame(game({ race, z: 300, rivals: [] }), 0, true);
     assert.ok(stroked(ctx, 'rgba(156, 169, 189, 0.24)') > 0, 'course ' + race);
+  }
+});
+
+test('the three expansion worlds have unique sky caches and planetary landmarks', () => {
+  const styles = ['rgba(88, 161, 197, 0.82)', 'rgba(249, 105, 35, 0.86)', 'rgba(162, 175, 108, 0.84)'];
+  for (let i = 0; i < styles.length; i += 1) {
+    const race = 5 + i;
+    const ctx = frame(game({ race, z: 300, rivals: [] }), 0, true);
+    assert.ok(stroked(ctx, styles[i]) >= 7);
+    const sky = callsNamed(ctx, 'drawImage').find((call) => call.args[0].layer === 'warp-sky');
+    assert.ok(sky.args[0].key.startsWith(WARP_COURSES[race].theme + ' '));
   }
 });

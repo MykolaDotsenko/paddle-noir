@@ -1,7 +1,7 @@
 /** @import { CourseLayout, Pilot } from './domain/types.js' */
 
 /**
- * The cup of the Warp game: five courses flown in order, from a sunset skyway to the warp core.
+ * The cup of the Warp game: eight courses flown in order, from a sunset skyway to the final salvage arena.
  * The pilots are the regulars of the arcade the career knows, each in a craft and a color of
  * their own, and some with a way of racing of their own; the field grows faster course by
  * course, and the last race is against the Landlord, who drops mines for whoever follows.
@@ -37,6 +37,9 @@ const SANYA = pilot('Sanya', '45, 212, 191', 'dart', 1.06, 0.75, 'blocker');
 const WOBBLE = pilot('DJ Wobble', '232, 121, 249', 'saucer', 1.07, 0.7, 'weaver');
 const ZINA = pilot('Zina', '250, 204, 21', 'wing', 1.09, 0.85, 'blocker');
 const LAG = pilot('LAG', '167, 139, 250', 'dart', 1.1, 0.8, 'weaver');
+const FROST = pilot('Frost', '147, 197, 253', 'wing', 1.08, 0.81, 'weaver');
+const CINDER = pilot('Cinder', '249, 115, 22', 'heavy', 1.10, 0.86, 'miner');
+const RIVET = pilot('Rivet', '132, 204, 22', 'jet', 1.10, 0.88, 'blocker');
 const LANDLORD = pilot('Landlord', '239, 68, 68', 'heavy', 1.1, 0.9, 'miner');
 
 /** @type {readonly CourseLayout[]} */
@@ -89,6 +92,36 @@ export const WARP_COURSES = Object.freeze(/** @type {CourseLayout[]} */ ([
     hills: [[1.8, 330, 0.2], [0.8, 150, 0.7]],
     every: { rings: 110, pads: 195, mines: 280, debris: 320, cargo: 390, ramps: 510, gates: 460, crates: 380, cells: 430 },
     pilots: [WOBBLE, ZINA, LAG, SANYA, LANDLORD],
+    qualify: 2,
+  },
+  {
+    name: 'Frostbite Pass',
+    theme: 'ice',
+    length: 2600,
+    bends: [[240, 0], [260, -1.5], [340, 1.8], [240, 0], [300, -1.7], [280, 1.4], [260, -0.8], [300, 1.1], [380, 0]],
+    hills: [[2.2, 460, 0.2], [0.8, 200, 0.5]],
+    every: { rings: 100, pads: 180, mines: 0, debris: 370, cargo: 0, ramps: 420, gates: 700, crates: 410, cells: 400 },
+    pilots: [WOBBLE, ZINA, FROST, LAG, HRYTS],
+    qualify: 3,
+  },
+  {
+    name: 'Inferno Foundry',
+    theme: 'lava',
+    length: 2800,
+    bends: [[220, 0], [320, 1.5], [260, -1.7], [360, 0.7], [240, -1.8], [320, 1.5], [280, 0], [400, -1.2], [400, 0]],
+    hills: [[1.7, 400, 0.3], [0.6, 180, 0.4]],
+    every: { rings: 115, pads: 175, mines: 370, debris: 330, cargo: 430, ramps: 480, gates: 590, crates: 320, cells: 365 },
+    pilots: [FROST, SANYA, ZINA, LAG, CINDER],
+    qualify: 3,
+  },
+  {
+    name: 'Scrapyard Dominion',
+    theme: 'scrap',
+    length: 3000,
+    bends: [[240, 0], [300, -1.6], [300, 1.6], [360, 0], [240, -2], [360, 1.8], [320, -1.3], [400, 1.2], [480, 0]],
+    hills: [[1.4, 420, 0.2], [0.7, 210, 0.6]],
+    every: { rings: 105, pads: 165, mines: 330, debris: 340, cargo: 420, ramps: 460, gates: 620, crates: 310, cells: 350 },
+    pilots: [FROST, CINDER, RIVET, LAG, LANDLORD],
     qualify: 2,
   },
 ].map((course) => Object.freeze({

@@ -410,7 +410,7 @@
  * @property {readonly Wave[]} waves
  * @property {boolean} boss whether the boss comes once its waves are down
  *
- * @typedef {'sunset' | 'canyon' | 'clouds' | 'orbit' | 'tunnel'} CourseTheme
+ * @typedef {'sunset' | 'canyon' | 'clouds' | 'orbit' | 'tunnel' | 'ice' | 'lava' | 'scrap'} CourseTheme
  *
  * @typedef {'none' | 'blocker' | 'weaver' | 'miner'} PilotTrait How a pilot races: a blocker
  *   covers the player's line while they are close behind, a weaver changes its line all the

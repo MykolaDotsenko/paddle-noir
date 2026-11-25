@@ -17,7 +17,7 @@ const PREVIEW_MS = 4000;
 const PREVIEW_RALLY = 6;
 const NOISE_SECONDS = 0.5;
 /** @type {readonly TrackId[]} */
-const WARP_ROCK = Object.freeze(['outlaw', 'redline', 'outlaw', 'redline', 'rift-rock']);
+const WARP_ROCK = Object.freeze(['outlaw', 'redline', 'outlaw', 'redline', 'rift-rock', 'outlaw', 'redline', 'rift-rock']);
 /** Peak gains of the synthesized drums. */
 const DRUM_GAIN = Object.freeze({ kick: 0.16, snare: 0.07, hat: 0.03 });
 
