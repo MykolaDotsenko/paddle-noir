@@ -49,7 +49,7 @@ export const CRAFT_SYSTEMS = Object.freeze(['engine', 'nitro', 'grip', 'armor', 
  * The backing tracks, in the order the track button cycles through them.
  * @type {readonly TrackId[]}
  */
-export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 'iron', 'eurodance', 'rave', 'trance', 'rondo', 'cancan', 'ode', 'shchedryk']);
+export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 'iron', 'eurodance', 'rave', 'trance', 'rondo', 'cancan', 'ode', 'shchedryk', 'outlaw', 'redline', 'rift-rock']);
 
 /**
  * @typedef {(typeof GAME_COMMAND)[keyof typeof GAME_COMMAND]} GameCommand
@@ -59,7 +59,7 @@ export const TRACK_IDS = Object.freeze(['neon', 'arena', 'anthem', 'contender', 
  * @typedef {'solo' | 'rush' | 'duo' | 'career' | 'bricks' | 'nova' | 'warp'} Mode Solo against the computer,
  *   a Rush survival run, two people, the career ladder of rivals, Bricks, the paddle against a
  *   wall, Nova, the paddle as a starship, or Warp, the paddle as a racing craft.
- * @typedef {'neon' | 'arena' | 'anthem' | 'contender' | 'iron' | 'eurodance' | 'rave' | 'trance' | 'rondo' | 'cancan' | 'ode' | 'shchedryk'} TrackId
+ * @typedef {'neon' | 'arena' | 'anthem' | 'contender' | 'iron' | 'eurodance' | 'rave' | 'trance' | 'rondo' | 'cancan' | 'ode' | 'shchedryk' | 'outlaw' | 'redline' | 'rift-rock'} TrackId
  *
  * @typedef {'engine' | 'nitro' | 'grip' | 'armor' | 'guns'} CraftSystem
  *

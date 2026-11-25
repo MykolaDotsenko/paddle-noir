@@ -1298,7 +1298,8 @@ test('in the menu Warp tells what there is to do', () => {
   const presentation = lastOf(view.presentations);
 
   assert.equal(presentation.status, `Warp: race all ${WARP.courses.length} courses of the cup.`);
-  const { controls, story, ending, ...overview } = presentation.warp;
+  const { controls, story, ending, bounty, ...overview } = presentation.warp;
+  assert.deepEqual(bounty, { name: 'Hryts', claimed: false });
   assert.equal(story.title, '01 · THE GHOST SIGNAL');
   assert.equal(story.mission, 'Fly 12 rings dead center');
   assert.deepEqual([story.progress, story.target, story.completed, story.active], [0, 12, false, false]);

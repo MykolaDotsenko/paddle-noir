@@ -273,7 +273,7 @@
     }
   },
   "warp": {
-    "digest": "0923c72f208aea707338a21cbded50b8ec0c0093e914c939a305f98250bc61be",
+    "digest": "af38148cf612251059dd88fc8e5995d7152ba71ca84a951a84a73ee787b10ac7",
     "summary": {
       "steps": 28800,
       "score": {
@@ -288,33 +288,33 @@
       "phase": "running",
       "events": {
         "ammo": 32,
-        "boost": 41,
-        "bump": 56,
+        "boost": 44,
+        "bump": 69,
         "countdown": 12,
-        "crash": 54,
-        "explosion": 20,
+        "crash": 53,
+        "explosion": 30,
         "final-stretch": 4,
-        "flow": 20,
-        "gun-fire": 510,
-        "jump": 38,
+        "flow": 25,
+        "gun-fire": 559,
+        "jump": 31,
         "life-lost": 3,
-        "lightning": 1,
-        "near-miss": 15,
-        "overtake": 44,
-        "overtaken": 40,
+        "lightning": 2,
+        "near-miss": 19,
+        "overtake": 58,
+        "overtaken": 53,
         "race-finish": 3,
         "radio": 16,
-        "ring": 83,
-        "rocket-launch": 20,
+        "ring": 82,
+        "rocket-launch": 30,
         "serve": 4,
-        "shockwave": 1,
-        "slipstream": 65,
-        "super-fire": 5,
-        "super-ready": 5,
-        "takedown": 37
+        "shockwave": 2,
+        "slipstream": 67,
+        "super-fire": 6,
+        "super-ready": 6,
+        "takedown": 52
       },
       "race": 0,
-      "points": 6990,
+      "points": 7750,
       "lives": 37
     }
   }

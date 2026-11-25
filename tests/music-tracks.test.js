@@ -134,3 +134,15 @@ test('Shchedryk keeps its three beats a bar: every pattern is a bar of twelve st
     assert.deepEqual(figure.map((note) => note - figure[3]), [3, 2, 3, 0], `bar ${start / perBar + 1}`);
   }
 });
+
+test('the three original Warp rock tracks have power chords, backbeat and distinct riffs', () => {
+  const rock = ['outlaw', 'redline', 'rift-rock'].map(findTrack);
+  assert.equal(new Set(rock.map((track) => track.bpm)).size, 3);
+  assert.equal(new Set(rock.map((track) => JSON.stringify(track.bass.notes))).size, 3);
+  for (const track of rock) {
+    assert.equal(track.bars.length, 8);
+    assert.deepEqual(track.chord.chords[0], [12, 19, 24]);
+    assert.equal(track.drums.snare, '....x.......x...');
+    assert.ok(track.bpm >= 138);
+  }
+});
