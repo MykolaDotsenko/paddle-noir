@@ -47,10 +47,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     target: 12,
     reward: 'nitro',
     commander: 'ECHO',
-    intro: 'HORIZON is calling from the dead zone. Fly the rings dead center.',
-    reveal: 'Those coordinates were wiped from every chart. Someone wants it gone.',
-    intercept: 'This sky is my property, pilot. Turn back before I bill you for it.',
-    warning: 'The signal is moving toward Neon Canyon. We are not alone.',
+    intro: 'HORIZON is calling from the dead zone. The Outlaw League is our cover.',
+    reveal: 'The league's trophies hide keys to HORIZON's stolen coordinates.',
+    intercept: 'Welcome to my league, rookie. Win, lose, or pay me in wreckage.',
+    warning: 'The first key points to Neon Canyon. Stay in the race, pilot.',
     secured: 'Fragment decoded: “We are still here.” Nitro restored.',
     fragment: 'This is HORIZON. We are still here, and still listening.',
   },
@@ -61,10 +61,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     target: 9,
     reward: 'shield',
     commander: 'ECHO',
-    intro: 'False beacons everywhere. Boost pads punch through the jamming.',
-    reveal: 'A bounty on anyone tracking HORIZON. The sender: LANDLORD.',
-    intercept: 'Every beacon out here pays me rent. Yours is overdue.',
-    warning: 'Keep your shields close. The real signal hides in the dust.',
+    intro: 'The canyon racers are paid to jam HORIZON. Boost through the noise.',
+    reveal: 'LANDLORD put a price on your hull. Some racers want the money.',
+    intercept: 'My canyon, my rules. The crowd loves a good wreck.',
+    warning: 'Keep your shields close. Our ally in the stands found a real beacon.',
     secured: 'Jammer down. HORIZON did not crash: it was hidden. Shield restored.',
     fragment: 'We did not crash. Someone wiped us from every chart on purpose.',
   },
@@ -75,10 +75,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     target: 5,
     reward: 'nitro',
     commander: 'CAPTAIN LYRA',
-    intro: 'This is Lyra, HORIZON. Climb to the relay: take the rings in the air.',
-    reveal: 'We found a reactor that could power a city. LANDLORD locked us in.',
-    intercept: 'Lyra signed my lease. Nobody leaves the storm without my say.',
-    warning: 'The relay is fading. Stay high, pilot.',
+    intro: 'This is Lyra, HORIZON. The skyway relay is above the storm.',
+    reveal: 'Our reactor can power a city. His league is powered by stolen energy.',
+    intercept: 'Lyra broke my contract. Let's see your precious hero fly.',
+    warning: 'The crowd hears our signal now. Stay high; keep the relay alive.',
     secured: 'Relay linked. Reactor schematics received. Nitro restored.',
     fragment: 'Our reactor could light a city. The Landlord wants it dark, and his.',
   },
@@ -89,10 +89,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     target: 3,
     reward: 'shield',
     commander: 'ECHO',
-    intro: 'The supply pods carry HORIZON’s flight map. Grab every cache.',
-    reveal: 'LANDLORD sold the rescue coordinates. Now he wants the core.',
-    intercept: 'That map is mine. Keep flying and I keep your craft as a deposit.',
-    warning: 'His ships have sealed the outer ring. Keep racing.',
+    intro: 'Our pit crew smuggled HORIZON's flight map into supply caches.',
+    reveal: 'LANDLORD rigged the league to hide his reactor blockade.',
+    intercept: 'My sponsors paid for that map. Cross me and you'll pay them.',
+    warning: 'The outer ring is sealed. The final race is our only way inside.',
     secured: 'Map decrypted: a route through the reactor grid. Shield restored.',
     fragment: 'The way home runs through the reactor grid. Follow the rings.',
   },
@@ -103,10 +103,10 @@ export const WARP_STORY = Object.freeze(/** @type {WarpChapter[]} */ ([
     target: 8,
     reward: 'shield',
     commander: 'CAPTAIN LYRA',
-    intro: 'I see your engine flare! LANDLORD’s escorts block the way out.',
-    reveal: 'The reactor is failing. Break the blockade: fire, ram, warp!',
-    intercept: 'My escorts hold the gate. The reactor, the crew, the core: all mine.',
-    warning: 'The gate is almost shut. Reach the finish!',
+    intro: 'Your engine is on our scope! His escorts block the rescue lane.',
+    reveal: 'Reactor failing. Every escort you disable opens our escape window.',
+    intercept: 'My league, my reactor, my gate. No one walks away a champion.',
+    warning: 'The gate is closing. Give the crowd a champion and us a way home!',
     secured: 'Blockade broken. HORIZON’s way home is open. Shields reinforced.',
     fragment: 'Thank you, pilot. Whoever you are, HORIZON is coming home.',
   },
@@ -138,6 +138,9 @@ export const VILLAIN = 'LANDLORD';
  * @property {number} beat next unplayed transmission, 0 intro, 1 reveal, 2 intercept, 3 warning, 4 exhausted
  * @property {'intro' | 'reveal' | 'intercept' | 'warning' | 'secured' | ''} cue the on-screen transmission
  * @property {number} cueTime seconds before the transmission slips away
+ * @property {number} leagueTime simulated seconds remaining for the arena commentator
+ * @property {string} leagueCall the current arena broadcast
+ * @property {boolean} bountyClaimed whether this race's one-off rival bounty was paid
  */
 
 /**
@@ -152,6 +155,9 @@ export function startWarpStory(previousRecovered = 0) {
     beat: 0,
     cue: '',
     cueTime: 0,
+    leagueTime: 0,
+    leagueCall: '',
+    bountyClaimed: false,
   };
 }
 
@@ -247,9 +253,9 @@ export function warpStoryView(race) {
     target: chapter.target,
     completed: story.done,
     recovered: story.recovered + Number(story.done),
-    speaker: cue === 'intercept' ? VILLAIN : cue ? chapter.commander : '',
+    speaker: cue === 'intercept' ? VILLAIN : cue ? chapter.commander : story.leagueTime > 0 ? 'VOLT FM' : '',
     hostile: cue === 'intercept',
-    message: cue ? chapter[cue] : '',
+    message: cue ? chapter[cue] : story.leagueTime > 0 ? story.leagueCall : '',
   };
 }
 

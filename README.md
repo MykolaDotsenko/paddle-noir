@@ -71,6 +71,8 @@ Slow motion and hit-stop change time scale/hold behaviour without changing the s
 
 ### Rules and content as data
 
+**Warp: Outlaw League.** Two service relays, at one-third and two-thirds of each race, top up one rocket and one nitro bar within the craft's capacity. Each race posts a one-off bounty on its last grid rival: take them down for 300 points and a refill. VOLT FM broadcasts the bounty, service stops, overtakes, takedowns and recovery calls between story transmissions. The Last Signal now follows an underground racing league hiding HORIZON's stolen reactor; the original five missions and persistent Signal Log remain intact. No licensed music or characters are used.
+
 Solo, 2P, Rush and Career all use the same simulation, and Bricks runs on the same paddle, ball, walls, spin and supers, with a wall of its own in place of the far paddle. Nova keeps the paddle, its steering, the countdown, the super meter and the end of the game, and puts space in place of the ball. Warp keeps them too, and puts a course in place of the court: the countdown becomes the start lights, before every race.
 
 A rules object decides how a point counts, while the Career catalogue defines opponents and boss behaviour, the Bricks levels are drawn as text, a character a brick, the Nova sectors are lists of waves, and the Warp courses are lists of bends and hills with how often rings, pads, ramps, gates and hazards come, without duplicating the engine.

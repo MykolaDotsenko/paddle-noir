@@ -793,7 +793,7 @@ export class DomGameView {
         const sender = this.storyRadio.querySelector('[data-warp-sender]');
         const message = this.storyRadio.querySelector('[data-warp-message]');
         // The Landlord breaks in on the channel: his lines read as an intercept, in red.
-        const title = `${story.speaker} · ${story.hostile ? 'INTERCEPT' : 'INCOMING'}`;
+        const title = `${story.speaker} · ${story.hostile ? 'INTERCEPT' : story.speaker === 'VOLT FM' ? 'LIVE' : 'INCOMING'}`;
         if (sender && sender.textContent !== title) sender.textContent = title;
         this.storyRadio.dataset.hostile = String(story.hostile === true);
         if (message && message.textContent !== story.message) message.textContent = story.message;
